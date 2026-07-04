@@ -12,7 +12,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from .config import Config
-from .engines import Engines, build_engines
+from .server_client import ServerClient
 from .security.audit import configure_logging
 from .security.auth import AuthMiddleware
 
@@ -20,7 +20,7 @@ _log = logging.getLogger("lakemind_asset_mcp")
 __all__ = ["build_mcp", "build_app", "create_server"]
 
 
-def build_mcp(config: Config, engines: Engines | None = None) -> FastMCP:
+def build_mcp(config: Config, server: ServerClient) -> FastMCP:
     mcp = FastMCP(
         "LakeMindAssetMCP",
         host=config.server.host,
@@ -54,45 +54,96 @@ def build_mcp(config: Config, engines: Engines | None = None) -> FastMCP:
         except LookupError:
             return {"error": "no identity"}
 
-    if engines is not None:
-        from .health import system_health
-        from .resources import knowledge as kb_res
-        from .resources import memory as mem_res
-        from .resources import ontology as ont_res
-        from .resources import skill as skill_res
-        from .tools import knowledge as kb_tools
-        from .tools import memory as mem_tools
-        from .tools import ontology as ont_tools
-        from .tools import skill as skill_tools
+    @mcp.resource("lake://system/health")
+    async def system_health_resource() -> dict[str, Any]:
+        """System component health (read-only)."""
+        try:
+            return await server.health()
+        except Exception as e:
+            return {"error": str(e)}
 
-        @mcp.resource("lake://system/health")
-        def system_health_resource() -> dict[str, Any]:
-            """System component health (read-only)."""
-            return system_health(engines)
+    rk = config.audit.redact_keys
 
-        rk = config.audit.redact_keys
-        kb_res.register(mcp, engines)
-        skill_res.register(mcp, engines)
-        mem_res.register(mcp, engines)
-        ont_res.register(mcp, engines)
+    from .tools import knowledge as kb_tools
+    from .tools import memory as mem_tools
+    from .tools import ontology as ont_tools
+    from .tools import skill as skill_tools
 
-        kb_tools.register(mcp, engines, rk)
-        skill_tools.register(mcp, engines, rk)
-        mem_tools.register(mcp, engines, rk)
-        ont_tools.register(mcp, engines, rk)
+    kb_tools.register(mcp, server, rk)
+    skill_tools.register(mcp, server, rk)
+    mem_tools.register(mcp, server, rk)
+    ont_tools.register(mcp, server, rk)
+
+    @mcp.resource("lake://knowledge")
+    async def list_knowledge() -> list[dict]:
+        """知识库列表。"""
+        from .context import get_tenant
+        try:
+            ctx = get_tenant()
+            db = f"tenant_{ctx.tenant_id}"
+            resp = await server.vector_list(db)
+            tables = [t for t in resp.get("tables", []) if t.startswith("kb_")]
+            out = []
+            for t in tables:
+                try:
+                    out.append(await server.vector_describe(db, t))
+                except Exception:
+                    out.append({"name": t})
+            return out
+        except Exception as e:
+            return [{"error": str(e)}]
+
+    @mcp.resource("lake://knowledge/{id}")
+    async def describe_knowledge(id: str) -> dict:
+        """知识库描述。"""
+        from .context import get_tenant
+        ctx = get_tenant()
+        db = f"tenant_{ctx.tenant_id}"
+        return await server.vector_describe(db, f"kb_{id}")
+
+    @mcp.resource("lake://skills")
+    async def list_skills() -> dict:
+        """Skill 列表。"""
+        from .context import get_tenant
+        try:
+            ctx = get_tenant()
+            ns = f"{ctx.tenant_id}_skills"
+            resp = await server.table_scan(ns, "skill_meta", limit=100)
+            return {"skills": resp.get("rows", []), "count": resp.get("count", 0)}
+        except Exception as e:
+            return {"skills": [], "count": 0, "error": str(e)}
+
+    @mcp.resource("lake://memory")
+    async def memory_status() -> dict:
+        """记忆状态。"""
+        from .context import get_tenant
+        try:
+            ctx = get_tenant()
+            db = f"tenant_{ctx.tenant_id}"
+            resp = await server.vector_list(db)
+            has_mem = "memory_vectors" in resp.get("tables", [])
+            return {"has_long_term": has_mem}
+        except Exception as e:
+            return {"error": str(e)}
+
+    @mcp.resource("lake://ontology")
+    async def list_ontology() -> dict:
+        """本体图节点。"""
+        from .context import get_tenant
+        try:
+            ctx = get_tenant()
+            graph = f"ontology_{ctx.tenant_id}"
+            resp = await server.graph_query_nodes(graph, ctx.tenant_id)
+            return {"nodes": resp.get("nodes", []), "count": resp.get("count", 0)}
+        except Exception as e:
+            return {"nodes": [], "count": 0, "error": str(e)}
 
     return mcp
 
 
-def build_app(config: Config, engines: Engines | None = None) -> Starlette:
-    if engines is None:
-        try:
-            engines = build_engines(config)
-        except Exception as e:
-            _log.warning("engines unavailable, starting without data assets: %s", e)
-            engines = None
-
-    mcp = build_mcp(config, engines)
+def build_app(config: Config) -> Starlette:
+    server = ServerClient()
+    mcp = build_mcp(config, server)
     mcp_app = mcp.streamable_http_app()
 
     mcp_app.user_middleware.insert(

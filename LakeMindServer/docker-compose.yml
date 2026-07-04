@@ -88,6 +88,30 @@ services:
     restart: unless-stopped
 
   # ------------------------------------------------------------------
+  # REST API 网关：统一引擎入口，MCP 通过此 API 访问全部数据能力
+  # ------------------------------------------------------------------
+  server-api:
+    build: .
+    image: lakemind/server-api:latest
+    container_name: lakemind-server-api
+    environment:
+      LAKE_CONFIG: /etc/lakemind/engines.yaml
+      API_KEY: "${SERVER_API_KEY:-lakemind-internal-api-key}"
+      S3_ENDPOINT: "http://lakemind-seaweedfs:8333"
+    ports:
+      - "10823:10823"
+    volumes:
+      - ./config/engines.yaml:/etc/lakemind/engines.yaml:ro
+      - ./data/lance:/data/lance
+      - ./data/fastembed_cache:/tmp/fastembed_cache
+    networks: [lakemind]
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - seaweedfs
+      - dragonfly
+
+  # ------------------------------------------------------------------
   # 分布式计算：Ray 集群（head + 2 worker）
   #   批量 Embedding · 分布式向量检索 · 重型 SQL · mem0 事实抽取 LLM
   # ------------------------------------------------------------------

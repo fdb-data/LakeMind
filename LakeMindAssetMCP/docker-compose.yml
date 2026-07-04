@@ -6,6 +6,8 @@ services:
     container_name: lakemind-asset-mcp
     environment:
       LAKE_CONFIG: /etc/lakemind/config.yaml
+      SERVER_API_URL: "http://lakemind-server-api:10823"
+      SERVER_API_KEY: "lakemind-internal-api-key"
     ports:
       - "8401:8401"
     volumes:

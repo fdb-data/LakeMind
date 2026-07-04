@@ -3,32 +3,23 @@ from __future__ import annotations
 
 from typing import Any
 
-import pyarrow as pa
-
 from ..context import get_tenant
-from ..engines import Engines
-from ..resources.knowledge import KB_PREFIX
+from ..server_client import ServerClient
 from ._helpers import audited, require_scope
 
 SCOPE = "asset"
+KB_PREFIX = "kb_"
 
 
 def _kb_table(fileset: str) -> str:
     return f"{KB_PREFIX}{fileset}"
 
 
-def _empty_kb_table(dim: int) -> pa.Table:
-    return pa.table(
-        {
-            "doc_uri": pa.array([], pa.string()),
-            "title": pa.array([], pa.string()),
-            "content": pa.array([], pa.string()),
-            "vector": pa.array([], pa.list_(pa.float32(), dim)),
-        }
-    )
+def _vec_db(tenant_id: str) -> str:
+    return f"tenant_{tenant_id}"
 
 
-def register(mcp, engines: Engines, redact_keys: list[str]) -> None:
+def register(mcp, server: ServerClient, redact_keys: list[str]) -> None:
     @mcp.tool()
     @audited(redact_keys)
     async def search_knowledge(
@@ -37,11 +28,12 @@ def register(mcp, engines: Engines, redact_keys: list[str]) -> None:
         """在知识库中做向量/全文检索。fileset 为知识库名。"""
         require_scope(SCOPE)
         ctx = get_tenant()
+        db = _vec_db(ctx.tenant_id)
         table = _kb_table(fileset)
-        if not engines.lancedb.table_exists(ctx, table):
-            return {"fileset": fileset, "query": query, "hits": [], "count": 0}
-        qvec = engines.embedding.embed([query])[0]
-        hits = engines.lancedb.search(ctx, table, qvec, top_k, filter)
+        embed_resp = await server.embed([query])
+        qvec = embed_resp["vectors"][0]
+        search_resp = await server.vector_search(db, table, qvec, top_k, filter)
+        hits = search_resp.get("results", [])
         return {"fileset": fileset, "query": query, "hits": hits, "count": len(hits)}
 
     @mcp.tool()
@@ -54,21 +46,24 @@ def register(mcp, engines: Engines, redact_keys: list[str]) -> None:
         ctx = get_tenant()
         if not documents:
             return {"fileset": fileset, "ingested": 0}
-        dim = engines.embedding.dim
+        db = _vec_db(ctx.tenant_id)
         table = _kb_table(fileset)
         contents = [d.get("content", "") for d in documents]
-        vecs = engines.embedding.embed(contents)
-        if not engines.lancedb.table_exists(ctx, table):
-            engines.lancedb.create_table(ctx, table, _empty_kb_table(dim), mode="overwrite")
-        row = pa.table(
+        embed_resp = await server.embed(contents)
+        vecs = embed_resp["vectors"]
+        data = [
             {
-                "doc_uri": [d.get("doc_uri", "") for d in documents],
-                "title": [d.get("title", "") for d in documents],
-                "content": contents,
-                "vector": pa.array(vecs, type=pa.list_(pa.float32(), dim)),
+                "doc_uri": d.get("doc_uri", ""),
+                "title": d.get("title", ""),
+                "content": d.get("content", ""),
+                "vector": vecs[i],
             }
-        )
-        engines.lancedb.add(ctx, table, row)
+            for i, d in enumerate(documents)
+        ]
+        try:
+            await server.vector_add(db, table, data)
+        except Exception:
+            await server.vector_create(db, table, data, mode="overwrite")
         return {"fileset": fileset, "ingested": len(documents)}
 
     @mcp.tool()
@@ -79,7 +74,9 @@ def register(mcp, engines: Engines, redact_keys: list[str]) -> None:
         """注册知识库：在当前租户下创建空 Lance 向量表。"""
         require_scope(SCOPE)
         ctx = get_tenant()
-        dim = engines.embedding.dim
+        db = _vec_db(ctx.tenant_id)
         table = _kb_table(name)
-        engines.lancedb.create_table(ctx, table, _empty_kb_table(dim), mode="overwrite")
+        embed_resp = await server.embed(["init"])
+        dim = embed_resp["dim"]
+        await server.vector_create(db, table, [], mode="overwrite")
         return {"knowledge": name, "table": table, "description": description, "dim": dim}

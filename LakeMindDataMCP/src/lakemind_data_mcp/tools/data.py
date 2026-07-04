@@ -1,27 +1,32 @@
 """Data face transparent passthrough tools."""
 from __future__ import annotations
 from typing import Any
-import pyarrow as pa
+
 from ..context import get_tenant
-from ..engines import Engines
+from ..server_client import ServerClient
 from ._helpers import audited, require_scope
 
 SCOPE = "data"
 
-def register(mcp, engines: Engines, redact_keys: list[str]) -> None:
+
+def _iceberg_ns(tenant_id: str, domain: str) -> str:
+    return f"{tenant_id}_{domain}"
+
+
+def _vec_db(tenant_id: str) -> str:
+    return f"tenant_{tenant_id}"
+
+
+def register(mcp, server: ServerClient, redact_keys: list[str]) -> None:
     @mcp.tool()
     @audited(redact_keys)
     async def data_query(table: str, columns: str | None = None, filter: str | None = None, limit: int = 100) -> dict[str, Any]:
         """Scan Iceberg table. columns: comma-separated, filter: SQL expression."""
         require_scope(SCOPE)
         ctx = get_tenant()
-        domain = "data"
-        result = engines.iceberg.scan(ctx, domain, table)
-        if columns:
-            cols = [c.strip() for c in columns.split(",")]
-            result = result.select(cols)
-        data = result.slice(0, limit).to_pylist()
-        return {"table": table, "rows": data, "count": len(data)}
+        ns = _iceberg_ns(ctx.tenant_id, "data")
+        resp = await server.table_scan(ns, table, columns=columns, filter=filter, limit=limit)
+        return {"table": table, "rows": resp.get("rows", []), "count": resp.get("count", 0)}
 
     @mcp.tool()
     @audited(redact_keys)
@@ -31,20 +36,20 @@ def register(mcp, engines: Engines, redact_keys: list[str]) -> None:
         ctx = get_tenant()
         if not rows:
             return {"table": table, "written": 0}
-        data = pa.table(rows)
+        ns = _iceberg_ns(ctx.tenant_id, "data")
         if mode == "overwrite":
-            n = engines.iceberg.overwrite(ctx, "data", table, data)
+            resp = await server.table_overwrite(ns, table, rows)
         else:
-            n = engines.iceberg.append(ctx, "data", table, data)
-        return {"table": table, "written": n, "mode": mode}
+            resp = await server.table_append(ns, table, rows)
+        return {"table": table, "written": resp.get("rows_written", 0), "mode": mode}
 
     @mcp.tool()
     @audited(redact_keys)
     async def data_sql(sql: str) -> dict[str, Any]:
         """Execute ad-hoc SQL via DuckDB."""
         require_scope(SCOPE)
-        result = engines.duckdb(sql)
-        return {"sql": sql, "rows": result.to_pylist(), "count": result.num_rows}
+        resp = await server.sql_execute(sql)
+        return {"sql": sql, "rows": resp.get("results", []), "count": resp.get("count", 0)}
 
     @mcp.tool()
     @audited(redact_keys)
@@ -53,8 +58,9 @@ def register(mcp, engines: Engines, redact_keys: list[str]) -> None:
         require_scope(SCOPE)
         ctx = get_tenant()
         domain = namespace or "data"
-        tables = engines.iceberg.list_tables(ctx, domain)
-        return {"namespace": domain, "tables": tables}
+        ns = _iceberg_ns(ctx.tenant_id, domain)
+        resp = await server.table_list(ns)
+        return {"namespace": domain, "tables": resp.get("tables", [])}
 
     @mcp.tool()
     @audited(redact_keys)
@@ -62,7 +68,8 @@ def register(mcp, engines: Engines, redact_keys: list[str]) -> None:
         """Describe Iceberg table schema."""
         require_scope(SCOPE)
         ctx = get_tenant()
-        return engines.iceberg.describe(ctx, "data", table)
+        ns = _iceberg_ns(ctx.tenant_id, "data")
+        return await server.table_describe(ns, table)
 
     @mcp.tool()
     @audited(redact_keys)
@@ -70,9 +77,8 @@ def register(mcp, engines: Engines, redact_keys: list[str]) -> None:
         """Create Iceberg table. schema: {column: type}."""
         require_scope(SCOPE)
         ctx = get_tenant()
-        type_map = {"string": pa.string(), "int64": pa.int64(), "int32": pa.int32(), "float64": pa.float64(), "float32": pa.float32(), "bool": pa.bool_(), "timestamp": pa.timestamp("us")}
-        fields = [pa.field(col, type_map.get(t, pa.string())) for col, t in schema.items()]
-        engines.iceberg.create_table_from_arrow(ctx, "data", name, pa.schema(fields))
+        ns = _iceberg_ns(ctx.tenant_id, "data")
+        await server.table_create(ns, name, schema)
         return {"table": name, "columns": list(schema.keys())}
 
     @mcp.tool()
@@ -81,8 +87,11 @@ def register(mcp, engines: Engines, redact_keys: list[str]) -> None:
         """Vector search via LanceDB."""
         require_scope(SCOPE)
         ctx = get_tenant()
-        qvec = engines.embedding.embed([query])[0]
-        hits = engines.lancedb.search(ctx, table, qvec, top_k, filter)
+        db = _vec_db(ctx.tenant_id)
+        embed_resp = await server.embed([query])
+        qvec = embed_resp["vectors"][0]
+        resp = await server.vector_search(db, table, qvec, top_k, filter)
+        hits = resp.get("results", [])
         return {"table": table, "hits": hits, "count": len(hits)}
 
     @mcp.tool()
@@ -92,7 +101,7 @@ def register(mcp, engines: Engines, redact_keys: list[str]) -> None:
         require_scope(SCOPE)
         parts = uri.replace("s3://", "").split("/", 1)
         bucket, key = parts[0], parts[1] if len(parts) > 1 else ""
-        data = engines.s3.get(bucket, key)
+        data = await server.object_get(bucket, key)
         return {"uri": uri, "size": len(data) if data else 0}
 
     @mcp.tool()
@@ -102,7 +111,7 @@ def register(mcp, engines: Engines, redact_keys: list[str]) -> None:
         require_scope(SCOPE)
         parts = uri.replace("s3://", "").split("/", 1)
         bucket, key = parts[0], parts[1] if len(parts) > 1 else ""
-        engines.s3.put(bucket, key, body)
+        await server.object_put(bucket, key, body.encode())
         return {"uri": uri, "written": len(body)}
 
     @mcp.tool()
@@ -111,8 +120,12 @@ def register(mcp, engines: Engines, redact_keys: list[str]) -> None:
         """Read Dragonfly KV."""
         require_scope(SCOPE)
         ctx = get_tenant()
-        val = engines.dragonfly.recall(ctx, f"{ctx.tenant_id}:{key}")
-        return {"key": key, "value": val}
+        full_key = f"{ctx.tenant_id}:{key}"
+        try:
+            resp = await server.kv_get(full_key)
+            return {"key": key, "value": resp.get("value")}
+        except Exception:
+            return {"key": key, "value": None}
 
     @mcp.tool()
     @audited(redact_keys)
@@ -120,7 +133,8 @@ def register(mcp, engines: Engines, redact_keys: list[str]) -> None:
         """Write Dragonfly KV."""
         require_scope(SCOPE)
         ctx = get_tenant()
-        engines.dragonfly.remember(ctx, f"{ctx.tenant_id}:{key}", value, ttl)
+        full_key = f"{ctx.tenant_id}:{key}"
+        await server.kv_set(full_key, value, ttl)
         return {"key": key, "set": True}
 
     @mcp.tool()
@@ -130,10 +144,12 @@ def register(mcp, engines: Engines, redact_keys: list[str]) -> None:
         require_scope(SCOPE)
         ctx = get_tenant()
         graph = f"ontology_{ctx.tenant_id}"
-        nodes = engines.graph.query_nodes(graph, ctx.tenant_id)
+        nodes_resp = await server.graph_query_nodes(graph, ctx.tenant_id)
+        nodes = nodes_resp.get("nodes", [])
         edges = []
         for n in nodes:
-            edges.extend(engines.graph.query_edges(graph, n["node_id"], ctx.tenant_id))
+            edges_resp = await server.graph_query_edges(graph, n["node_id"], ctx.tenant_id)
+            edges.extend(edges_resp.get("edges", []))
         return {"nodes": nodes, "edges": edges}
 
     @mcp.tool()
@@ -144,8 +160,8 @@ def register(mcp, engines: Engines, redact_keys: list[str]) -> None:
         import uuid
         ctx = get_tenant()
         graph = f"ontology_{ctx.tenant_id}"
-        engines.graph.add_node(graph, concept, "Concept", {"name": concept}, ctx.tenant_id)
-        engines.graph.add_node(graph, target, "Concept", {"name": target}, ctx.tenant_id)
+        await server.graph_add_node(graph, concept, "Concept", {"name": concept}, ctx.tenant_id)
+        await server.graph_add_node(graph, target, "Concept", {"name": target}, ctx.tenant_id)
         edge_id = f"e_{uuid.uuid4().hex[:8]}"
-        engines.graph.add_edge(graph, edge_id, concept, target, relation, {}, ctx.tenant_id)
+        await server.graph_add_edge(graph, edge_id, concept, target, relation, {}, ctx.tenant_id)
         return {"concept": concept, "relation": relation, "target": target}

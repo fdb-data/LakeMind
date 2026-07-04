@@ -1,0 +1,142 @@
+# ════════════════════════════════════════════════════════════
+# LakeMindServer 引擎插件配置
+# 通过修改 plugin 字段切换实现，不改代码
+# ════════════════════════════════════════════════════════════
+
+server:
+  host: "0.0.0.0"
+  port: 10823
+  api_key: "lakemind-internal-api-key"
+
+storage:
+  # ── 对象存储 ──
+  object:
+    plugin: seaweedfs          # seaweedfs | (future: aws_s3, aliyun_oss, huawei_obs)
+    config:
+      endpoint: "http://lakemind-seaweedfs:8333"
+      access_key: "admin"
+      secret_key: "admin123456"
+      region: "us-east-1"
+      path_style: true
+    # 切换到 AWS S3：
+    # plugin: aws_s3
+    # config:
+    #   endpoint: "https://s3.amazonaws.com"
+    #   access_key: "${AWS_ACCESS_KEY_ID}"
+    #   secret_key: "${AWS_SECRET_ACCESS_KEY}"
+    #   region: "us-east-1"
+    #   path_style: false
+    # 切换到阿里云 OSS：
+    # plugin: aliyun_oss
+    # config:
+    #   endpoint: "https://oss-cn-hangzhou.aliyuncs.com"
+    #   access_key: "${OSS_ACCESS_KEY_ID}"
+    #   secret_key: "${OSS_ACCESS_KEY_SECRET}"
+    #   region: "cn-hangzhou"
+    # 切换到华为云 OBS：
+    # plugin: huawei_obs
+    # config:
+    #   endpoint: "https://obs.cn-north-4.myhuaweicloud.com"
+    #   access_key: "${OBS_ACCESS_KEY_ID}"
+    #   secret_key: "${OBS_ACCESS_KEY_SECRET}"
+    #   region: "cn-north-4"
+
+  # ── 结构化表（Iceberg）──
+  tabular:
+    plugin: iceberg
+    config:
+      catalog_name: "lakemind"
+      warehouse: "s3://lakemind-iceberg/warehouse"
+      sql_uri: "postgresql+psycopg2://lakemind:lakemind_pass@lakemind-postgres:5432/lakemind"
+
+  # ── 向量存储 ──
+  vector:
+    plugin: lancedb            # lancedb | (future: milvus, qdrant)
+    config:
+      uri: "/data/lance"
+
+  # ── KV 存储 ──
+  kv:
+    plugin: dragonfly          # dragonfly | (future: redis, valkey)
+    config:
+      host: "lakemind-dragonfly"
+      port: 6379
+      password: ""
+    # 切换到 Redis：
+    # plugin: redis
+    # config:
+    #   host: "my-redis"
+    #   port: 6379
+
+  # ── 图存储 ──
+  graph:
+    plugin: postgres_graph     # postgres_graph | (future: age, neo4j)
+    config:
+      host: "lakemind-postgres"
+      port: 5432
+      db: "lakemind"
+      user: "lakemind"
+      password: "lakemind_pass"
+
+  # ── 元数据存储 ──
+  metadata:
+    plugin: postgres           # postgres | (future: mysql)
+    config:
+      host: "lakemind-postgres"
+      port: 5432
+      db: "lakemind"
+      user: "lakemind"
+      password: "lakemind_pass"
+      pool_size: 20
+
+compute:
+  # ── 即席 SQL ──
+  sql:
+    plugin: duckdb             # duckdb | (future: daft)
+    config:
+      memory_limit: "2GB"
+
+  # ── 分布式计算 ──
+  distributed:
+    plugin: embedded           # embedded | (future: ray)
+    config: {}
+    # 切换到 Ray：
+    # plugin: ray
+    # config:
+    #   address: "ray://lakemind-ray-head:10001"
+
+cognitive:
+  # ── Embedding ──
+  embedding:
+    plugin: fastembed          # fastembed | (future: external, tei)
+    config:
+      model: "BAAI/bge-small-en-v1.5"
+      dim: 384
+    # 切换到外部 API：
+    # plugin: external
+    # config:
+    #   base_url: "https://api.openai.com/v1"
+    #   model: "text-embedding-3-small"
+    #   dim: 1536
+    #   api_key: "${EMBEDDING_API_KEY}"
+
+  # ── 记忆引擎 ──
+  memory:
+    plugin: basic              # basic | (future: mem0)
+    config:
+      host: "lakemind-postgres"
+      port: 5432
+      db: "lakemind"
+      user: "lakemind"
+      password: "lakemind_pass"
+      kv_host: "lakemind-dragonfly"
+      kv_port: 6379
+      lance_uri: "/data/lance"
+      embedding_model: "BAAI/bge-small-en-v1.5"
+      embedding_dim: 384
+    # 切换到 mem0：
+    # plugin: mem0
+    # config:
+    #   fact_extraction: true
+    #   consolidation: true
+    #   entity_graph: true

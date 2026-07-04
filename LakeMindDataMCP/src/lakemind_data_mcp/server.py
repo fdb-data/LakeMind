@@ -11,7 +11,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from .config import Config
-from .engines import Engines, build_engines
+from .server_client import ServerClient
 from .security.audit import configure_logging
 from .security.auth import AuthMiddleware
 
@@ -19,7 +19,7 @@ _log = logging.getLogger("lakemind_data_mcp")
 __all__ = ["build_mcp", "build_app", "create_server"]
 
 
-def build_mcp(config: Config, engines: Engines | None = None) -> FastMCP:
+def build_mcp(config: Config, server: ServerClient) -> FastMCP:
     mcp = FastMCP(
         "LakeMindDataMCP",
         host=config.server.host,
@@ -43,30 +43,24 @@ def build_mcp(config: Config, engines: Engines | None = None) -> FastMCP:
         except LookupError:
             return {"error": "no identity"}
 
-    if engines is not None:
-        from .health import system_health
-        from .tools import data as data_tools
+    @mcp.resource("lake://system/health")
+    async def system_health_resource() -> dict[str, Any]:
+        """System component health (read-only)."""
+        try:
+            return await server.health()
+        except Exception as e:
+            return {"error": str(e)}
 
-        @mcp.resource("lake://system/health")
-        def system_health_resource() -> dict[str, Any]:
-            """System component health (read-only)."""
-            return system_health(engines)
-
-        rk = config.audit.redact_keys
-        data_tools.register(mcp, engines, rk)
+    rk = config.audit.redact_keys
+    from .tools import data as data_tools
+    data_tools.register(mcp, server, rk)
 
     return mcp
 
 
-def build_app(config: Config, engines: Engines | None = None) -> Starlette:
-    if engines is None:
-        try:
-            engines = build_engines(config)
-        except Exception as e:
-            _log.warning("engines unavailable, starting without data assets: %s", e)
-            engines = None
-
-    mcp = build_mcp(config, engines)
+def build_app(config: Config) -> Starlette:
+    server = ServerClient()
+    mcp = build_mcp(config, server)
     mcp_app = mcp.streamable_http_app()
 
     mcp_app.user_middleware.insert(

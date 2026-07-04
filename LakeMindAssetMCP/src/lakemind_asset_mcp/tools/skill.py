@@ -4,10 +4,8 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-import pyarrow as pa
-
 from ..context import get_tenant
-from ..engines import Engines
+from ..server_client import ServerClient
 from ._helpers import audited, require_scope
 
 SCOPE = "asset"
@@ -16,32 +14,29 @@ SKILL_META_DOMAIN = "skills"
 SKILL_META_TABLE = "skill_meta"
 
 
-def _ensure_skill_meta(engines: Engines, ctx) -> None:
-    if not engines.iceberg.table_exists(ctx, SKILL_META_DOMAIN, SKILL_META_TABLE):
-        schema = pa.schema(
-            [
-                pa.field("skill_id", pa.string()),
-                pa.field("name", pa.string()),
-                pa.field("description", pa.string()),
-                pa.field("version", pa.string()),
-                pa.field("owner", pa.string()),
-                pa.field("s3_uri", pa.string()),
-            ]
-        )
-        engines.iceberg.create_table_from_arrow(ctx, SKILL_META_DOMAIN, SKILL_META_TABLE, schema)
+def _vec_db(tenant_id: str) -> str:
+    return f"tenant_{tenant_id}"
 
 
-def register(mcp, engines: Engines, redact_keys: list[str]) -> None:
+def _iceberg_ns(tenant_id: str, domain: str) -> str:
+    return f"{tenant_id}_{domain}"
+
+
+def register(mcp, server: ServerClient, redact_keys: list[str]) -> None:
     @mcp.tool()
     @audited(redact_keys)
     async def search_skill(query: str, top_k: int = 5) -> dict[str, Any]:
         """语义搜索匹配的 Skill。"""
         require_scope(SCOPE)
         ctx = get_tenant()
-        if not engines.lancedb.table_exists(ctx, SKILL_VEC_TABLE):
-            return {"query": query, "skills": [], "count": 0}
-        qvec = engines.embedding.embed([query])[0]
-        hits = engines.lancedb.search(ctx, SKILL_VEC_TABLE, qvec, top_k)
+        db = _vec_db(ctx.tenant_id)
+        embed_resp = await server.embed([query])
+        qvec = embed_resp["vectors"][0]
+        try:
+            search_resp = await server.vector_search(db, SKILL_VEC_TABLE, qvec, top_k)
+            hits = search_resp.get("results", [])
+        except Exception:
+            hits = []
         skills = [
             {
                 "skill_id": h.get("skill_id"),
@@ -63,37 +58,41 @@ def register(mcp, engines: Engines, redact_keys: list[str]) -> None:
         ctx = get_tenant()
         bucket = "lakemind-filesets"
         s3_key = f"{ctx.tenant_id}/skills/{name}.py"
-        engines.s3.put(bucket, s3_key, code)
+        await server.object_put(bucket, s3_key, code.encode())
         s3_uri = f"s3://{bucket}/{s3_key}"
 
-        _ensure_skill_meta(engines, ctx)
         skill_id = f"skill-{uuid.uuid4().hex[:8]}"
-        meta_row = pa.table(
-            {
-                "skill_id": [skill_id],
-                "name": [name],
-                "description": [description or ""],
-                "version": [version],
-                "owner": [ctx.agent_id],
-                "s3_uri": [s3_uri],
-            }
-        )
-        engines.iceberg.append(ctx, SKILL_META_DOMAIN, SKILL_META_TABLE, meta_row)
+        ns = _iceberg_ns(ctx.tenant_id, SKILL_META_DOMAIN)
+        meta_row = {
+            "skill_id": skill_id,
+            "name": name,
+            "description": description or "",
+            "version": version,
+            "owner": ctx.agent_id,
+            "s3_uri": s3_uri,
+        }
+        try:
+            await server.table_append(ns, SKILL_META_TABLE, [meta_row])
+        except Exception:
+            await server.table_create(ns, SKILL_META_TABLE, {
+                "skill_id": "string", "name": "string", "description": "string",
+                "version": "string", "owner": "string", "s3_uri": "string",
+            })
+            await server.table_append(ns, SKILL_META_TABLE, [meta_row])
 
-        dim = engines.embedding.dim
-        vec = engines.embedding.embed([description or name])[0]
-        vec_row = pa.table(
-            {
-                "skill_id": [skill_id],
-                "name": [name],
-                "description": [description or ""],
-                "vector": pa.array([vec], type=pa.list_(pa.float32(), dim)),
-            }
-        )
-        if engines.lancedb.table_exists(ctx, SKILL_VEC_TABLE):
-            engines.lancedb.add(ctx, SKILL_VEC_TABLE, vec_row)
-        else:
-            engines.lancedb.create_table(ctx, SKILL_VEC_TABLE, vec_row, mode="create")
+        embed_resp = await server.embed([description or name])
+        vec = embed_resp["vectors"][0]
+        db = _vec_db(ctx.tenant_id)
+        vec_row = {
+            "skill_id": skill_id,
+            "name": name,
+            "description": description or "",
+            "vector": vec,
+        }
+        try:
+            await server.vector_add(db, SKILL_VEC_TABLE, [vec_row])
+        except Exception:
+            await server.vector_create(db, SKILL_VEC_TABLE, [vec_row], mode="overwrite")
         return {"skill_id": skill_id, "name": name, "s3_uri": s3_uri}
 
     @mcp.tool()

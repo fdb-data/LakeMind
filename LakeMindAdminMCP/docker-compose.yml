@@ -1,0 +1,21 @@
+name: lakemind
+
+services:
+  admin-mcp:
+    build: .
+    container_name: lakemind-admin-mcp
+    environment:
+      LAKE_CONFIG: /etc/lakemind/config.yaml
+      SERVER_API_URL: "http://lakemind-server-api:10823"
+      SERVER_API_KEY: "lakemind-internal-api-key"
+    ports:
+      - "8403:8403"
+    volumes:
+      - ./config:/etc/lakemind:ro
+    networks: [lakemind]
+    restart: unless-stopped
+
+networks:
+  lakemind:
+    external: true
+    name: lakemind_lakemind

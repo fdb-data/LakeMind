@@ -5,13 +5,13 @@ import uuid
 from typing import Any
 
 from ..context import get_tenant
-from ..engines import Engines
+from ..server_client import ServerClient
 from ._helpers import audited, require_scope
 
 SCOPE = "asset"
 
 
-def register(mcp, engines: Engines, redact_keys: list[str]) -> None:
+def register(mcp, server: ServerClient, redact_keys: list[str]) -> None:
     @mcp.tool()
     @audited(redact_keys)
     async def query_ontology(concept: str, relation: str | None = None) -> dict[str, Any]:
@@ -19,14 +19,17 @@ def register(mcp, engines: Engines, redact_keys: list[str]) -> None:
         require_scope(SCOPE)
         ctx = get_tenant()
         graph = f"ontology_{ctx.tenant_id}"
-        nodes = engines.graph.query_nodes(graph, ctx.tenant_id, label=concept)
+        nodes_resp = await server.graph_query_nodes(graph, ctx.tenant_id, label=concept)
+        nodes = nodes_resp.get("nodes", [])
         if not nodes:
-            nodes = engines.graph.query_nodes(graph, ctx.tenant_id)
+            nodes_resp = await server.graph_query_nodes(graph, ctx.tenant_id)
+            nodes = nodes_resp.get("nodes", [])
         result = {"concept": concept, "nodes": nodes, "edges": []}
         for n in nodes:
-            edges = engines.graph.query_edges(graph, n["node_id"], ctx.tenant_id)
+            edges_resp = await server.graph_query_edges(graph, n["node_id"], ctx.tenant_id)
+            edges = edges_resp.get("edges", [])
             if relation:
-                edges = [e for e in edges if e["rel_type"] == relation]
+                edges = [e for e in edges if e.get("rel_type") == relation]
             result["edges"].extend(edges)
         return result
 
@@ -43,8 +46,8 @@ def register(mcp, engines: Engines, redact_keys: list[str]) -> None:
         require_scope(SCOPE)
         ctx = get_tenant()
         graph = f"ontology_{ctx.tenant_id}"
-        engines.graph.add_node(graph, concept, concept_label, {"name": concept}, ctx.tenant_id)
-        engines.graph.add_node(graph, target, target_label, {"name": target}, ctx.tenant_id)
+        await server.graph_add_node(graph, concept, concept_label, {"name": concept}, ctx.tenant_id)
+        await server.graph_add_node(graph, target, target_label, {"name": target}, ctx.tenant_id)
         edge_id = f"e_{uuid.uuid4().hex[:8]}"
-        engines.graph.add_edge(graph, edge_id, concept, target, relation, {}, ctx.tenant_id)
+        await server.graph_add_edge(graph, edge_id, concept, target, relation, {}, ctx.tenant_id)
         return {"concept": concept, "relation": relation, "target": target, "edge_id": edge_id}
