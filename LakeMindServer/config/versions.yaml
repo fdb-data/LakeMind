@@ -1,0 +1,151 @@
+# LakeMind MVP 版本配套表
+# 生成时间：2026-06-30
+# 所有版本均已在本机验证通过（verify_services.py 3/3 PASS）。
+# 升级任何组件前请先在此表确认兼容性，改完版本号后重跑验证脚本。
+
+# ============================================================
+# 一、容器服务（docker-compose 编排）
+# ============================================================
+containers:
+
+  seaweedfs:
+    image: chrislusf/seaweedfs:latest      # 建议固定为 :4.37
+    version: "4.37"                         # weed version 实测
+    role: "统一存储底座（S3 兼容）"
+    ports: [9333, 8080, 8888, 8333]
+    data_volume: "./data/seaweedfs -> /data"
+    notes:
+      - "S3 Gateway 签名：S3v4 + path-style（不支持虚拟主机风格）"
+      - "boto3 addressing_style=path 已验证通过"
+
+  gravitino:
+    image: apache/gravitino:1.3.0
+    version: "1.3.0"                        # REST /api/version 实测
+    git_commit: "40fdf6ab"
+    role: "统一元数据编目（Iceberg 表 + Fileset）"
+    ports: [8090, 9001]
+    data_volume: "./data/gravitino -> /gravitino/data"
+    backend: "H2（内嵌，MVP）；生产切 MySQL"
+    notes:
+      - "端口 8090：Gravitino REST API（metalake/catalog/schema/fileset）"
+      - "端口 9001：Iceberg REST Catalog 协议端点"
+      - "Iceberg REST(9001) 建表需 JDBC 后端，MVP 不用；结构化数据走 PyIceberg 直连 S3"
+
+  dragonfly:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly:latest  # 建议固定为 :v1.39.0
+    version: "v1.39.0"                      # INFO server 实测
+    redis_compat: "7.4.0"                   # redis_version 字段
+    role: "短期/工作记忆（TTL KV，Redis 兼容）"
+    ports: [6379]
+    data_volume: "./data/dragonfly -> /data"
+    notes:
+      - "redis-py 8.0.1 兼容已验证（set/get/TTL/expire）"
+
+# ============================================================
+# 二、嵌入式引擎（Agent 进程内运行，非容器）
+# ============================================================
+embedded:
+
+  python:
+    version: "3.14.4"
+
+  pyiceberg:
+    version: "0.11.1"
+    role: "Iceberg 表读写（直连 S3，绕过 REST 9001 JDBC 限制）"
+    compat:
+      - "Iceberg REST catalog 协议 ↔ Gravitino 1.3.0 端口 9001"
+      - "S3 IO 通过 s3fs/fsspec → SeaweedFS"
+
+  lance:
+    version: "1.2.1"
+    role: "多模态/向量文件格式"
+    data_volume: "./data/lance（多 Agent 共享同一目录）"
+
+  lancedb:
+    version: "0.33.0"
+    role: "向量检索引擎"
+    depends_on: "lance-namespace>=0.3.2（非 lance 包直接依赖）"
+    compat:
+      - "lance 1.2.1 独立安装用于文件 IO，LanceDB 0.33.0 内部用 lance-namespace"
+
+  duckdb:
+    version: "1.5.4"
+    role: "即席分析（嵌入式 SQL）"
+    compat:
+      - "可读取 Iceberg 表（iceberg 扩展）"
+      - "可读取 Lance（通过 Arrow 互操作）"
+
+  daft:
+    version: "0.7.16"
+    role: "嵌入式 DataFrame 计算"
+    compat:
+      - "S3 读取 → SeaweedFS"
+      - "Iceberg/Lance 通过 Arrow 互操作"
+
+  pyarrow:
+    version: "24.0.0"
+    role: "内存格式标准（Arrow IPC，所有引擎互操作基础）"
+
+# ============================================================
+# 三、平台与验证工具
+# ============================================================
+platform:
+
+  docker_engine: "28.3.2"
+  docker_compose: "2.38.2-desktop.1"
+  os: "Windows (Docker Desktop + WSL2)"
+
+  verification:
+    boto3: "1.43.37"
+    redis_py: "8.0.1"
+    script: "scripts/verify_services.py"
+
+# ============================================================
+# 四、兼容性矩阵（关键交叉点）
+# ============================================================
+compatibility_matrix:
+  - pair: "Gravitino 1.3.0 ↔ PyIceberg 0.11.1"
+    via: "Iceberg REST Catalog 协议（端口 9001）"
+    status: "兼容（MVP 用 PyIceberg 直连 S3，REST 9001 仅协议探活）"
+
+  - pair: "SeaweedFS 4.37 ↔ boto3 1.43.37"
+    via: "S3v4 签名 + path-style addressing"
+    status: "已验证（CRUD 全通过）"
+
+  - pair: "SeaweedFS 4.37 ↔ PyIceberg 0.11.1 / Lance 1.2.1 / Daft 0.7.16"
+    via: "S3 兼容接口（s3a:// / s3://）"
+    status: "兼容（均通过 fsspec/s3fs 访问）"
+
+  - pair: "Dragonfly v1.39.0 ↔ redis-py 8.0.1"
+    via: "Redis 7.4.0 协议兼容"
+    status: "已验证（set/get/TTL 全通过）"
+
+  - pair: "LanceDB 0.33.0 ↔ Lance 1.2.1"
+    via: "lance-namespace 桥接 + lance 包文件 IO"
+    status: "兼容（分别安装，各司其职）"
+
+  - pair: "DuckDB 1.5.4 ↔ PyArrow 24.0.0"
+    via: "Arrow C Stream Interface"
+    status: "兼容"
+
+  - pair: "Daft 0.7.16 ↔ PyArrow 24.0.0"
+    via: "Arrow IPC"
+    status: "兼容"
+
+  - pair: "Python 3.14.4 ↔ 全部嵌入式引擎"
+    via: "cp39-abi3 通用 wheel"
+    status: "兼容（dry-run 安装均成功）"
+
+# ============================================================
+# 五、待固定项（当前用 :latest，建议改为精确 tag）
+# ============================================================
+pin_recommendations:
+  - component: "SeaweedFS"
+    current: "chrislusf/seaweedfs:latest"
+    recommended: "chrislusf/seaweedfs:4.37"      # weed version 实测
+    reason: "避免上游 breaking change"
+
+  - component: "Dragonfly"
+    current: "docker.dragonflydb.io/dragonflydb/dragonfly:latest"
+    recommended: "docker.dragonflydb.io/dragonflydb/dragonfly:v1.39.0"
+    reason: "避免上游 breaking change"

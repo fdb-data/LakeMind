@@ -1,0 +1,12 @@
+type: ontology
+description: "Domain ontology, concept hierarchy and relations (graph storage)"
+resource_root: "lake://ontology"
+capabilities: [query, update]
+storage:
+  graph:
+    engine: postgresql
+operations:
+  query:
+    engine: graph_query
+  update:
+    engine: graph_update

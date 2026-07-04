@@ -1,0 +1,17 @@
+server:
+  host: "0.0.0.0"
+  port: 8500
+
+mcp:
+  asset:
+    url: "http://lakemind-asset-mcp:8401/mcp"
+    token: "test-steward-token"
+  data:
+    url: "http://lakemind-data-mcp:8402/mcp"
+    token: "test-steward-token"
+  admin:
+    url: "http://lakemind-admin-mcp:8403/mcp"
+    token: "test-steward-token"
+
+llm:
+  provider: "simple"

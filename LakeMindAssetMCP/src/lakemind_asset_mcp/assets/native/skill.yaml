@@ -1,0 +1,17 @@
+type: skill
+description: "Semantically searchable and executable skill library"
+resource_root: "lake://skills"
+capabilities: [search, execute]
+storage:
+  code:
+    engine: s3
+  metadata:
+    engine: iceberg
+  vector:
+    engine: lancedb
+operations:
+  search:
+    engine: vector_topk
+  execute:
+    engine: custom
+    handler: native.skill.execute

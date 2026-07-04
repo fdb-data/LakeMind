@@ -1,0 +1,72 @@
+# LakeMindMCP 配置示例。复制为 config.yaml 后按需修改。
+# 运行时通过环境变量 LAKE_CONFIG 指定配置文件路径。
+
+server:
+  host: "0.0.0.0"
+  port: 8400
+  # MCP 端点路径（FastMCP streamable_http_path）
+  mcp_path: "/mcp"
+  # 无状态模式：每请求独立，可水平扩展
+  stateless: true
+  # 元数据缓存 TTL（秒）
+  asset_cache_ttl: 30
+
+engines:
+  s3:
+    endpoint: "http://lakemind-seaweedfs:8333"
+    access_key: "admin"
+    secret_key: "admin123456"
+    region: "us-east-1"
+  gravitino:
+    uri: "http://lakemind-gravitino:8090"
+    metalake: "lakemind_metalake"
+  dragonfly:
+    host: "lakemind-dragonfly"
+    port: 6379
+    password: ""
+  lance:
+    # 多 Agent 共享的 Lance 数据目录（与 LakeMindServer/data/lance 挂载同路径）
+    uri: "/data/lance"
+  iceberg:
+    catalog_name: "lakemind"
+    warehouse: "s3://lakemind-iceberg/warehouse"
+    # PyIceberg SQL catalog 本地元数据库（与 verify_scenario 基线一致）
+    sql_uri: "sqlite:////data/lakemind-catalog.db"
+
+embedding:
+  # 缺省本地 embedding（零依赖、零外部服务，开箱即用）
+  # 生产可切 openai_compatible 走外部服务（OpenAI 兼容 /v1/embeddings）
+  provider: "local"
+  dim: 512
+  base_url: ""
+  model: ""
+  api_key: ""
+  fallback_base_url: ""
+  # 切外部服务示例：
+  # provider: "openai_compatible"
+  # base_url: "https://api.openai.com/v1"
+  # model: "text-embedding-3-small"
+  # api_key: "${EMBEDDING_API_KEY}"
+  # dim: 1536
+
+# 静态 Token 映射（设计稿§5.1）
+# MVP 两 Token：业务 Agent（data 域）+ Steward（admin 域）
+tokens:
+  - token: "change-me-business-agent-token"
+    agent_id: "agent-business-01"
+    tenant_id: "retail"
+    scopes: ["data"]
+  - token: "change-me-steward-token"
+    agent_id: "steward"
+    tenant_id: "platform"
+    scopes: ["admin", "data"]
+  - token: "change-me-monitor-token"
+    agent_id: "monitor"
+    tenant_id: "platform"
+    scopes: ["data"]
+
+# 审计日志
+audit:
+  level: "info"
+  # 脱敏：工具参数中匹配以下键名的值替换为 "***"
+  redact_keys: ["token", "api_key", "secret", "password", "content"]

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>LakeMind Monitor</title>
+<style>
+body{font-family:system-ui;margin:20px} .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin:16px 0}
+.card{padding:12px;border-radius:8px;border:1px solid #ddd;text-align:center} .ok{background:#e6f7e6} .error{background:#fff0f0}
+nav a{margin:0 8px} pre{background:#f5f5f5;padding:12px;overflow-x:auto;border-radius:4px}
+.chat{border:1px solid #ddd;padding:12px;min-height:300px;margin:12px 0} .msg{margin:4px 0}
+.user{color:#0066cc} .steward{color:#006600} input{width:70%;padding:8px} button{padding:8px 16px}
+</style></head><body>
+<h1>LakeMind Monitor</h1>
+<div id="app"></div>
+<script>
+const pages = {
+  dashboard: `<h2>Platform Health</h2><div id="health" class="grid"></div>
+    <nav><a href="#asset">Asset</a> | <a href="#data">Data</a> | <a href="#admin">Admin</a> | <a href="#chat">Chat</a></nav>`,
+  asset: `<h2>Asset Monitor</h2><a href="#dashboard">← Back</a><h3>Capabilities</h3><pre id="caps"></pre><h3>Knowledge</h3><pre id="kb"></pre><h3>Skills</h3><pre id="sk"></pre><h3>Memory</h3><pre id="mem"></pre><h3>Ontology</h3><pre id="ont"></pre>`,
+  data: `<h2>Data Monitor</h2><a href="#dashboard">← Back</a><h3>Tables</h3><pre id="tables"></pre>`,
+  admin: `<h2>Admin Monitor</h2><a href="#dashboard">← Back</a><h3>Health</h3><pre id="h"></pre><h3>Tenants</h3><pre id="t"></pre><h3>Users</h3><pre id="u"></pre><h3>Tokens</h3><pre id="tok"></pre>`,
+  chat: `<h2>Chat with Steward</h2><a href="#dashboard">← Back</a><div class="chat" id="msgs"></div><input id="inp" placeholder="Ask..."><button onclick="send()">Send</button>`
+}
+function render(page) {
+  document.getElementById('app').innerHTML = pages[page] || pages.dashboard
+  if (page === 'dashboard') loadHealth()
+  if (page === 'asset') { fetch('/api/asset/capabilities').then(r=>r.json()).then(d=>document.getElementById('caps').textContent=JSON.stringify(d,null,2))
+    fetch('/api/asset/knowledge').then(r=>r.json()).then(d=>document.getElementById('kb').textContent=JSON.stringify(d,null,2))
+    fetch('/api/asset/skills').then(r=>r.json()).then(d=>document.getElementById('sk').textContent=JSON.stringify(d,null,2))
+    fetch('/api/asset/memory').then(r=>r.json()).then(d=>document.getElementById('mem').textContent=JSON.stringify(d,null,2))
+    fetch('/api/asset/ontology').then(r=>r.json()).then(d=>document.getElementById('ont').textContent=JSON.stringify(d,null,2)) }
+  if (page === 'data') fetch('/api/data/tables').then(r=>r.json()).then(d=>document.getElementById('tables').textContent=JSON.stringify(d,null,2))
+  if (page === 'admin') { fetch('/api/admin/health').then(r=>r.json()).then(d=>document.getElementById('h').textContent=JSON.stringify(d,null,2))
+    fetch('/api/admin/tenants').then(r=>r.json()).then(d=>document.getElementById('t').textContent=JSON.stringify(d,null,2))
+    fetch('/api/admin/users').then(r=>r.json()).then(d=>document.getElementById('u').textContent=JSON.stringify(d,null,2))
+    fetch('/api/admin/tokens').then(r=>r.json()).then(d=>document.getElementById('tok').textContent=JSON.stringify(d,null,2)) }
+}
+async function loadHealth() {
+  const h = await fetch('/api/health').then(r=>r.json())
+  document.getElementById('health').innerHTML = Object.entries(h).map(([k,v])=>`<div class="card ${v}"><b>${k}</b><br>${v}</div>`).join('')
+}
+async function send() {
+  const inp = document.getElementById('inp'), msgs = document.getElementById('msgs')
+  const m = inp.value; if (!m.trim()) return
+  msgs.innerHTML += `<div class="msg user"><b>You:</b> ${m}</div>`; inp.value = ''
+  try { const r = await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:m})}).then(r=>r.json())
+    msgs.innerHTML += `<div class="msg steward"><b>Steward:</b> ${r.reply||JSON.stringify(r)}</div>` }
+  catch(e) { msgs.innerHTML += `<div class="msg steward"><b>Steward:</b> 未就绪</div>` }
+}
+window.addEventListener('hashchange', ()=>render(location.hash.slice(1)||'dashboard'))
+render(location.hash.slice(1)||'dashboard')
+</script>
+</body></html>

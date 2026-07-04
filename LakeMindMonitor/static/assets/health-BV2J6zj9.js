@@ -1,0 +1,1 @@
+import{g as s,b as t}from"./index-DoKH1bo-.js";function u(){const a=t(null),e=t(!1);async function l(){e.value=!0;try{a.value=await s("/system-health")}catch{a.value=null}e.value=!1}return{health:a,loading:e,load:l}}function o(a){return a==="ok"?"success":"danger"}export{o as h,u};

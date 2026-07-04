@@ -1,0 +1,14 @@
+type: knowledge
+description: "Knowledge base with vector search and multi-modal RAG"
+resource_root: "lake://knowledge"
+capabilities: [search, ingest]
+storage:
+  vector:
+    engine: lancedb
+  metadata:
+    engine: iceberg
+operations:
+  search:
+    engine: vector_topk
+  ingest:
+    engine: embed_and_write

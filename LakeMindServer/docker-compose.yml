@@ -1,0 +1,122 @@
+# LakeMind MVP — 单机 docker-compose（v3 改造后）
+#   PostgreSQL 16 + AGE 作为统一 Metadata Hub（替代 Gravitino + SQLite）
+#   Ray 集群用于分布式计算（MVP 即引入）
+#   Gravitino / Trino 已移除，Ranger 下一阶段
+#
+# 启动：docker compose --env-file .env up -d
+
+name: lakemind
+
+networks:
+  lakemind:
+    driver: bridge
+
+# 数据卷采用 bind mount，统一挂到 ./data/ 下：
+#   ./data/seaweedfs   SeaweedFS 数据
+#   ./data/postgres    PostgreSQL 数据
+#   ./data/dragonfly   Dragonfly RDB/AOF
+#   ./data/lance       Lance 向量/多模态共享（多 Agent / Ray worker 挂载同一目录）
+
+services:
+  # ------------------------------------------------------------------
+  # 统一存储底座：SeaweedFS（S3 兼容）
+  # ------------------------------------------------------------------
+  seaweedfs:
+    image: ${SEAWEEDFS_IMAGE:-chrislusf/seaweedfs:latest}
+    container_name: lakemind-seaweedfs
+    command: >-
+      server
+      -dir=/data
+      -volume.max=100
+      -s3
+      -s3.config=/etc/seaweedfs/s3.json
+    ports:
+      - "${SEAWEEFS_MASTER_PORT:-9333}:9333"
+      - "${SEAWEEFS_VOLUME_PORT:-8080}:8080"
+      - "${SEAWEEFS_FILER_PORT:-8888}:8888"
+      - "${SEAWEEFS_S3_PORT:-8333}:8333"
+    volumes:
+      - ./data/seaweedfs:/data
+      - ./config/seaweedfs:/etc/seaweedfs:ro
+    networks: [lakemind]
+    restart: unless-stopped
+
+  # ------------------------------------------------------------------
+  # 统一 Metadata Hub：PostgreSQL 16 + Apache AGE
+  #   · Iceberg SQL Catalog（替代 SQLite）
+  #   · AGE 图存储（本体、graphRAG、mem0 实体图谱）
+  #   · 用户/租户/Token/资产定义/Fileset 元数据
+  # ------------------------------------------------------------------
+  postgres:
+    build:
+      context: ./docker/postgres-age
+    image: lakemind/postgres-age:16
+    container_name: lakemind-postgres
+    environment:
+      POSTGRES_DB: ${PG_DB:-lakemind}
+      POSTGRES_USER: ${PG_USER:-lakemind}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-lakemind_pass}
+    command: >
+      postgres
+      -c max_connections=200
+    ports:
+      - "${PG_PORT:-5432}:5432"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+      - ./docker/postgres-age/init:/docker-entrypoint-initdb.d:ro
+    networks: [lakemind]
+    restart: unless-stopped
+
+  # ------------------------------------------------------------------
+  # 短期/工作记忆：Dragonfly（TTL KV，Redis 兼容）
+  # ------------------------------------------------------------------
+  dragonfly:
+    image: ${DRAGONFLY_IMAGE:-docker.dragonflydb.io/dragonflydb/dragonfly:latest}
+    container_name: lakemind-dragonfly
+    command: >-
+      dragonfly
+      --logtostderr
+      --dir=/data
+      --requirepass=${DRAGONFLY_PASSWORD:-}
+    ulimits:
+      memlock: -1
+    ports:
+      - "${DRAGONFLY_PORT:-6379}:6379"
+    volumes:
+      - ./data/dragonfly:/data
+    networks: [lakemind]
+    restart: unless-stopped
+
+  # ------------------------------------------------------------------
+  # 分布式计算：Ray 集群（head + 2 worker）
+  #   批量 Embedding · 分布式向量检索 · 重型 SQL · mem0 事实抽取 LLM
+  # ------------------------------------------------------------------
+  ray-head:
+    image: ${RAY_IMAGE:-rayproject/ray:2.41.0-py3.12}
+    container_name: lakemind-ray-head
+    command: >
+      ray start --head --port=6379 --dashboard-port=8265
+      --num-cpus=${RAY_HEAD_CPUS:-4}
+    ports:
+      - "${RAY_DASHBOARD_PORT:-8265}:8265"
+      - "${RAY_GCS_PORT:-6379}:6379"
+    volumes:
+      - ./data/lance:/data/lance
+    networks: [lakemind]
+    profiles: [ray]
+    restart: unless-stopped
+
+  ray-worker:
+    image: ${RAY_IMAGE:-rayproject/ray:latest-py312}
+    command: >
+      ray start --address=lakemind-ray-head:6379
+      --num-cpus=${RAY_WORKER_CPUS:-4}
+    volumes:
+      - ./data/lance:/data/lance
+    depends_on:
+      - ray-head
+    networks: [lakemind]
+    deploy:
+      replicas: 2
+    profiles: [ray]
+    restart: unless-stopped

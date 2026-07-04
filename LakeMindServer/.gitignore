@@ -1,0 +1,15 @@
+# 持久化数据与本地环境
+/data/
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/

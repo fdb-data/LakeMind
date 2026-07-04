@@ -1,0 +1,18 @@
+type: memory
+description: "Agent memory: short-term work memory + long-term semantic memory"
+resource_root: "lake://memory"
+capabilities: [remember, recall, forget]
+storage:
+  short_term:
+    engine: dragonfly
+  long_term:
+    engine: lancedb
+  metadata:
+    engine: postgresql
+operations:
+  remember:
+    engine: mem0
+  recall:
+    engine: mem0
+  forget:
+    engine: mem0

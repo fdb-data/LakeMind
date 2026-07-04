@@ -1,0 +1,27 @@
+# LakeMindMonitor 服务编排。
+# 依赖 LakeMindServer + LakeMindMCP 已启动并创建外部网络 `lakemind_lakemind`。
+# 启动顺序：
+#   1. cd LakeMindServer && docker compose --env-file .env up -d
+#   2. cd LakeMindMCP   && docker compose up -d --build
+#   3. cd LakeMindMonitor && docker compose up -d --build
+
+name: lakemind
+
+services:
+  lakemind-monitor:
+    build: .
+    container_name: lakemind-monitor
+    environment:
+      LAKE_CONFIG: /etc/lakemind/config.yaml
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./config/config.yaml:/etc/lakemind/config.yaml:ro
+    networks:
+      - lakemind
+    restart: unless-stopped
+
+networks:
+  lakemind:
+    external: true
+    name: lakemind_lakemind

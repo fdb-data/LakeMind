@@ -1,0 +1,111 @@
+"""配置模型：YAML 加载 + Pydantic 校验 + 环境变量插值。"""
+from __future__ import annotations
+
+import os
+import re
+from pathlib import Path
+from typing import Any
+
+import yaml
+from pydantic import BaseModel, Field
+
+__all__ = ["Config", "load_config"]
+
+
+class ServerCfg(BaseModel):
+    host: str = "0.0.0.0"
+    port: int = 8400
+    mcp_path: str = "/mcp"
+    stateless: bool = True
+    asset_cache_ttl: int = 30
+
+
+class S3Cfg(BaseModel):
+    endpoint: str
+    access_key: str
+    secret_key: str
+    region: str = "us-east-1"
+
+
+class GravitinoCfg(BaseModel):
+    uri: str
+    metalake: str = "lakemind_metalake"
+
+
+class DragonflyCfg(BaseModel):
+    host: str
+    port: int = 6379
+    password: str = ""
+
+
+class LanceCfg(BaseModel):
+    uri: str
+
+
+class IcebergCfg(BaseModel):
+    catalog_name: str = "lakemind"
+    warehouse: str
+    sql_uri: str
+
+
+class EnginesCfg(BaseModel):
+    s3: S3Cfg
+    gravitino: GravitinoCfg
+    dragonfly: DragonflyCfg
+    lance: LanceCfg
+    iceberg: IcebergCfg
+
+
+class EmbeddingCfg(BaseModel):
+    provider: str = "local"  # local | openai_compatible
+    base_url: str = ""
+    model: str = ""
+    api_key: str = ""
+    dim: int = 512
+    fallback_base_url: str = ""
+
+
+class TokenIdentity(BaseModel):
+    token: str
+    agent_id: str
+    tenant_id: str
+    scopes: list[str] = Field(default_factory=list)
+
+
+class AuditCfg(BaseModel):
+    level: str = "info"
+    redact_keys: list[str] = Field(
+        default_factory=lambda: ["token", "api_key", "secret", "password", "content"]
+    )
+
+
+class Config(BaseModel):
+    server: ServerCfg = Field(default_factory=ServerCfg)
+    engines: EnginesCfg
+    embedding: EmbeddingCfg
+    tokens: list[TokenIdentity]
+    audit: AuditCfg = Field(default_factory=AuditCfg)
+
+    def token_map(self) -> dict[str, TokenIdentity]:
+        return {t.token: t for t in self.tokens}
+
+
+_ENV_RE = re.compile(r"\$\{([A-Z0-9_]+)\}")
+
+
+def _interpolate(value: Any) -> Any:
+    """递归把 ${ENV_VAR} 替换为环境变量值（未设置则空串）。"""
+    if isinstance(value, str):
+        return _ENV_RE.sub(lambda m: os.environ.get(m.group(1), ""), value)
+    if isinstance(value, dict):
+        return {k: _interpolate(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_interpolate(v) for v in value]
+    return value
+
+
+def load_config(path: str | Path | None = None) -> Config:
+    """从 YAML 文件加载配置。路径默认取环境变量 LAKE_CONFIG。"""
+    p = Path(path or os.environ.get("LAKE_CONFIG", "config/config.yaml"))
+    raw = yaml.safe_load(p.read_text(encoding="utf-8"))
+    return Config.model_validate(_interpolate(raw))
