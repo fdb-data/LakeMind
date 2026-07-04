@@ -12,5 +12,4 @@ venv/
 
 # 本地环境
 .env
-LakeMind MVP阶段技术改造方案.md
 .gitignore
