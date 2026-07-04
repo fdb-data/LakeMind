@@ -45,7 +45,7 @@
           └─────────────────────────────────────────────┘
 ```
 
-### 两层 + 三 MCP + 五件套
+### 两层智能数据体系（数据+认知资产） ， 三面MCP for Agent 原生接口（资产面+数据面+管理面） 、 五件套核心技术系统（LakeMindServer+3*LakeMindMCP+LakeMindSteward+LakeMindMonitor+LakeMindStudio）
 
 **两层**：
 - **Data 层** — 多模态数据底座。透传，不做语义解释。数据是什么、存哪、怎么读写。

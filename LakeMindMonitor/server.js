@@ -1,5 +1,4 @@
 const express = require('express')
-const httpProxy = require('http-proxy')
 const path = require('path')
 
 const app = express()
@@ -99,6 +98,20 @@ app.post('/api/chat', async (req, res) => {
     res.json(await r.json())
   } catch (e) {
     res.json({ reply: 'Steward 未就绪', mode: 'unavailable' })
+  }
+})
+
+app.post('/api/inspect', async (req, res) => {
+  try {
+    const r = await fetch(`${STEWARD}/inspect`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+      signal: AbortSignal.timeout(60000),
+    })
+    res.json(await r.json())
+  } catch (e) {
+    res.json({ error: 'Steward 未就绪', detail: String(e) })
   }
 })
 

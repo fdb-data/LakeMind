@@ -1,9 +1,12 @@
-# LakeMindMonitor 服务编排。
-# 依赖 LakeMindServer + LakeMindMCP 已启动并创建外部网络 `lakemind_lakemind`。
+# LakeMindMonitor 服务编排
+# 依赖 LakeMindServer + 3 MCP + Steward 已启动，外部网络 `lakemind_lakemind` 已存在。
 # 启动顺序：
 #   1. cd LakeMindServer && docker compose --env-file .env up -d
-#   2. cd LakeMindMCP   && docker compose up -d --build
-#   3. cd LakeMindMonitor && docker compose up -d --build
+#   2. cd LakeMindAssetMCP && docker compose up -d --build
+#   3. cd LakeMindDataMCP  && docker compose up -d --build
+#   4. cd LakeMindAdminMCP && docker compose up -d --build
+#   5. cd LakeMindSteward  && docker compose up -d --build
+#   6. cd LakeMindMonitor  && docker compose up -d --build
 
 name: lakemind
 
@@ -12,11 +15,14 @@ services:
     build: .
     container_name: lakemind-monitor
     environment:
-      LAKE_CONFIG: /etc/lakemind/config.yaml
+      ASSET_MCP_URL: "http://lakemind-asset-mcp:8401/mcp"
+      DATA_MCP_URL: "http://lakemind-data-mcp:8402/mcp"
+      ADMIN_MCP_URL: "http://lakemind-admin-mcp:8403/mcp"
+      STEWARD_URL: "http://lakemind-steward:8500"
+      ASSET_TOKEN: "test-monitor-token"
+      ADMIN_TOKEN: "test-steward-token"
     ports:
       - "3000:3000"
-    volumes:
-      - ./config/config.yaml:/etc/lakemind/config.yaml:ro
     networks:
       - lakemind
     restart: unless-stopped
