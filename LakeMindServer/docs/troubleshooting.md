@@ -30,7 +30,7 @@ netstat -ano | findstr :6379
 ```bash
 docker pull chrislusf/seaweedfs:latest
 docker pull apache/gravitino:1.3.0
-docker pull docker.dragonflydb.io/dragonflydb/dragonfly:latest
+docker pull valkey/valkey:8.0
 ```
 
 **解决**：
@@ -71,23 +71,16 @@ docker logs lakemind-seaweedfs --tail 20
 pip install boto3
 ```
 
-### 2.2 `[FAIL] Dragonfly set/get/TTL`
+### 2.2 `[FAIL] Valkey set/get/TTL`
 
-**原因 A：Dragonfly 未就绪**
+**原因 A：Valkey 未就绪**
 
 ```bash
-docker logs lakemind-dragonfly --tail 20
+docker logs lakemind-valkey --tail 20
 # 等待出现 "Ready" 字样后重试
 ```
 
-**原因 B：设置了密码但脚本未传**
-
-如果 `.env` 中 `DRAGONFLY_PASSWORD` 非空，脚本需调整：
-```bash
-DRAGONFLY_PASSWORD=yourpass python scripts/verify_services.py
-```
-
-**原因 C：redis-py 未安装**
+**原因 B：redis-py 未安装**
 
 ```bash
 pip install redis
@@ -202,7 +195,7 @@ docker compose up -d
 
 ---
 
-## 5. Dragonfly 特定问题
+## 5. Valkey 特定问题
 
 ### 5.1 内存锁定失败
 
@@ -212,12 +205,12 @@ docker compose up -d
 
 ### 5.2 RDB 加载失败
 
-**现象**：Dragonfly 启动报 RDB 文件损坏。
+**现象**：Valkey 启动报 RDB 文件损坏。
 
 **解决**：
 ```bash
 docker compose down
-rm -rf data/dragonfly/*
+rm -rf data/valkey/*
 docker compose up -d
 ```
 

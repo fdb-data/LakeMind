@@ -34,7 +34,7 @@ Studio  ─→ 3 MCP + Git
          │
          ▼
 LakeMindServer (:10823)  ← REST API，11 引擎
-  SeaweedFS · PostgreSQL · Dragonfly · Ray · fastembed · LLM Gateway
+  SeaweedFS · PostgreSQL · Valkey · Ray · fastembed · LLM Gateway
 ```
 
 - **MCP 是 Agent 唯一入口**，嵌入式引擎在 Server 进程中运行，MCP 通过 REST API 调用。
@@ -52,7 +52,7 @@ LakeMindServer (:10823)  ← REST API，11 引擎
 | 统一元数据 | **PostgreSQL 16** | Iceberg SQL catalog + 图 + 用户/租户/Token（替代 Gravitino） |
 | 表格式 | **Apache Iceberg** | 结构化数据 |
 | 向量/多模态 | **PyLance + LanceDB** | 知识库向量、语义检索（PyPI 包名 `pylance`） |
-| 缓存 | **Dragonfly** | TTL KV（Redis 兼容协议） |
+| 缓存 | **Valkey** | TTL KV（Redis 兼容协议，BSD 3-Clause） |
 | 即席计算 | **DuckDB** | 跨表 SQL、Parquet 直读 |
 | 分布式计算 | **Ray 2.41.0** | 3 节点 12 CPU（已实现） |
 | Embedding | **fastembed** | BAAI/bge-small-en-v1.5, dim=384 |
@@ -68,7 +68,7 @@ LakeMindServer (:10823)  ← REST API，11 引擎
 |--------|------|---------|
 | 结构化数据 | Iceberg + PG catalog | DataMCP 透传 |
 | 知识 / 多模态 RAG | Lance + LanceDB（OKF 格式） | `lake://knowledge` |
-| 短期/工作记忆 | Dragonfly（TTL KV） | `lake://memory` |
+| 短期/工作记忆 | Valkey（TTL KV） | `lake://memory` |
 | 长期/语义记忆 | Lance 向量 + PG 元信息（mem0 风格） | `lake://memory` |
 | Skills | S3 + PG + LanceDB（不执行） | `lake://skills` |
 | 本体/图 | PG graph_nodes/edges | `lake://ontology` |
@@ -93,7 +93,7 @@ LakeMindServer (:10823)  ← REST API，11 引擎
 - `docker-compose` 在各包目录内运行（`.env`、`config/` 为相对路径）。
 - 3 compose 组：`LakeMindServer/`（含 `--profile ray`）、`LakeMindMCP/`（`--profile all`）、`LakeMindMonitor/`。
 - BuildKit 禁用：`$env:DOCKER_BUILDKIT=0`。
-- 跨包依赖只通过 MCP 协议（运行平面）或 REST API / S3 / PG / Dragonfly 接口（数据平面）。
+- 跨包依赖只通过 MCP 协议（运行平面）或 REST API / S3 / PG / Valkey 接口（数据平面）。
 - 验证脚本放 `scripts/`，主验证脚本 `scripts/verify_three_mcp_v2.py`。
 - 代码不加注释，除非逻辑非显而易见。
 - 设计文档用中文，代码标识符用英文。

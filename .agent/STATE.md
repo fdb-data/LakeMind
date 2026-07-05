@@ -28,7 +28,7 @@
 | lakemind-server-api | 10823 | ✅ Up | REST API + 11 引擎 |
 | lakemind-postgres | 5432 | ✅ Up | Metadata Hub |
 | lakemind-seaweedfs | 8333 | ✅ Up | S3 对象存储 |
-| lakemind-dragonfly | 6379 | ✅ Up (healthy) | TTL KV 缓存 |
+| lakemind-valkey | 6379 | ✅ Up (healthy) | TTL KV 缓存（BSD 3-Clause） |
 | lakemind-ray-head | 8265 | ✅ Up | Ray 主节点 |
 | lakemind-ray-worker-1 | — | ✅ Up | Ray 工作节点 |
 | lakemind-ray-worker-2 | — | ✅ Up | Ray 工作节点 |
@@ -108,7 +108,7 @@
 - ✅ REST API（:10823，40+ 路径）
 - ✅ 11 引擎全部健康（object_storage, tabular, vector, kv, graph, metadata, sql, distributed, embedding, memory, llm）
 - ✅ PostgreSQL 16（Iceberg catalog + 图 + 用户/租户/Token + memory_history）
-- ✅ SeaweedFS + Dragonfly
+- ✅ SeaweedFS + Valkey
 - ✅ Ray 2.41.0（3 节点 12 CPU，7 任务类型，12/12 PASS）
 - ✅ LLM Gateway（GatewayLLM，3 provider，10/10 PASS）
 - ✅ fastembed（BAAI/bge-small-en-v1.5, dim=384）
@@ -175,7 +175,8 @@
 | 3 | 动态 Token 不跨 MCP 共享 | 静态 config.yaml Token，MVP 限制 | P2 | 已知限制 |
 | 4 | fastembed 仅英文模型 | 中文语义检索效果差 | P3 | 可换 bge-small-zh |
 | 5 | Monitor 历史遗留代码 | frontend/backend/pages/nuxt.config.ts | P3 | 待清理 |
-| 6 | server-api Docker build 耗时 | Ray 依赖安装 ~10min | P3 | 用 docker cp 热更新 |
+| 6 | Dragonfly BSL 1.1 → Valkey | 已替换为 Valkey（BSD 3-Clause） | P0 | ✅ 已完成 |
+| 7 | server-api Docker build 耗时 | Ray 依赖安装 ~10min | P3 | 用 docker cp 热更新 |
 
 ---
 
@@ -211,6 +212,14 @@ X-Tenant-Id: retail / X-Agent-Id: agent-001 / X-Scopes: asset,data,admin
 test-business-token  → tenant=retail,   scopes=[asset]          → AssetMCP
 test-steward-token   → tenant=platform, scopes=[asset,data,admin] → 3 MCP
 test-monitor-token   → tenant=platform, scopes=[asset]          → AssetMCP (只读)
+```
+
+### 7.4 Valkey
+
+```
+host: lakemind-valkey:6379
+image: valkey/valkey:8.0
+license: BSD 3-Clause
 ```
 
 ### 7.5 Embedding

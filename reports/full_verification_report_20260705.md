@@ -1,4 +1,4 @@
-# LakeMind 全量验证报告
+﻿# LakeMind 全量验证报告
 
 **日期**: 2026-07-05  
 **环境**: Windows + Docker (单机 docker-compose)  
@@ -28,7 +28,7 @@
 | lakemind-server-api | Up | 10823 | 1.10% | 443 MB |
 | lakemind-postgres | Up | 5432 | 0.00% | 35 MB |
 | lakemind-seaweedfs | Up | 8333/8888/9333 | 0.41% | 90 MB |
-| lakemind-dragonfly | Up (healthy) | 6379 | 2.52% | 23 MB |
+| lakemind-valkey | Up (healthy) | 6379 | 2.52% | 23 MB |
 | lakemind-ray-head | Up | 8265 | 12.15% | 871 MB |
 | lakemind-ray-worker-1 | Up | - | 3.82% | 334 MB |
 | lakemind-ray-worker-2 | Up | - | 7.40% | 420 MB |
@@ -48,7 +48,7 @@
 object_storage:  true   (SeaweedFS)
 tabular:         true   (Iceberg + Gravitino)
 vector:          true   (LanceDB)
-kv:              true   (Dragonfly)
+kv:              true   (Valkey)
 graph:           true   (PostgreSQL)
 metadata:        true   (PostgreSQL)
 sql:             true   (DuckDB)
@@ -135,7 +135,7 @@ memory:          true   (BasicMemory)
 - create/list/describe/add/search ✅
 - 10 向量 + 3 追加 + top-5 搜索 ✅
 
-### 5.6 KV - Dragonfly (9/9)
+### 5.6 KV - Valkey (9/9)
 - set/get/delete + TTL 过期 ✅
 - 批量 scan 5 ✅
 
@@ -193,7 +193,7 @@ memory:          true   (BasicMemory)
 - DuckDB SQL ✅
 - LanceDB vector query ✅
 - S3 put/get ✅
-- Dragonfly kv set/get ✅
+- Valkey kv set/get ✅
 - Graph query/update ✅
 - 50 并发 kv set+get ✅
 
@@ -255,7 +255,7 @@ engines.yaml: plugin: ray     → distributed: true (RayCompute, 3 nodes)
 | lakemind-monitor:latest | 143 MB | Monitor 仪表板 |
 | postgres:16 | 451 MB | 元数据 + 图存储 |
 | chrislusf/seaweedfs:latest | 255 MB | 对象存储 |
-| dragonflydb/dragonfly:latest | 131 MB | KV 缓存 |
+| valkey/valkey:8.0 | 131 MB | KV 缓存 |
 
 ---
 
@@ -268,7 +268,7 @@ engines.yaml: plugin: ray     → distributed: true (RayCompute, 3 nodes)
                     │  server-api (:10823)                    │
                     │    ├── SeaweedFS (:8333)   [对象存储]    │
                     │    ├── PostgreSQL (:5432)  [元数据+图]   │
-                    │    ├── Dragonfly (:6379)   [KV缓存]     │
+                    │    ├── Valkey (:6379)   [KV缓存]     │
                     │    ├── Iceberg/LanceDB/DuckDB [嵌入式]  │
                     │    ├── fastembed [embedding]            │
                     │    └── Ray Client → Ray Cluster         │

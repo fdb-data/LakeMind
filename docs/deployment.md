@@ -9,7 +9,7 @@
 #### 启动顺序
 
 ```bash
-# 1. 数据平面（7 容器：server-api + postgres + seaweedfs + dragonfly + ray-head + 2 worker）
+# 1. 数据平面（7 容器：server-api + postgres + seaweedfs + valkey + ray-head + 2 worker）
 cd LakeMindServer
 docker compose --env-file .env --profile ray up -d
 
@@ -59,7 +59,7 @@ cd LakeMindServer && docker compose --profile ray down -v
 | lakemind-server-api | lakemind/server-api:latest | 10823 | ~1% | 443 MB |
 | lakemind-postgres | postgres:16 | 5432 | ~0% | 35 MB |
 | lakemind-seaweedfs | chrislusf/seaweedfs:latest | 8333/8888/9333 | ~0.4% | 90 MB |
-| lakemind-dragonfly | dragonflydb/dragonfly:latest | 6379 | ~2.5% | 23 MB |
+| lakemind-valkey | valkey/valkey:8.0 | 6379 | ~2.5% | 23 MB |
 | lakemind-ray-head | lakemind/ray:2.41.0-py3.12 | 8265 | ~12% | 871 MB |
 | lakemind-ray-worker-1 | lakemind/ray:2.41.0-py3.12 | — | ~4% | 334 MB |
 | lakemind-ray-worker-2 | lakemind/ray:2.41.0-py3.12 | — | ~7% | 420 MB |

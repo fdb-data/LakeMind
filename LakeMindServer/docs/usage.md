@@ -29,7 +29,7 @@ docker compose logs -f
 # 单个服务
 docker compose logs -f seaweedfs
 docker compose logs -f gravitino
-docker compose logs -f dragonfly
+docker compose logs -f valkey
 
 # 最近 100 行
 docker compose logs --tail 100 gravitino
@@ -60,17 +60,17 @@ docker compose down
 ```bash
 docker compose down -v
 # 同时清理 bind mount 数据：
-rm -rf data/seaweedfs/* data/gravitino/* data/dragonfly/*
+rm -rf data/seaweedfs/* data/postgres/* data/valkey/*
 ```
 
-> **警告**：此操作不可逆，会丢失所有 S3 对象、Gravitino 元数据、Dragonfly KV。
+> **警告**：此操作不可逆，会丢失所有 S3 对象、PostgreSQL 数据、Valkey KV。
 
 ### 1.7 重启单个服务
 
 ```bash
 docker compose restart seaweedfs
 docker compose restart gravitino
-docker compose restart dragonfly
+docker compose restart valkey
 ```
 
 ---
@@ -209,7 +209,7 @@ req("POST",
 
 ---
 
-## 4. Dragonfly（短期记忆 KV）使用
+## 4. Valkey（短期记忆 KV）使用
 
 ### 4.1 连接信息
 
@@ -247,7 +247,7 @@ r.delete("key")
 
 ```bash
 # 通过容器内 redis-cli
-docker exec -it lakemind-dragonfly redis-cli
+docker exec -it lakemind-valkey redis-cli
 
 # 或宿主机安装 redis-cli
 redis-cli -p 6379
@@ -284,7 +284,7 @@ python scripts/verify_services.py
 | 序号 | 测试项 | 验证内容 |
 |------|--------|---------|
 | 1 | SeaweedFS S3 CRUD | 建桶 → 上传 → 下载 → 列表 → 删除 → 删桶 |
-| 2 | Dragonfly set/get/TTL | set → get → TTL 检查 → delete |
+| 2 | Valkey set/get/TTL | set → get → TTL 检查 → delete |
 | 3 | Gravitino→S3 fileset | metalake → catalog → schema → fileset → S3 实际写入确认 |
 
 ### 5.3 环境变量覆盖
@@ -295,7 +295,7 @@ python scripts/verify_services.py
 S3_ENDPOINT=http://localhost:8333 \
 S3_ACCESS_KEY=admin \
 S3_SECRET_KEY=admin123456 \
-DRAGONFLY_PORT=6379 \
+VALKEY_PORT=6379 \
 GRAVITINO_URI=http://localhost:8090 \
 GRAVITINO_METALAKE=lakemind_metalake \
 python scripts/verify_services.py
@@ -332,7 +332,7 @@ python scripts/verify_scenario.py
 |------|--------|------|---------|---------|
 | 1 | 结构化数据 | Iceberg + S3 + DuckDB | 6 | 建表→写入20条任务日志→读取→DuckDB COUNT/聚合/失败率分析 |
 | 2 | 知识/文档 RAG | S3 + Lance + LanceDB | 5 | 上传4篇文档→128维向量→LanceDB检索→S3取原文（完整RAG流程） |
-| 3 | 短期记忆 | Dragonfly | 7 | 会话状态读写→多轮更新→任务锁NX互斥→短期缓存TTL |
+| 3 | 短期记忆 | Valkey | 7 | 会话状态读写→多轮更新→任务锁NX互斥→短期缓存TTL |
 | 4 | 长期记忆 | Lance + Iceberg | 5 | 向量写入→Iceberg元信息小表→双表lance_uri关联→语义检索 |
 | 5 | Skills | S3 + Iceberg + LanceDB | 6 | 技能文件存S3→元信息存Iceberg→LanceDB语义检索→加载代码 |
 
@@ -351,8 +351,8 @@ ls data/seaweedfs/
 # Gravitino H2 数据库
 ls data/gravitino/
 
-# Dragonfly 持久化
-ls data/dragonfly/
+# Valkey 持久化
+ls data/valkey/
 ```
 
 ### 6.2 备份
@@ -409,8 +409,8 @@ curl -s http://localhost:8333/ | head -1
 # Gravitino 可达
 curl -s http://localhost:8090/api/version | head -1
 
-# Dragonfly 可达
-docker exec lakemind-dragonfly redis-cli ping
+# Valkey 可达
+docker exec lakemind-valkey redis-cli ping
 ```
 
 ### 7.2 完整验证
@@ -428,13 +428,11 @@ python scripts/verify_services.py
 | 从容器内访问 | 地址 |
 |------------|------|
 | SeaweedFS S3 | `http://lakemind-seaweedfs:8333` |
-| Gravitino REST | `http://lakemind-gravitino:8090` |
-| Gravitino Iceberg REST | `http://lakemind-gravitino:9001` |
-| Dragonfly | `lakemind-dragonfly:6379` |
+| PostgreSQL | `lakemind-postgres:5432` |
+| Valkey | `lakemind-valkey:6379` |
 
 | 从宿主机访问 | 地址 |
 |------------|------|
 | SeaweedFS S3 | `http://localhost:8333` |
-| Gravitino REST | `http://localhost:8090` |
-| Gravitino Iceberg REST | `http://localhost:9001` |
-| Dragonfly | `localhost:6379` |
+| PostgreSQL | `localhost:5432` |
+| Valkey | `localhost:6379` |

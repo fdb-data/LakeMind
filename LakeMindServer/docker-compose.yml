@@ -14,7 +14,7 @@ networks:
 # 数据卷采用 bind mount，统一挂到 ./data/ 下：
 #   ./data/seaweedfs   SeaweedFS 数据
 #   ./data/postgres    PostgreSQL 数据
-#   ./data/dragonfly   Dragonfly RDB/AOF
+#   ./data/valkey      Valkey RDB/AOF
 #   ./data/lance       Lance 向量/多模态共享（多 Agent / Ray worker 挂载同一目录）
 
 services:
@@ -68,22 +68,21 @@ services:
     restart: unless-stopped
 
   # ------------------------------------------------------------------
-  # 短期/工作记忆：Dragonfly（TTL KV，Redis 兼容）
+  # 短期/工作记忆：Valkey（TTL KV，Redis 兼容，BSD 3-Clause）
   # ------------------------------------------------------------------
-  dragonfly:
-    image: ${DRAGONFLY_IMAGE:-docker.dragonflydb.io/dragonflydb/dragonfly:latest}
-    container_name: lakemind-dragonfly
+  valkey:
+    image: ${VALKEY_IMAGE:-valkey/valkey:8.0}
+    container_name: lakemind-valkey
     command: >-
-      dragonfly
-      --logtostderr
-      --dir=/data
-      --requirepass=${DRAGONFLY_PASSWORD:-}
+      valkey-server
+      --save 60 1
+      --loglevel notice
     ulimits:
       memlock: -1
     ports:
-      - "${DRAGONFLY_PORT:-6379}:6379"
+      - "${VALKEY_PORT:-6379}:6379"
     volumes:
-      - ./data/dragonfly:/data
+      - ./data/valkey:/data
     networks: [lakemind]
     restart: unless-stopped
 
@@ -110,7 +109,7 @@ services:
     depends_on:
       - postgres
       - seaweedfs
-      - dragonfly
+      - valkey
 
   # ------------------------------------------------------------------
   # 分布式计算：Ray 集群（head + 2 worker）

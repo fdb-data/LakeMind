@@ -96,9 +96,9 @@ storage:
 ```yaml
 storage:
   kv:
-    plugin: dragonfly
+    plugin: valkey
     config:
-      host: "lakemind-dragonfly"
+      host: "lakemind-valkey"
       port: 6379
       password: ""
 ```
@@ -202,7 +202,7 @@ cognitive:
       db: "lakemind"
       user: "lakemind"
       password: "lakemind_pass"
-      kv_host: "lakemind-dragonfly"
+      kv_host: "lakemind-valkey"
       kv_port: 6379
       lance_uri: "/data/lance"
       embedding_model: "BAAI/bge-small-en-v1.5"
@@ -299,8 +299,8 @@ PG_DB=lakemind
 PG_USER=lakemind
 PG_PASSWORD=lakemind_pass
 
-# Dragonfly
-DRAGONFLY_IMAGE=docker.dragonflydb.io/dragonflydb/dragonfly:latest
+# Valkey
+VALKEY_IMAGE=valkey/valkey:8.0
 
 # Ray
 RAY_IMAGE=lakemind/ray:2.41.0-py3.12

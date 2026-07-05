@@ -1,4 +1,4 @@
-# Phase 2 — REST API 验证报告
+﻿# Phase 2 — REST API 验证报告
 
 ## 概要
 
@@ -34,7 +34,7 @@
 - create / list / describe / add / search 全通过
 - 向量搜索 top_k=5 返回正确
 
-### 5. KV — Dragonfly (9/9)
+### 5. KV — Valkey (9/9)
 - set / get / delete / scan 全通过
 - TTL 过期验证通过
 
@@ -55,7 +55,7 @@
 
 ### 10. Memory — BasicMemory (7/7)
 - 长期记忆 (Lance 向量) ✓
-- 短期记忆 (Dragonfly TTL) ✓
+- 短期记忆 (Valkey TTL) ✓
 - recall / forget ✓
 
 ### 11. Metadata — PostgreSQL (16/16)

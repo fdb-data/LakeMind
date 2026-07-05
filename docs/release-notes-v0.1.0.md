@@ -22,7 +22,7 @@ Agent 不再需要对接五种存储、六种 SDK。LakeMind 通过统一 REST A
 - **对象存储** (SeaweedFS)：S3 兼容，存数据文件 / 向量 / Skill 代码
 - **结构化表** (Apache Iceberg)：PG SQL catalog，支持 append / overwrite / scan
 - **向量检索** (LanceDB)：语义搜索，共享 Lance 目录
-- **KV 缓存** (Dragonfly)：Redis 兼容 TTL KV，短期记忆
+- **KV 缓存** (Valkey)：Redis 兼容 TTL KV，短期记忆（BSD 3-Clause）
 - **图存储** (PostgreSQL)：本体 / 实体关系，JSONB 属性
 - **元数据** (PostgreSQL)：用户 / 租户 / Token / 资产定义
 
@@ -46,9 +46,9 @@ Ray 2.41 集群（3 节点 12 CPU），支持 7 种分布式任务：
 ### 4. Agent MCP 接口
 
 39 个 MCP 工具，3 个独立 MCP 服务：
-- **AssetMCP** (11 tools, 7 resources)：知识 / 技能 / 记忆 / 本体
-- **DataMCP** (13 tools)：Iceberg / DuckDB / LanceDB / S3 / Dragonfly / Graph
-- **AdminMCP** (15 tools)：用户 / 租户 / Token / 资产类型 / 平台健康
+- **AssetMCP** (23 tools, 11 resources, 6 prompts)：知识 / 技能 / 记忆 / 本体
+- **DataMCP** (18 tools, 6 resources, 2 prompts)：Iceberg / DuckDB / LanceDB / S3 / Valkey / Graph
+- **AdminMCP** (17 tools, 6 resources, 2 prompts)：用户 / 租户 / Token / 资产类型 / 平台健康
 
 ### 5. 运维工具
 
@@ -85,7 +85,7 @@ python scripts/verify_api.py    # 104/104 PASS
 |------|------|----------|
 | 对象存储 | SeaweedFS | AWS S3 / 阿里云 OSS / 华为云 OBS |
 | 向量存储 | LanceDB | Milvus / Qdrant |
-| KV 缓存 | Dragonfly | Redis / Valkey |
+| KV 缓存 | Valkey | Redis |
 | 分布式计算 | Ray | Embedded（降级） |
 | Embedding | fastembed | 外部 API / TEI |
 | LLM 网关 | GatewayLLM | — |
@@ -135,7 +135,7 @@ python scripts/verify_api.py    # 104/104 PASS
 
 ## 技术栈
 
-全开源组件（Apache 2.0 / MIT / BSD / PostgreSQL License / BSL 1.1），不引入闭源依赖。
+全开源组件（Apache 2.0 / MIT / BSD），不引入闭源依赖。
 
 ---
 

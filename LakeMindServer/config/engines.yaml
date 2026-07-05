@@ -57,9 +57,9 @@ storage:
 
   # ── KV 存储 ──
   kv:
-    plugin: dragonfly          # dragonfly | (future: redis, valkey)
+    plugin: valkey             # valkey | (future: redis)
     config:
-      host: "lakemind-dragonfly"
+      host: "lakemind-valkey"
       port: 6379
       password: ""
     # 切换到 Redis：
@@ -129,7 +129,7 @@ cognitive:
       db: "lakemind"
       user: "lakemind"
       password: "lakemind_pass"
-      kv_host: "lakemind-dragonfly"
+      kv_host: "lakemind-valkey"
       kv_port: 6379
       lance_uri: "/data/lance"
       embedding_model: "BAAI/bge-small-en-v1.5"

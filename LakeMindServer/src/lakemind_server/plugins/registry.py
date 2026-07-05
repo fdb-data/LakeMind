@@ -4,7 +4,7 @@ from typing import Any
 from .storage.object.seaweedfs import SeaweedFSStorage
 from .storage.tabular.iceberg import IcebergTabularStorage
 from .storage.vector.lancedb import LanceVectorStorage
-from .storage.kv.dragonfly import DragonflyKVStorage
+from .storage.kv.valkey import ValkeyKVStorage
 from .storage.graph.postgres_graph import PostgresGraphStorage
 from .storage.metadata.postgres import PostgresMetadataStore
 from .compute.sql.duckdb import DuckDBSQLCompute
@@ -25,7 +25,7 @@ PLUGIN_REGISTRY: dict[str, dict[str, type]] = {
         "lancedb": LanceVectorStorage,
     },
     "storage.kv": {
-        "dragonfly": DragonflyKVStorage,
+        "valkey": ValkeyKVStorage,
     },
     "storage.graph": {
         "postgres_graph": PostgresGraphStorage,

@@ -174,7 +174,7 @@ REST API 认证：`Bearer lakemind-internal-api-key` + `X-Tenant-Id` / `X-Agent-
 | S3 | key 前缀 `{tenant_id}/` |
 | Iceberg | namespace `{tenant_id}_{domain}` |
 | LanceDB | 每租户独立 database |
-| Dragonfly | key 前缀 `{tenant_id}:` |
+| Valkey | key 前缀 `{tenant_id}:` |
 | PostgreSQL | 行级 `tenant_id` 列（应用层过滤） |
 
 ---
@@ -260,7 +260,7 @@ docker restart lakemind-server-api
 | 统一数据库 | PostgreSQL 16 | `psycopg2-binary` |
 | 表格式 | Apache Iceberg | `pyiceberg[pyarrow,sql-postgres]` |
 | 向量/多模态 | PyLance + LanceDB | `pylance`, `lancedb` |
-| 缓存 | Dragonfly | `redis`（Redis 兼容协议） |
+| 缓存 | Valkey | `redis`（Redis 兼容协议） |
 | 即席计算 | DuckDB | `duckdb` |
 | 分布式计算 | Ray 2.41.0 | `ray[default]` |
 | Embedding | fastembed | `fastembed` |
@@ -277,6 +277,7 @@ docker restart lakemind-server-api
 | Apache Ranger | 生产阶段引入 |
 | Trino | DuckDB + Ray 替代 |
 | Daft | DuckDB + Ray 替代 |
+| Dragonfly | BSL 1.1 禁止 SaaS，已用 Valkey（BSD 3-Clause）替代 |
 | AGE 图扩展 | 编译超时，PG 原生表替代 |
 
 ---

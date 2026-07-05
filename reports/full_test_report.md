@@ -1,9 +1,9 @@
-# LakeMind 全面功能测试报告
+﻿# LakeMind 全面功能测试报告
 
 > **测试时间**：2026-07-04 18:34
 > **测试脚本**：`scripts/test_full_suite.py`
 > **结果**：**69/69 PASS · 0 FAIL**
-> **环境**：8 容器全部运行（PostgreSQL + SeaweedFS + Dragonfly + 3 MCP + Steward + Monitor）
+> **环境**：8 容器全部运行（PostgreSQL + SeaweedFS + Valkey + 3 MCP + Steward + Monitor）
 
 ---
 
@@ -31,7 +31,7 @@
 | 数据面 - DuckDB | 1 | 1 | 0 | data_sql (SELECT literal) |
 | 数据面 - LanceDB | 1 | 1 | 0 | lance_query (向量检索) |
 | 数据面 - S3 | 2 | 2 | 0 | s3_put, s3_get |
-| 数据面 - Dragonfly | 2 | 2 | 0 | kv_set (TTL), kv_get |
+| 数据面 - Valkey | 2 | 2 | 0 | kv_set (TTL), kv_get |
 | 数据面 - Graph | 2 | 2 | 0 | graph_query, graph_update |
 | 数据面 - 并发 | 1 | 1 | 0 | 50 并发 kv set+get (20 workers) |
 | 管理面 - 健康检查 | 1 | 1 | 0 | tools/list (15 tools) |
@@ -89,7 +89,7 @@
 
 | 测试 | 结果 | 说明 |
 |------|------|------|
-| remember (短期 TTL) | ✅ PASS | Dragonfly 短期记忆，TTL=300s |
+| remember (短期 TTL) | ✅ PASS | Valkey 短期记忆，TTL=300s |
 | remember (长期) | ✅ PASS | Lance 向量长期记忆，kind=experience |
 | recall | ✅ PASS | 语义召回 |
 | recall (kind=experience) | ✅ PASS | 按 kind 过滤召回 |
@@ -162,7 +162,7 @@
 | s3_put | ✅ PASS | 上传文件到 SeaweedFS |
 | s3_get | ✅ PASS | 读取文件 |
 
-### 3.6 Dragonfly 引擎
+### 3.6 Valkey 引擎
 
 | 测试 | 结果 | 说明 |
 |------|------|------|
@@ -229,7 +229,7 @@
 
 | 测试 | 结果 | 说明 |
 |------|------|------|
-| get_platform_health | ✅ PASS | 全平台健康（PG + S3 + Dragonfly + MCP） |
+| get_platform_health | ✅ PASS | 全平台健康（PG + S3 + Valkey + MCP） |
 | get_node_status | ✅ PASS | 节点状态 |
 
 ---
@@ -263,7 +263,7 @@
 | LanceDB | AssetMCP + DataMCP | search_knowledge, ingest_knowledge, lance_query | ✅ 可用 | 共享 Lance 目录 |
 | DuckDB | DataMCP | data_sql | ✅ 可用 | 进程内即席 SQL |
 | S3 | AssetMCP + DataMCP | s3_get, s3_put, register_skill | ✅ 可用 | SeaweedFS |
-| Dragonfly | AssetMCP + DataMCP | kv_get, kv_set, remember(短期) | ✅ 可用 | Redis 兼容协议 |
+| Valkey | AssetMCP + DataMCP | kv_get, kv_set, remember(短期) | ✅ 可用 | Redis 兼容协议 |
 | PG Graph | AssetMCP + DataMCP | query_ontology, update_ontology, graph_query, graph_update | ✅ 可用 | PG 原生表 |
 | fastembed | AssetMCP | ingest_knowledge, register_skill | ✅ 可用 | BAAI/bge-small-en-v1.5, dim=384 |
 
@@ -276,7 +276,7 @@
 | Knowledge search | 50 次 | 20 workers | ✅ 全部成功 | 无超时无错误 |
 | Memory remember | 30 次 | 20 workers | ✅ 全部成功 | 短期 + 长期混合 |
 | Memory recall | 30 次 | 20 workers | ✅ 全部成功 | 语义检索 |
-| KV set+get | 50 次 | 20 workers | ✅ 全部成功 | Dragonfly 并发读写 |
+| KV set+get | 50 次 | 20 workers | ✅ 全部成功 | Valkey 并发读写 |
 
 ---
 
@@ -298,7 +298,7 @@
 |------|------|------|------|
 | lakemind-postgres | 5432 | ✅ Up | Metadata Hub |
 | lakemind-seaweedfs | 8333 | ✅ Up | S3 对象存储 |
-| lakemind-dragonfly | 6379 | ✅ Up (healthy) | TTL KV |
+| lakemind-valkey | 6379 | ✅ Up (healthy) | TTL KV |
 | lakemind-asset-mcp | 8401 | ✅ Up | 资产面 MCP (11 tools, 7 resources) |
 | lakemind-data-mcp | 8402 | ✅ Up | 数据面 MCP (13 tools) |
 | lakemind-admin-mcp | 8403 | ✅ Up | 管理面 MCP (15 tools) |
@@ -312,7 +312,7 @@
 **LakeMind MVP 核心功能全部可用。**
 
 - **资产面**：4 类资产（Knowledge / Skill / Memory / Ontology）的增删改查全部正常，批量写入和并发检索无错误
-- **数据面**：6 个引擎（Iceberg / LanceDB / DuckDB / S3 / Dragonfly / Graph）全部可用，13 个透传工具功能正确
+- **数据面**：6 个引擎（Iceberg / LanceDB / DuckDB / S3 / Valkey / Graph）全部可用，13 个透传工具功能正确
 - **管理面**：租户/用户/Token/资产类型/平台健康的 CRUD 全部正常，15 个管理工具功能正确
 - **安全**：Scope 隔离严格生效，跨 scope 访问被正确拒绝
 - **集成**：Steward 对话路由和巡检工作流正常

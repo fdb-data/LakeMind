@@ -10,7 +10,7 @@
 - REST API 网关（40+ OpenAPI 路径，11 功能域）
 - 10 个 Protocol 接口定义（Plugin 架构）
 - 11 个引擎插件实现：
-  - 数据存储：SeaweedFS / Iceberg / LanceDB / Dragonfly / PostgreSQL Graph / PostgreSQL Metadata
+  - 数据存储：SeaweedFS / Iceberg / LanceDB / Valkey / PostgreSQL Graph / PostgreSQL Metadata
   - 数据计算：DuckDB / Ray / Embedded
   - 认知计算：fastembed / BasicMemory / GatewayLLM
 - 引擎可插拔配置（engines.yaml）
@@ -72,7 +72,7 @@
 
 ### 运行容器
 
-12 个容器：server-api / postgres / seaweedfs / dragonfly / ray-head / ray-worker-1 / ray-worker-2 / asset-mcp / data-mcp / admin-mcp / steward / monitor
+12 个容器：server-api / postgres / seaweedfs / valkey / ray-head / ray-worker-1 / ray-worker-2 / asset-mcp / data-mcp / admin-mcp / steward / monitor
 
 ### 技术栈
 
@@ -82,7 +82,7 @@
 | 表格式 | Apache Iceberg | Apache 2.0 |
 | 向量 | PyLance + LanceDB | Apache 2.0 / MIT |
 | 元数据 | PostgreSQL 16 | PostgreSQL License |
-| 缓存 | Dragonfly | BSL 1.1 |
+| 缓存 | Valkey | BSD 3-Clause |
 | 即席计算 | DuckDB | MIT |
 | 分布式计算 | Ray 2.41 | Apache 2.0 |
 | Embedding | fastembed | Apache 2.0 |

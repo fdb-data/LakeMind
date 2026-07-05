@@ -1,4 +1,4 @@
-# Phase 3 + Phase 4 完成报告
+﻿# Phase 3 + Phase 4 完成报告
 
 ## Phase 3 — MCP 改造为 REST 客户端
 
@@ -59,7 +59,7 @@
 | lakemind-server-api | Up (:10823) |
 | lakemind-postgres | Up (:5432) |
 | lakemind-seaweedfs | Up (:8333) |
-| lakemind-dragonfly | Up (:6379, healthy) |
+| lakemind-valkey | Up (:6379, healthy) |
 | lakemind-asset-mcp | Up (:8401) |
 | lakemind-data-mcp | Up (:8402) |
 | lakemind-admin-mcp | Up (:8403) |

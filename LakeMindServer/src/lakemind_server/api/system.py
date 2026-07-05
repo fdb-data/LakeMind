@@ -17,7 +17,7 @@ async def nodes(request: Request):
             {"name": "server-api", "status": "active", "port": 10823},
             {"name": "postgres", "status": "active"},
             {"name": "seaweedfs", "status": "active"},
-            {"name": "dragonfly", "status": "active"},
+            {"name": "valkey", "status": "active"},
         ]
     }
 

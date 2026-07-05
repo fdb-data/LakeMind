@@ -7,7 +7,7 @@
 
   1. 结构化数据域：Iceberg 表存 Agent 任务日志，DuckDB 即席查询
   2. 知识/文档 RAG 域：文档存 S3（Gravitino Fileset 管理），Lance 向量索引，LanceDB 检索
-  3. 短期/工作记忆域：Dragonfly 存会话状态（TTL）
+  3. 短期/工作记忆域：Valkey 存会话状态（TTL）
   4. 长期/语义记忆域：Lance 向量 + Iceberg 元信息小表（lance_uri 关联）
   5. Skills 域：技能文件存 S3，元信息存 Iceberg，LanceDB 语义检索
 
@@ -36,8 +36,8 @@ S3_AK = os.getenv("S3_ACCESS_KEY", "admin")
 S3_SK = os.getenv("S3_SECRET_KEY", "admin123456")
 S3_REGION = os.getenv("S3_REGION", "us-east-1")
 
-DRAGONFLY_HOST = os.getenv("DRAGONFLY_HOST", "localhost")
-DRAGONFLY_PORT = int(os.getenv("DRAGONFLY_PORT", "6379"))
+VALKEY_HOST = os.getenv("VALKEY_HOST", os.getenv("DRAGONFLY_HOST", "localhost"))
+VALKEY_PORT = int(os.getenv("VALKEY_PORT", os.getenv("DRAGONFLY_PORT", "6379")))
 
 GRAVITINO_URI = os.getenv("GRAVITINO_URI", "http://localhost:8090")
 METALAKE = os.getenv("GRAVITINO_METALAKE", "lakemind_metalake")
@@ -290,10 +290,10 @@ def test_knowledge_rag():
 
 # ── 3. 短期/工作记忆域 ─────────────────────────────────
 def test_short_memory():
-    section("3. 短期/工作记忆域：Dragonfly (TTL KV)")
+    section("3. 短期/工作记忆域：Valkey (TTL KV)")
     try:
         import redis
-        r = redis.Redis(host=DRAGONFLY_HOST, port=DRAGONFLY_PORT,
+        r = redis.Redis(host=VALKEY_HOST, port=VALKEY_PORT,
                         socket_timeout=5, decode_responses=True)
 
         session_id = f"sess-{uuid.uuid4().hex[:8]}"
@@ -651,7 +651,7 @@ if __name__ == "__main__":
     print("=" * 60)
     print(f"  时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"  S3：{S3_ENDPOINT}")
-    print(f"  Dragonfly：{DRAGONFLY_HOST}:{DRAGONFLY_PORT}")
+    print(f"  Valkey：{VALKEY_HOST}:{VALKEY_PORT}")
     print(f"  Gravitino：{GRAVITINO_URI}")
     print(f"  Lance 目录：{LANCE_DIR}")
 

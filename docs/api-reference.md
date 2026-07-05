@@ -107,7 +107,7 @@ POST /api/v1/storage/vectors/mydb/mytable/search
 }
 ```
 
-## 5. KV (Dragonfly)
+## 5. KV (Valkey)
 
 | 方法 | 路径 | 说明 |
 |------|------|------|

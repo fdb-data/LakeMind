@@ -1,4 +1,4 @@
-# LakeMindServer REST API 层设计方案
+﻿# LakeMindServer REST API 层设计方案
 
 > 编号 `LM-SERVER-API-1`。待批准后开发。
 >
@@ -14,10 +14,10 @@
 
 | 问题 | 说明 |
 |------|------|
-| 引擎逻辑分散 | PyIceberg / LanceDB / DuckDB / S3 / Dragonfly / Graph 适配层在 AssetMCP 和 DataMCP 中各有一份，代码重复 |
+| 引擎逻辑分散 | PyIceberg / LanceDB / DuckDB / S3 / Valkey / Graph 适配层在 AssetMCP 和 DataMCP 中各有一份，代码重复 |
 | 引擎不可替换 | S3 客户端硬编码 boto3 + SeaweedFS endpoint，无法切换到 AWS / 阿里云 / 华为云 |
 | MCP 职责不清 | MCP 既做协议适配（MCP JSON-RPC），又做引擎适配，又做业务逻辑 |
-| 连接管理分散 | 每个 MCP 各自管理 PG / S3 / Dragonfly 连接，无统一连接池 |
+| 连接管理分散 | 每个 MCP 各自管理 PG / S3 / Valkey 连接，无统一连接池 |
 | 引擎接口不一致 | DataMCP 的 `data_sql` / `kv_get` 与引擎层签名不匹配（见调研报告） |
 
 ### 1.2 改造目标
@@ -35,8 +35,8 @@
 ### 2.1 改造前
 
 ```
-Agent → AssetMCP ──→ PyIceberg / LanceDB / fastembed / S3 / Dragonfly / PG
-Agent → DataMCP  ──→ PyIceberg / LanceDB / DuckDB / S3 / Dragonfly / PG
+Agent → AssetMCP ──→ PyIceberg / LanceDB / fastembed / S3 / Valkey / PG
+Agent → DataMCP  ──→ PyIceberg / LanceDB / DuckDB / S3 / Valkey / PG
 Steward → AdminMCP ──→ PG (psycopg2)
 ```
 
@@ -52,7 +52,7 @@ Steward → AdminMCP ──→ ┘          │
                                    │   ├── ObjectStorage Plugin (SeaweedFS / AWS / OSS / OBS)
                                    │   ├── TabularStorage Plugin (Iceberg)
                                    │   ├── VectorStorage Plugin (Lance/LanceDB)
-                                   │   ├── KVStorage Plugin (Dragonfly / Redis)
+                                   │   ├── KVStorage Plugin (Valkey / Redis)
                                    │   ├── GraphStorage Plugin (Postgres / AGE)
                                    │   └── MetadataStore Plugin (Postgres)
                                    │
@@ -85,7 +85,7 @@ Steward → AdminMCP ──→ ┘          │
 │   ├── ObjectStorage     — 对象存储（S3 兼容）
 │   ├── TabularStorage    — 结构化表（Iceberg）
 │   ├── VectorStorage     — 向量存储（Lance/LanceDB）
-│   ├── KVStorage         — 键值存储（Dragonfly/Redis）
+│   ├── KVStorage         — 键值存储（Valkey/Redis）
 │   ├── GraphStorage      — 图存储（Postgres/AGE）
 │   └── MetadataStore     — 元数据存储（Postgres）
 │
@@ -166,7 +166,7 @@ class KVStoragePlugin(Protocol):
     def health(self) -> bool: ...
 ```
 
-**基线实现**：`DragonflyKVStorage`（redis 客户端 + Dragonfly）
+**基线实现**：`ValkeyKVStorage`（redis 客户端 + Valkey）
 **可插拔实现**：`RedisKVStorage`、`ValkeyKVStorage`
 
 #### 3.2.5 GraphStorage — 图存储
@@ -264,7 +264,7 @@ class MemoryPlugin(Protocol):
     def health(self) -> bool: ...
 ```
 
-**基线实现**：`BasicMemory`（Dragonfly 短期 + Lance 长期 + Iceberg 元信息）
+**基线实现**：`BasicMemory`（Valkey 短期 + Lance 长期 + Iceberg 元信息）
 **可插拔实现**：`Mem0Memory`（事实抽取 + 合并去重 + 实体图谱）
 
 ---
@@ -279,7 +279,7 @@ class MemoryPlugin(Protocol):
 │   ├── objects/          — 对象存储（S3）
 │   ├── tables/           — 结构化表（Iceberg）
 │   ├── vectors/          — 向量存储（LanceDB）
-│   ├── kv/               — 键值存储（Dragonfly）
+│   ├── kv/               — 键值存储（Valkey）
 │   └── graph/            — 图存储（PG）
 ├── compute/
 │   ├── sql/              — 即席 SQL（DuckDB）
@@ -477,9 +477,9 @@ storage:
 
   # ── KV 存储 ──
   kv:
-    plugin: dragonfly          # dragonfly | redis | valkey
+    plugin: valkey          # Valkey | redis | valkey
     config:
-      host: "lakemind-dragonfly"
+      host: "lakemind-valkey"
       port: 6379
       password: ""
     # 切换到 Redis：
@@ -577,7 +577,7 @@ PLUGIN_REGISTRY = {
         "lancedb": LanceVectorStorage,
     },
     "storage.kv": {
-        "dragonfly": DragonflyKVStorage,
+        "valkey": ValkeyKVStorage,
         "redis": RedisKVStorage,
     },
     "storage.graph": {
@@ -632,13 +632,13 @@ LakeMindServer REST API (:10823)
 ├── storage.object    → SeaweedFS (:8333, S3 兼容, path-style)
 ├── storage.tabular   → PyIceberg + PG SQL catalog (:5432) + S3 warehouse
 ├── storage.vector    → LanceDB + 共享目录 /data/lance
-├── storage.kv        → Dragonfly (:6379, Redis 兼容)
+├── storage.kv        → Valkey (:6379, Redis 兼容)
 ├── storage.graph     → PG 原生表 graph_nodes/graph_edges
 ├── storage.metadata  → PG 表 tenants/users/tokens/asset_types
 ├── compute.sql       → DuckDB (进程内)
 ├── compute.dist      → Embedded (同步)
 ├── cognitive.embed   → fastembed (BAAI/bge-small-en-v1.5, dim=384)
-└── cognitive.memory  → Basic (Dragonfly + Lance + Iceberg)
+└── cognitive.memory  → Basic (Valkey + Lance + Iceberg)
 ```
 
 ### 6.2 基线性能指标
@@ -650,14 +650,14 @@ LakeMindServer REST API (:10823)
 | Iceberg append (100 rows) | < 50ms | PG catalog + S3 |
 | Iceberg scan (1000 rows) | < 30ms | PyIceberg 嵌入式 |
 | LanceDB search (top-5) | < 10ms | 本地 Lance 目录 |
-| KV set (with TTL) | < 2ms | 本地 Dragonfly |
-| KV get | < 1ms | 本地 Dragonfly |
+| KV set (with TTL) | < 2ms | 本地 Valkey |
+| KV get | < 1ms | 本地 Valkey |
 | Graph add_node | < 5ms | PG INSERT |
 | Graph query_nodes (100 nodes) | < 10ms | PG SELECT |
 | DuckDB SQL (simple) | < 5ms | 进程内 |
 | Embedding (1 text) | ~2ms | fastembed ONNX CPU |
 | Embedding (batch 100) | ~50ms | fastembed ONNX CPU |
-| Memory remember (short) | < 3ms | Dragonfly SET |
+| Memory remember (short) | < 3ms | Valkey SET |
 | Memory remember (long) | < 20ms | Lance add + Iceberg append |
 | Memory recall | < 15ms | LanceDB search |
 
@@ -675,7 +675,7 @@ LakeMindServer REST API (:10823)
 |------|--------|------|
 | PostgreSQL | 20 | catalog + metadata + graph 共享 |
 | S3 (boto3) | 连接池自动管理 | |
-| Dragonfly | 10 | Redis 客户端连接池 |
+| Valkey | 10 | Redis 客户端连接池 |
 | LanceDB | 每租户一个连接 | 惰性创建 |
 
 ---
@@ -798,7 +798,7 @@ LakeMindServer/
 │   │   │   ├── vector/
 │   │   │   │   └── lancedb.py
 │   │   │   ├── kv/
-│   │   │   │   ├── dragonfly.py
+│   │   │   │   ├── valkey.py
 │   │   │   │   └── redis.py
 │   │   │   ├── graph/
 │   │   │   │   ├── postgres_graph.py
@@ -865,7 +865,7 @@ dependencies = [
 
 ```yaml
 services:
-  # ... seaweedfs / postgres / dragonfly 保留 ...
+  # ... seaweedfs / postgres / Valkey 保留 ...
 
   # 新增：REST API 服务
   server-api:
@@ -884,7 +884,7 @@ services:
     depends_on:
       - postgres
       - seaweedfs
-      - dragonfly
+      - Valkey
 ```
 
 3 个 MCP 的 docker-compose 各加环境变量：
@@ -910,7 +910,7 @@ environment:
 | 1 | 创建 LakeMindServer REST API 骨架：FastAPI 应用 + 配置加载 + 内部 API Key 认证 + 租户上下文 | 服务可启动 :10823 |
 | 2 | 定义 10 个引擎插件 Protocol（`plugins/protocols.py`） | Protocol 接口定义 |
 | 3 | 实现插件注册表（`plugins/registry.py`）+ `build_engine()` 工厂 | 注册表 + 配置驱动加载 |
-| 4 | 实现 5 个存储引擎基线插件：ObjectStorage(SeaweedFS)、TabularStorage(Iceberg)、VectorStorage(LanceDB)、KVStorage(Dragonfly)、GraphStorage(PG) | 从 MCP 现有 engines/ 迁移代码 |
+| 4 | 实现 5 个存储引擎基线插件：ObjectStorage(SeaweedFS)、TabularStorage(Iceberg)、VectorStorage(LanceDB)、KVStorage(Valkey)、GraphStorage(PG) | 从 MCP 现有 engines/ 迁移代码 |
 | 5 | 实现 MetadataStore 插件（PG，含连接池） | 从 AdminMCP admin.py 迁移 |
 | 6 | 实现 2 个计算引擎基线插件：SQLCompute(DuckDB)、DistributedCompute(Embedded) | DuckDB 修复签名问题 |
 | 7 | 实现 2 个认知引擎基线插件：Embedding(fastembed)、Memory(Basic) | 从 AssetMCP 迁移 |

@@ -2,7 +2,7 @@ from __future__ import annotations
 import redis
 
 
-class DragonflyKVStorage:
+class ValkeyKVStorage:
     def __init__(self, host: str, port: int = 6379, password: str = "", **kwargs):
         self._host = host
         self._port = port

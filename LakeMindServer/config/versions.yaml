@@ -31,14 +31,16 @@ containers:
       - "端口 9001：Iceberg REST Catalog 协议端点"
       - "Iceberg REST(9001) 建表需 JDBC 后端，MVP 不用；结构化数据走 PyIceberg 直连 S3"
 
-  dragonfly:
-    image: docker.dragonflydb.io/dragonflydb/dragonfly:latest  # 建议固定为 :v1.39.0
-    version: "v1.39.0"                      # INFO server 实测
-    redis_compat: "7.4.0"                   # redis_version 字段
+  valkey:
+    image: valkey/valkey:8.0
+    version: "8.0"
+    license: "BSD 3-Clause"
+    redis_compat: "7.4.0"
     role: "短期/工作记忆（TTL KV，Redis 兼容）"
     ports: [6379]
-    data_volume: "./data/dragonfly -> /data"
+    data_volume: "./data/valkey -> /data"
     notes:
+      - "Linux Foundation 维护的 Redis 社区分支"
       - "redis-py 8.0.1 兼容已验证（set/get/TTL/expire）"
 
 # ============================================================
@@ -116,7 +118,7 @@ compatibility_matrix:
     via: "S3 兼容接口（s3a:// / s3://）"
     status: "兼容（均通过 fsspec/s3fs 访问）"
 
-  - pair: "Dragonfly v1.39.0 ↔ redis-py 8.0.1"
+  - pair: "Valkey 8.0 ↔ redis-py 8.0.1"
     via: "Redis 7.4.0 协议兼容"
     status: "已验证（set/get/TTL 全通过）"
 
@@ -145,7 +147,7 @@ pin_recommendations:
     recommended: "chrislusf/seaweedfs:4.37"      # weed version 实测
     reason: "避免上游 breaking change"
 
-  - component: "Dragonfly"
-    current: "docker.dragonflydb.io/dragonflydb/dragonfly:latest"
-    recommended: "docker.dragonflydb.io/dragonflydb/dragonfly:v1.39.0"
-    reason: "避免上游 breaking change"
+  - component: "Valkey"
+    current: "valkey/valkey:8.0"
+    recommended: "valkey/valkey:8.0"
+    reason: "已固定"

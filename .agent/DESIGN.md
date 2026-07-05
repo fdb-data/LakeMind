@@ -24,12 +24,12 @@
 │  Steward (LangGraph, :8500)         ← 运维 Agent         │
 │  Monitor (Express, :3000)           ← 人类仪表板         │
 └──────────────────────┬──────────────────────────────────┘
-                       │ REST API / S3 / PG / Dragonfly
+                       │ REST API / S3 / PG / Valkey
 ┌──────────────────────▼──────────────────────────────────┐
 │                    数据平面                               │
 │               LakeMindServer (:10823)                     │
 │  REST API + 11 引擎                                       │
-│  SeaweedFS (:8333) · PostgreSQL (:5432) · Dragonfly (:6379) │
+│  SeaweedFS (:8333) · PostgreSQL (:5432) · Valkey (:6379) │
 │  Ray (:8265, 3 节点 12 CPU) · fastembed · LLM Gateway    │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -90,7 +90,7 @@ X-Scopes: asset,data,admin
 | 对象存储 | `seaweedfs` | S3 兼容文件存储 | ✅ |
 | 表格式 | `iceberg` | 结构化数据（PG catalog） | ✅ |
 | 向量 | `lancedb` | 向量索引、语义检索 | ✅ |
-| KV 缓存 | `dragonfly` | TTL KV（Redis 兼容） | ✅ |
+| KV 缓存 | `valkey` | TTL KV（Redis 兼容，BSD 3-Clause） | ✅ |
 | 图 | `postgres_graph` | PG 原生表 graph_nodes/edges | ✅ |
 | 元数据 | `postgres` | 用户/租户/Token/资产类型 | ✅ |
 | SQL | `duckdb` | 即席计算、Parquet 直读 | ✅ |
@@ -106,7 +106,7 @@ X-Scopes: asset,data,admin
 | server-api | lakemind/server-api | 10823 | REST API + 11 引擎 |
 | postgres | lakemind/postgres-age:16 | 5432 | Metadata Hub |
 | seaweedfs | chrislusf/seaweedfs:latest | 8333 | S3 对象存储 |
-| dragonfly | dragonflydb/dragonfly:latest | 6379 | TTL KV 缓存 |
+| valkey | valkey/valkey:8.0 | 6379 | TTL KV 缓存（BSD 3-Clause） |
 | ray-head | rayproject/ray:2.41.0-py3.12 | 8265 | Ray 主节点 |
 | ray-worker-1 | rayproject/ray:2.41.0-py3.12 | — | Ray 工作节点 |
 | ray-worker-2 | rayproject/ray:2.41.0-py3.12 | — | Ray 工作节点 |
@@ -122,7 +122,7 @@ X-Scopes: asset,data,admin
 |--------|------|----------|-----|
 | 结构化数据 | Iceberg + PG catalog | DataMCP 透传 | DataMCP |
 | 知识/多模态 RAG | Lance + LanceDB（OKF 格式） | `lake://knowledge` | AssetMCP |
-| 短期/工作记忆 | Dragonfly (TTL KV) | `lake://memory` | AssetMCP |
+| 短期/工作记忆 | Valkey (TTL KV) | `lake://memory` | AssetMCP |
 | 长期/语义记忆 | Lance 向量 + PG 元信息（mem0 风格） | `lake://memory` | AssetMCP |
 | Skills | S3 + PG + LanceDB（不执行） | `lake://skills` | AssetMCP |
 | 本体/图 | PG graph_nodes/edges | `lake://ontology` | AssetMCP |
@@ -139,7 +139,7 @@ X-Scopes: asset,data,admin
 |------|------|------|------|
 | **Knowledge** | search, ingest, register, get, list, list_concepts, delete | LanceDB 向量 + S3 .md 文件 + PG 图 | 7 tools |
 | **Skills** | search, register, get, list, delete | S3 代码 + PG 元信息 + LanceDB 向量 | 5 tools |
-| **Memory** | add, search, get, list, update, delete, clear, history | Dragonfly 短期 + Lance 长期 + PG 历史 | 8 tools |
+| **Memory** | add, search, get, list, update, delete, clear, history | Valkey 短期 + Lance 长期 + PG 历史 | 8 tools |
 | **Ontology** | query, update, delete | PG graph_nodes/edges | 3 tools |
 
 ### 3.2 OKF 知识格式（Open Knowledge Format）
@@ -169,7 +169,7 @@ markdown body...
 | 方法 | 说明 |
 |------|------|
 | `add(messages)` | LLM 抽取事实 → 哈希去重 → Lance 向量写入 + PG 元信息 |
-| `search(query)` | 混合检索：Lance 语义 + Dragonfly 关键词 |
+| `search(query)` | 混合检索：Lance 语义 + Valkey 关键词 |
 | `get(memory_id)` | 取单条记忆 |
 | `list_all(filters)` | 列表（支持过滤） |
 | `update(memory_id, content)` | 更新内容 + 记录变更历史 |
@@ -353,3 +353,4 @@ Studio (Tauri 2.0)
 | Ray 已实现 | 3 节点 12 CPU，7 任务类型，12/12 PASS |
 | experience 积淀进 memory.kind | 减少资产类型，kind 区分 general/experience/reflection |
 | Monitor 无自有 DB | 纯代理层，状态全靠 AdminMCP |
+| Dragonfly 替换为 Valkey | Dragonfly BSL 1.1 禁止 SaaS，Valkey BSD 3-Clause 允许商用 |

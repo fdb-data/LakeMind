@@ -23,7 +23,7 @@ docker compose --env-file .env --profile ray up -d
 | lakemind-server-api | 10823 | REST API 网关 (40+ 路径) |
 | lakemind-postgres | 5432 | 统一元数据 + 图存储 |
 | lakemind-seaweedfs | 8333 | S3 对象存储 |
-| lakemind-dragonfly | 6379 | TTL KV 缓存 |
+| lakemind-valkey | 6379 | TTL KV 缓存 |
 | lakemind-ray-head | 8265 | Ray dashboard |
 | lakemind-ray-worker-1/2 | — | Ray worker (各 4 CPU) |
 
@@ -43,9 +43,9 @@ docker compose --profile all up -d --build
 
 | 容器 | 端口 | 工具数 |
 |------|------|--------|
-| lakemind-asset-mcp | 8401 | 11 tools, 7 resources |
-| lakemind-data-mcp | 8402 | 13 tools |
-| lakemind-admin-mcp | 8403 | 15 tools |
+| lakemind-asset-mcp | 8401 | 23 tools, 11 resources, 6 prompts |
+| lakemind-data-mcp | 8402 | 18 tools, 6 resources, 2 prompts |
+| lakemind-admin-mcp | 8403 | 17 tools, 6 resources, 2 prompts |
 
 ## 3. 启动 Steward + Monitor
 

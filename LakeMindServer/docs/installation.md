@@ -99,7 +99,7 @@ docker compose --env-file .env pull
 |------|------|------|
 | `chrislusf/seaweedfs:latest` | ~80 MB | SeaweedFS 全功能单进程 |
 | `apache/gravitino:1.3.0` | ~1.6 GB | Gravitino + Jetty + JDK |
-| `docker.dragonflydb.io/dragonflydb/dragonfly:latest` | ~120 MB | Dragonfly |
+| `valkey/valkey:8.0` | ~13 MB | Valkey（Redis 兼容 KV） |
 
 ### 4.1 Gravitino 镜像拉取失败的处理
 
@@ -125,14 +125,14 @@ docker load -i gravitino.tar
 
 ```bash
 # docker compose up 时会自动创建，也可手动预建：
-mkdir -p data/seaweedfs data/gravitino data/dragonfly data/lance
+mkdir -p data/seaweedfs data/postgres data/valkey data/lance
 ```
 
 | 目录 | 容器内路径 | 内容 |
 |------|-----------|------|
 | `data/seaweedfs/` | `/data` | Filer LevelDB + Volume 数据 |
 | `data/gravitino/` | `/gravitino/data` | H2 元数据库文件 |
-| `data/dragonfly/` | `/data` | RDB/AOF 持久化文件 |
+| `data/valkey/` | `/data` | RDB/AOF 持久化文件 |
 | `data/lance/` | （预留） | Lance 向量/多模态数据 |
 
 > `data/` 已在 `.gitignore` 中忽略，不会误提交。
@@ -150,7 +150,7 @@ docker compose --env-file .env up -d
 ```
 Network lakemind_lakemind  Created
 Container lakemind-seaweedfs  Started
-Container lakemind-dragonfly  Started
+Container lakemind-valkey  Started
 Container lakemind-gravitino  Started
 ```
 
@@ -164,7 +164,7 @@ docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
 ```
 NAMES                STATUS                    PORTS
-lakemind-dragonfly   Up (healthy)              0.0.0.0:6379->6379/tcp
+lakemind-valkey      Up                        0.0.0.0:6379->6379/tcp
 lakemind-gravitino   Up                        0.0.0.0:8090->8090/tcp, 0.0.0.0:9001->9001/tcp
 lakemind-seaweedfs   Up                        0.0.0.0:9333->9333/tcp, ...
 ```
@@ -190,7 +190,7 @@ python scripts/verify_services.py
 ```
 === LakeMind 平台集成验证 ===
 [PASS] SeaweedFS S3 CRUD (put/get/list/delete)
-[PASS] Dragonfly set/get/TTL
+[PASS] Valkey set/get/TTL
 [PASS] Gravitino->S3 fileset 集成 (S3 contents: ['knowledge/docs/'])
 
 结果: 3 通过, 0 失败

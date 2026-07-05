@@ -3,7 +3,7 @@
 
 端到端验证三大服务及 Gravitino->SeaweedFS S3 集成：
   1. SeaweedFS S3：建桶/上传/下载/列表/删除
-  2. Dragonfly：set/get/TTL
+  2. Valkey：set/get/TTL
   3. Gravitino REST：metalake + fileset 编目 -> S3 实际写入
 
 依赖：boto3, redis   (pip install boto3 redis)
@@ -22,8 +22,8 @@ S3_AK = os.getenv("S3_ACCESS_KEY", "admin")
 S3_SK = os.getenv("S3_SECRET_KEY", "admin123456")
 S3_REGION = os.getenv("S3_REGION", "us-east-1")
 
-DRAGONFLY_HOST = os.getenv("DRAGONFLY_HOST", "localhost")
-DRAGONFLY_PORT = int(os.getenv("DRAGONFLY_PORT", "6379"))
+VALKEY_HOST = os.getenv("VALKEY_HOST", os.getenv("DRAGONFLY_HOST", "localhost"))
+VALKEY_PORT = int(os.getenv("VALKEY_PORT", os.getenv("DRAGONFLY_PORT", "6379")))
 
 GRAVITINO_URI = os.getenv("GRAVITINO_URI", "http://localhost:8090")
 METALAKE = os.getenv("GRAVITINO_METALAKE", "lakemind_metalake")
@@ -68,19 +68,19 @@ def test_s3():
         fail("SeaweedFS S3 CRUD", str(e))
 
 
-# ---------- 2. Dragonfly ----------
-def test_dragonfly():
+# ---------- 2. Valkey ----------
+def test_valkey():
     try:
         import redis
-        r = redis.Redis(host=DRAGONFLY_HOST, port=DRAGONFLY_PORT, socket_timeout=5)
+        r = redis.Redis(host=VALKEY_HOST, port=VALKEY_PORT, socket_timeout=5)
         assert r.ping()
         r.set("lk:verify", "short-mem", ex=60)
         assert r.get("lk:verify") == b"short-mem"
         assert 55 < r.ttl("lk:verify") <= 60
         r.delete("lk:verify")
-        ok("Dragonfly set/get/TTL")
+        ok("Valkey set/get/TTL")
     except Exception as e:
-        fail("Dragonfly set/get/TTL", str(e))
+        fail("Valkey set/get/TTL", str(e))
 
 
 # ---------- 3. Gravitino REST + S3 集成 ----------
@@ -158,7 +158,7 @@ def test_gravitino():
 if __name__ == "__main__":
     print("=== LakeMind 平台集成验证 ===")
     test_s3()
-    test_dragonfly()
+    test_valkey()
     test_gravitino()
     print(f"\n结果: {passed} 通过, {failed} 失败")
     sys.exit(1 if failed else 0)

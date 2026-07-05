@@ -19,7 +19,7 @@ class BasicMemory:
     def __init__(self, host: str = "lakemind-postgres", port: int = 5432,
                  db: str = "lakemind", user: str = "lakemind",
                  password: str = "lakemind_pass",
-                 kv_host: str = "lakemind-dragonfly", kv_port: int = 6379,
+                 kv_host: str = "lakemind-valkey", kv_port: int = 6379,
                  lance_uri: str = "/data/lance",
                  embedding_model: str = "BAAI/bge-small-en-v1.5",
                  embedding_dim: int = 384, **kwargs):
