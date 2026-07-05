@@ -9,8 +9,10 @@ from .storage.graph.postgres_graph import PostgresGraphStorage
 from .storage.metadata.postgres import PostgresMetadataStore
 from .compute.sql.duckdb import DuckDBSQLCompute
 from .compute.distributed.embedded import EmbeddedCompute
+from .compute.distributed.ray_compute import RayCompute
 from .cognitive.embedding.fastembed import FastEmbedPlugin
 from .cognitive.memory.basic import BasicMemory
+from .cognitive.llm.gateway import GatewayLLM
 
 PLUGIN_REGISTRY: dict[str, dict[str, type]] = {
     "storage.object": {
@@ -36,12 +38,16 @@ PLUGIN_REGISTRY: dict[str, dict[str, type]] = {
     },
     "compute.distributed": {
         "embedded": EmbeddedCompute,
+        "ray": RayCompute,
     },
     "cognitive.embedding": {
         "fastembed": FastEmbedPlugin,
     },
     "cognitive.memory": {
         "basic": BasicMemory,
+    },
+    "cognitive.llm": {
+        "gateway": GatewayLLM,
     },
 }
 

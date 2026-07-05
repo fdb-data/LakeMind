@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-07-04T22:20:06.910006",
+  "timestamp": "2026-07-05T15:13:48.106219",
   "total": 69,
   "passed": 69,
   "failed": 0,
@@ -314,7 +314,7 @@
       "category": "Admin-User",
       "test": "create_user",
       "status": "PASS",
-      "detail": "uid=user_284bd13d"
+      "detail": "uid=user_bc7c7719"
     },
     {
       "category": "Admin-User",
@@ -416,7 +416,7 @@
       "category": "Cross-MCP",
       "test": "Steward inspect workflow",
       "status": "PASS",
-      "detail": "{'health': {'object_storage': True, 'tabular': True, 'vector': True, 'kv': True, 'graph': True, 'metadata': True, 'sql': True, 'distributed': True, 'embedding': True, 'memory': True}, 'issues': ['object_storage', 'tabular', 'vector', 'kv', 'graph', 'metadata', 'sql', 'distributed', 'embedding', 'memory'], 'report': \"Issues found: ['object_storage', 'tabular', 'vector', 'kv', 'graph', 'metadata', 'sql', 'distributed', 'embedding', 'memory']\"}"
+      "detail": "{'health': {'object_storage': True, 'tabular': True, 'vector': True, 'kv': True, 'graph': True, 'metadata': True, 'sql': True, 'distributed': True, 'embedding': True, 'memory': True, 'llm': True}, 'issues': ['object_storage', 'tabular', 'vector', 'kv', 'graph', 'metadata', 'sql', 'distributed', 'embedding', 'memory', 'llm'], 'report': \"Issues found: ['object_storage', 'tabular', 'vector', 'kv', 'graph', 'metadata', 'sql', 'distributed', 'embedding', 'memory', 'llm']\"}"
     }
   ]
 }

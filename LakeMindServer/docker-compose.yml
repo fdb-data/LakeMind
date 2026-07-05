@@ -98,6 +98,7 @@ services:
       LAKE_CONFIG: /etc/lakemind/engines.yaml
       API_KEY: "${SERVER_API_KEY:-lakemind-internal-api-key}"
       S3_ENDPOINT: "http://lakemind-seaweedfs:8333"
+      MAAS_API_KEY: "${MAAS_API_KEY}"
     ports:
       - "10823:10823"
     volumes:
@@ -116,14 +117,13 @@ services:
   #   批量 Embedding · 分布式向量检索 · 重型 SQL · mem0 事实抽取 LLM
   # ------------------------------------------------------------------
   ray-head:
-    image: ${RAY_IMAGE:-rayproject/ray:2.41.0-py3.12}
+    image: ${RAY_IMAGE:-lakemind/ray:2.41.0-py3.12}
     container_name: lakemind-ray-head
     command: >
       ray start --head --port=6379 --dashboard-port=8265
-      --num-cpus=${RAY_HEAD_CPUS:-4}
+      --num-cpus=${RAY_HEAD_CPUS:-4} --block
     ports:
       - "${RAY_DASHBOARD_PORT:-8265}:8265"
-      - "${RAY_GCS_PORT:-6379}:6379"
     volumes:
       - ./data/lance:/data/lance
     networks: [lakemind]
@@ -131,10 +131,10 @@ services:
     restart: unless-stopped
 
   ray-worker:
-    image: ${RAY_IMAGE:-rayproject/ray:latest-py312}
+    image: ${RAY_IMAGE:-lakemind/ray:2.41.0-py3.12}
     command: >
       ray start --address=lakemind-ray-head:6379
-      --num-cpus=${RAY_WORKER_CPUS:-4}
+      --num-cpus=${RAY_WORKER_CPUS:-4} --block
     volumes:
       - ./data/lance:/data/lance
     depends_on:

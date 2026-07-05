@@ -23,6 +23,7 @@ class EnginesConfig:
     distributed: EngineConfig = None
     embedding: EngineConfig = None
     memory: EngineConfig = None
+    llm: EngineConfig = None
 
 
 @dataclass
@@ -38,6 +39,11 @@ def _resolve_env(value: Any) -> Any:
         if value.startswith("${") and value.endswith("}"):
             env_key = value[2:-1]
             return os.environ.get(env_key, value)
+        return value
+    if isinstance(value, dict):
+        return {k: _resolve_env(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_resolve_env(v) for v in value]
     return value
 
 
@@ -74,6 +80,7 @@ def load_config(path: str | None = None) -> ServerConfig:
         distributed=ec(compute.get("distributed")),
         embedding=ec(cognitive.get("embedding")),
         memory=ec(cognitive.get("memory")),
+        llm=ec(cognitive.get("llm")),
     )
 
     return ServerConfig(

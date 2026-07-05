@@ -21,6 +21,7 @@ dependencies = [
     "pylance>=1.2",
     "duckdb>=1.0",
     "fastembed>=0.4",
+    "ray[default]==2.41.0",
 ]
 
 [project.scripts]

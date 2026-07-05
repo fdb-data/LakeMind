@@ -1,17 +1,33 @@
-# LakeMindMonitor 服务编排
-# 依赖 LakeMindServer + 3 MCP + Steward 已启动，外部网络 `lakemind_lakemind` 已存在。
-# 启动顺序：
-#   1. cd LakeMindServer && docker compose --env-file .env up -d
-#   2. cd LakeMindAssetMCP && docker compose up -d --build
-#   3. cd LakeMindDataMCP  && docker compose up -d --build
-#   4. cd LakeMindAdminMCP && docker compose up -d --build
-#   5. cd LakeMindSteward  && docker compose up -d --build
-#   6. cd LakeMindMonitor  && docker compose up -d --build
+# LakeMind 运行平面编排 — Steward（管理 Agent）+ Monitor（人类仪表板）
+# 依赖 LakeMindServer + LakeMindMCP 已启动（网络 lakemind_lakemind 已存在）
+#
+# 用法：
+#   docker compose up -d --build
+#   docker compose down
 
 name: lakemind
 
+networks:
+  lakemind:
+    external: true
+    name: lakemind_lakemind
+
 services:
-  lakemind-monitor:
+  # ── Steward — 管理运维 Agent（LangGraph 巡检 + 对话式管理）──
+  steward:
+    build: ../LakeMindSteward
+    container_name: lakemind-steward
+    environment:
+      LAKE_CONFIG: /etc/lakemind/config.yaml
+    ports:
+      - "8500:8500"
+    volumes:
+      - ../LakeMindSteward/config:/etc/lakemind:ro
+    networks: [lakemind]
+    restart: unless-stopped
+
+  # ── Monitor — 人类只读仪表板 + Steward 对话窗 ──
+  monitor:
     build: .
     container_name: lakemind-monitor
     environment:
@@ -23,11 +39,7 @@ services:
       ADMIN_TOKEN: "test-steward-token"
     ports:
       - "3000:3000"
-    networks:
-      - lakemind
+    networks: [lakemind]
     restart: unless-stopped
-
-networks:
-  lakemind:
-    external: true
-    name: lakemind_lakemind
+    depends_on:
+      - steward

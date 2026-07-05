@@ -17,6 +17,7 @@ class Engines:
         self.distributed = build_engine("compute.distributed", e.distributed.plugin, e.distributed.config)
         self.embedding = build_engine("cognitive.embedding", e.embedding.plugin, e.embedding.config)
         self.memory = build_engine("cognitive.memory", e.memory.plugin, e.memory.config)
+        self.llm = build_engine("cognitive.llm", e.llm.plugin, e.llm.config) if e.llm else None
 
     def all_health(self) -> dict[str, bool]:
         return {
@@ -30,4 +31,5 @@ class Engines:
             "distributed": self.distributed.health(),
             "embedding": self.embedding.health(),
             "memory": self.memory.health(),
+            "llm": self.llm.health() if self.llm else False,
         }
