@@ -72,6 +72,9 @@ class ServerClient:
     async def nodes(self) -> dict:
         return await self.get("/api/v1/system/nodes")
 
+    async def metrics(self) -> dict:
+        return await self.get("/api/v1/system/metrics")
+
     # ── Objects ──
     async def object_put(self, bucket: str, key: str, body: bytes) -> dict:
         return await self.put(f"/api/v1/storage/objects/{bucket}/{key}", content=body)
@@ -179,15 +182,40 @@ class ServerClient:
     async def embed(self, texts: list[str]) -> dict:
         return await self.post("/api/v1/cognitive/embedding/embed", json={"texts": texts})
 
-    # ── Memory ──
-    async def memory_remember(self, content: str, context: str | None = None, ttl: int | None = None, kind: str = "general") -> dict:
-        return await self.post("/api/v1/cognitive/memory/remember", json={"content": content, "context": context, "ttl": ttl, "kind": kind})
+    # ── Memory (mem0-style) ──
+    async def memory_add(self, messages: list[dict], metadata: dict | None = None,
+                         infer: bool = True, expiration_date: str | None = None,
+                         run_id: str | None = None) -> dict:
+        return await self.post("/api/v1/cognitive/memory/add", json={
+            "messages": messages, "metadata": metadata, "infer": infer,
+            "expiration_date": expiration_date, "run_id": run_id})
 
-    async def memory_recall(self, query: str, limit: int = 5, kind: str | None = None) -> dict:
-        return await self.post("/api/v1/cognitive/memory/recall", json={"query": query, "limit": limit, "kind": kind})
+    async def memory_search(self, query: str, filters: dict | None = None,
+                            top_k: int = 10, threshold: float = 0.1,
+                            run_id: str | None = None) -> dict:
+        return await self.post("/api/v1/cognitive/memory/search", json={
+            "query": query, "filters": filters, "top_k": top_k,
+            "threshold": threshold, "run_id": run_id})
 
-    async def memory_forget(self, query: str | None = None) -> dict:
-        return await self.post("/api/v1/cognitive/memory/forget", json={"query": query})
+    async def memory_get(self, memory_id: str) -> dict:
+        return await self.get(f"/api/v1/cognitive/memory/{memory_id}")
+
+    async def memory_list(self, filters: dict | None = None, page: int = 1,
+                          page_size: int = 50, run_id: str | None = None) -> dict:
+        return await self.post("/api/v1/cognitive/memory/list", json={
+            "filters": filters, "page": page, "page_size": page_size, "run_id": run_id})
+
+    async def memory_update(self, memory_id: str, content: str) -> dict:
+        return await self.put(f"/api/v1/cognitive/memory/{memory_id}", json={"content": content})
+
+    async def memory_delete(self, memory_id: str) -> dict:
+        return await self.delete(f"/api/v1/cognitive/memory/{memory_id}")
+
+    async def memory_clear(self, filters: dict | None = None, run_id: str | None = None) -> dict:
+        return await self.post("/api/v1/cognitive/memory/clear", json={"filters": filters, "run_id": run_id})
+
+    async def memory_history(self, memory_id: str) -> dict:
+        return await self.get(f"/api/v1/cognitive/memory/{memory_id}/history")
 
     # ── Metadata ──
     async def tenant_create(self, tenant_id: str, name: str) -> dict:

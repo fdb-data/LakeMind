@@ -2,8 +2,17 @@ from __future__ import annotations
 import json
 import time
 import uuid
-import pyarrow as pa
+import hashlib
 import psycopg2
+import pyarrow as pa
+
+
+_EXTRACT_PROMPT = """Extract key facts from the following messages. Return a JSON object with a "memory" array. Each element has a "text" field with one concise factual statement.
+
+Messages:
+{messages_text}
+
+Return only JSON, no markdown."""
 
 
 class BasicMemory:
@@ -22,6 +31,11 @@ class BasicMemory:
         self._embed_dim = embedding_dim
         self._embed_model_name = embedding_model
         self._redis = None
+        self._llm = None
+        self._history_ready = False
+
+    def set_llm(self, llm):
+        self._llm = llm
 
     def _ensure_redis(self):
         if self._redis is None:
@@ -38,48 +52,177 @@ class BasicMemory:
         self._ensure_embed()
         return [float(x) for x in next(self._embed_model.embed([text]))]
 
-    def remember(self, agent_id: str, tenant_id: str, content: str,
-                 context: str | None = None, ttl: int | None = None,
-                 kind: str = "general") -> dict:
-        if ttl:
-            self._ensure_redis()
-            key = f"{tenant_id}:{agent_id}:short:{uuid.uuid4().hex[:8]}"
-            val = json.dumps({"content": content, "context": context or "", "kind": kind}, ensure_ascii=False)
-            self._redis.set(key, val, ex=ttl)
-            return {"status": "ok", "type": "short_term", "key": key}
+    def _ensure_history(self):
+        if not self._history_ready:
+            try:
+                with psycopg2.connect(self._dsn) as conn, conn.cursor() as cur:
+                    cur.execute("""
+                        CREATE TABLE IF NOT EXISTS memory_history (
+                            id SERIAL PRIMARY KEY,
+                            memory_id VARCHAR(64) NOT NULL,
+                            agent_id VARCHAR(128) NOT NULL,
+                            tenant_id VARCHAR(128) NOT NULL,
+                            old_memory TEXT,
+                            new_memory TEXT,
+                            event VARCHAR(16) NOT NULL,
+                            created_at TIMESTAMP DEFAULT NOW(),
+                            is_deleted INT DEFAULT 0
+                        )
+                    """)
+                    conn.commit()
+                self._history_ready = True
+            except Exception:
+                pass
 
-        vec = self._embed(content)
+    def _record_history(self, agent_id: str, tenant_id: str, memory_id: str,
+                        old_memory: str | None, new_memory: str | None, event: str):
+        self._ensure_history()
+        try:
+            with psycopg2.connect(self._dsn) as conn, conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO memory_history (memory_id, agent_id, tenant_id, old_memory, new_memory, event) "
+                    "VALUES (%s, %s, %s, %s, %s, %s)",
+                    (memory_id, agent_id, tenant_id, old_memory, new_memory, event)
+                )
+                conn.commit()
+        except Exception:
+            pass
+
+    def _connect_lance(self, tenant_id: str, agent_id: str):
         import lancedb
         db_name = f"memory_{tenant_id}"
         conn = lancedb.connect(f"{self._lance_uri}/{db_name}")
         tbl_name = f"mem_{agent_id}"
-        row = pa.Table.from_pylist([{
-            "content": content,
-            "context": context or "",
-            "kind": kind,
-            "vector": vec,
-            "created_at": int(time.time()),
-        }])
-        if tbl_name in conn.table_names():
-            conn.open_table(tbl_name).add(row)
-        else:
-            conn.create_table(tbl_name, data=row)
-        return {"status": "ok", "type": "long_term", "rows": 1}
+        return conn, tbl_name
 
-    def recall(self, agent_id: str, tenant_id: str, query: str,
-               limit: int = 5, kind: str | None = None) -> list[dict]:
+    def _extract_facts(self, messages: list[dict]) -> list[str]:
+        if not self._llm:
+            texts = []
+            for m in messages:
+                role = m.get("role", "user")
+                content = m.get("content", "")
+                if role != "system" and content:
+                    texts.append(content)
+            return texts
+
+        messages_text = "\n".join(
+            f"[{m.get('role', 'user')}]: {m.get('content', '')}" for m in messages
+        )
+        prompt = _EXTRACT_PROMPT.format(messages_text=messages_text)
+        try:
+            resp = self._llm.chat(
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.0, max_tokens=512
+            )
+            content = resp.get("content", "")
+            import re
+            content = re.sub(r"```json\s*", "", content)
+            content = re.sub(r"```\s*$", "", content.strip())
+            data = json.loads(content)
+            facts = [m.get("text", "") for m in data.get("memory", []) if m.get("text")]
+            return facts if facts else [messages_text]
+        except Exception:
+            texts = []
+            for m in messages:
+                content = m.get("content", "")
+                if content:
+                    texts.append(content)
+            return texts
+
+    def add(self, agent_id: str, tenant_id: str, messages: list[dict],
+            metadata: dict | None = None, infer: bool = True,
+            expiration_date: str | None = None,
+            run_id: str | None = None) -> dict:
+        if infer:
+            facts = self._extract_facts(messages)
+        else:
+            facts = [m.get("content", "") for m in messages if m.get("content")]
+
+        if not facts:
+            return {"results": []}
+
+        conn, tbl_name = self._connect_lance(tenant_id, agent_id)
+        existing_hashes = set()
+        if tbl_name in conn.table_names():
+            try:
+                existing = conn.open_table(tbl_name).to_arrow().to_pylist()
+                existing_hashes = {r.get("hash") for r in existing if r.get("hash")}
+            except Exception:
+                pass
+
+        results = []
+        rows = []
+        now = int(time.time())
+        for text in facts:
+            h = hashlib.md5(text.encode()).hexdigest()
+            if h in existing_hashes:
+                continue
+            existing_hashes.add(h)
+            memory_id = str(uuid.uuid4())
+            vec = self._embed(text)
+            row = {
+                "memory_id": memory_id,
+                "content": text,
+                "hash": h,
+                "metadata": json.dumps(metadata or {}, ensure_ascii=False),
+                "run_id": run_id or "",
+                "expiration_date": expiration_date or "",
+                "vector": vec,
+                "created_at": now,
+                "updated_at": now,
+            }
+            rows.append(row)
+            results.append({"id": memory_id, "memory": text, "event": "ADD"})
+            self._record_history(agent_id, tenant_id, memory_id, None, text, "ADD")
+
+        if rows:
+            table_data = pa.Table.from_pylist(rows)
+            if tbl_name in conn.table_names():
+                conn.open_table(tbl_name).add(table_data)
+            else:
+                conn.create_table(tbl_name, data=table_data)
+
+        return {"results": results}
+
+    def search(self, agent_id: str, tenant_id: str, query: str,
+               filters: dict | None = None, top_k: int = 10,
+               threshold: float = 0.1, run_id: str | None = None) -> list[dict]:
         results = []
         try:
             qvec = self._embed(query)
-            import lancedb
-            db_name = f"memory_{tenant_id}"
-            conn = lancedb.connect(f"{self._lance_uri}/{db_name}")
-            tbl_name = f"mem_{agent_id}"
-            if tbl_name in conn.table_names():
-                q = conn.open_table(tbl_name).search(qvec).limit(limit)
-                results = q.to_list()
-                if kind:
-                    results = [r for r in results if r.get("kind") == kind]
+            conn, tbl_name = self._connect_lance(tenant_id, agent_id)
+            if tbl_name not in conn.table_names():
+                return []
+            tbl = conn.open_table(tbl_name)
+            q = tbl.search(qvec).limit(top_k)
+            raw = q.to_list()
+            for r in raw:
+                dist = r.get("_distance", 1.0)
+                score = max(0.0, 1.0 - dist)
+                if score < threshold:
+                    continue
+                if run_id and r.get("run_id", "") != run_id:
+                    continue
+                if filters:
+                    try:
+                        meta = json.loads(r.get("metadata", "{}"))
+                    except Exception:
+                        meta = {}
+                    skip = False
+                    for k, v in filters.items():
+                        if meta.get(k) != v:
+                            skip = True
+                            break
+                    if skip:
+                        continue
+                results.append({
+                    "id": r.get("memory_id"),
+                    "memory": r.get("content"),
+                    "score": score,
+                    "metadata": json.loads(r.get("metadata", "{}")) if r.get("metadata") else {},
+                    "created_at": r.get("created_at"),
+                    "updated_at": r.get("updated_at"),
+                })
         except Exception:
             pass
 
@@ -89,31 +232,181 @@ class BasicMemory:
                 val = self._redis.get(key)
                 if val:
                     d = json.loads(val)
-                    if kind and d.get("kind") != kind:
-                        continue
                     if query.lower() in d.get("content", "").lower():
-                        results.append(d)
+                        results.append({"id": key, "memory": d.get("content"), "score": 0.5,
+                                        "metadata": {}, "created_at": d.get("ts", 0)})
         except Exception:
             pass
 
-        return results[:limit]
+        return results[:top_k]
 
-    def forget(self, agent_id: str, tenant_id: str, query: str | None = None) -> dict:
+    def get(self, agent_id: str, tenant_id: str, memory_id: str) -> dict | None:
+        try:
+            conn, tbl_name = self._connect_lance(tenant_id, agent_id)
+            if tbl_name not in conn.table_names():
+                return None
+            tbl = conn.open_table(tbl_name)
+            import lancedb
+            rows = tbl.search().where(f"memory_id = '{memory_id}'").limit(1).to_list()
+            if not rows:
+                return None
+            r = rows[0]
+            return {
+                "id": r.get("memory_id"),
+                "memory": r.get("content"),
+                "hash": r.get("hash"),
+                "metadata": json.loads(r.get("metadata", "{}")) if r.get("metadata") else {},
+                "run_id": r.get("run_id", ""),
+                "expiration_date": r.get("expiration_date", ""),
+                "created_at": r.get("created_at"),
+                "updated_at": r.get("updated_at"),
+            }
+        except Exception:
+            return None
+
+    def list_all(self, agent_id: str, tenant_id: str, filters: dict | None = None,
+                 page: int = 1, page_size: int = 50,
+                 run_id: str | None = None) -> dict:
+        try:
+            conn, tbl_name = self._connect_lance(tenant_id, agent_id)
+            if tbl_name not in conn.table_names():
+                return {"count": 0, "results": []}
+            tbl = conn.open_table(tbl_name)
+            all_rows = tbl.to_arrow().to_pylist()
+            if run_id:
+                all_rows = [r for r in all_rows if r.get("run_id", "") == run_id]
+            if filters:
+                filtered = []
+                for r in all_rows:
+                    try:
+                        meta = json.loads(r.get("metadata", "{}"))
+                    except Exception:
+                        meta = {}
+                    if all(meta.get(k) == v for k, v in filters.items()):
+                        filtered.append(r)
+                all_rows = filtered
+            all_rows.sort(key=lambda r: r.get("created_at", 0), reverse=True)
+            total = len(all_rows)
+            start = (page - 1) * page_size
+            end = start + page_size
+            page_rows = all_rows[start:end]
+            results = [
+                {
+                    "id": r.get("memory_id"),
+                    "memory": r.get("content"),
+                    "metadata": json.loads(r.get("metadata", "{}")) if r.get("metadata") else {},
+                    "created_at": r.get("created_at"),
+                    "updated_at": r.get("updated_at"),
+                }
+                for r in page_rows
+            ]
+            return {"count": total, "page": page, "page_size": page_size, "results": results}
+        except Exception:
+            return {"count": 0, "results": []}
+
+    def update(self, agent_id: str, tenant_id: str, memory_id: str, content: str) -> dict:
+        try:
+            conn, tbl_name = self._connect_lance(tenant_id, agent_id)
+            if tbl_name not in conn.table_names():
+                return {"status": "not_found"}
+            tbl = conn.open_table(tbl_name)
+            rows = tbl.search().where(f"memory_id = '{memory_id}'").limit(1).to_list()
+            if not rows:
+                return {"status": "not_found"}
+            old_content = rows[0].get("content")
+            vec = self._embed(content)
+            now = int(time.time())
+            tbl.delete(f"memory_id = '{memory_id}'")
+            updated_row = pa.Table.from_pylist([{
+                **rows[0],
+                "content": content,
+                "vector": vec,
+                "updated_at": now,
+            }])
+            tbl.add(updated_row)
+            self._record_history(agent_id, tenant_id, memory_id, old_content, content, "UPDATE")
+            return {"status": "ok", "id": memory_id, "memory": content}
+        except Exception as e:
+            return {"status": "error", "detail": str(e)}
+
+    def delete(self, agent_id: str, tenant_id: str, memory_id: str) -> dict:
+        try:
+            conn, tbl_name = self._connect_lance(tenant_id, agent_id)
+            if tbl_name not in conn.table_names():
+                return {"status": "not_found"}
+            tbl = conn.open_table(tbl_name)
+            rows = tbl.search().where(f"memory_id = '{memory_id}'").limit(1).to_list()
+            if not rows:
+                return {"status": "not_found"}
+            old_content = rows[0].get("content")
+            tbl.delete(f"memory_id = '{memory_id}'")
+            self._record_history(agent_id, tenant_id, memory_id, old_content, None, "DELETE")
+            return {"status": "ok", "deleted": memory_id}
+        except Exception as e:
+            return {"status": "error", "detail": str(e)}
+
+    def clear(self, agent_id: str, tenant_id: str, filters: dict | None = None,
+              run_id: str | None = None) -> dict:
         deleted = 0
+        try:
+            conn, tbl_name = self._connect_lance(tenant_id, agent_id)
+            if tbl_name not in conn.table_names():
+                return {"status": "ok", "deleted": 0}
+            tbl = conn.open_table(tbl_name)
+            all_rows = tbl.to_arrow().to_pylist()
+            to_delete = []
+            for r in all_rows:
+                if run_id and r.get("run_id", "") != run_id:
+                    continue
+                if filters:
+                    try:
+                        meta = json.loads(r.get("metadata", "{}"))
+                    except Exception:
+                        meta = {}
+                    if not all(meta.get(k) == v for k, v in filters.items()):
+                        continue
+                to_delete.append(r)
+            for r in to_delete:
+                mid = r.get("memory_id")
+                tbl.delete(f"memory_id = '{mid}'")
+                self._record_history(agent_id, tenant_id, mid, r.get("content"), None, "DELETE")
+                deleted += 1
+        except Exception:
+            pass
+
         try:
             self._ensure_redis()
             for key in self._redis.scan_iter(match=f"{tenant_id}:{agent_id}:short:*"):
-                if query is None:
-                    self._redis.delete(key)
-                    deleted += 1
-                else:
-                    val = self._redis.get(key)
-                    if val and query.lower() in json.loads(val).get("content", "").lower():
-                        self._redis.delete(key)
-                        deleted += 1
+                self._redis.delete(key)
+                deleted += 1
         except Exception:
             pass
         return {"status": "ok", "deleted": deleted}
+
+    def history(self, agent_id: str, tenant_id: str, memory_id: str) -> list[dict]:
+        self._ensure_history()
+        try:
+            with psycopg2.connect(self._dsn) as conn, conn.cursor() as cur:
+                cur.execute(
+                    "SELECT memory_id, old_memory, new_memory, event, created_at, is_deleted "
+                    "FROM memory_history WHERE memory_id = %s AND agent_id = %s AND tenant_id = %s "
+                    "ORDER BY created_at DESC",
+                    (memory_id, agent_id, tenant_id)
+                )
+                rows = cur.fetchall()
+            return [
+                {
+                    "memory_id": r[0],
+                    "old_memory": r[1],
+                    "new_memory": r[2],
+                    "event": r[3],
+                    "created_at": r[4].isoformat() if r[4] else None,
+                    "is_deleted": r[5],
+                }
+                for r in rows
+            ]
+        except Exception:
+            return []
 
     def health(self) -> bool:
         try:

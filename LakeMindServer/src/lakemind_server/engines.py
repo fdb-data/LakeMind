@@ -18,6 +18,8 @@ class Engines:
         self.embedding = build_engine("cognitive.embedding", e.embedding.plugin, e.embedding.config)
         self.memory = build_engine("cognitive.memory", e.memory.plugin, e.memory.config)
         self.llm = build_engine("cognitive.llm", e.llm.plugin, e.llm.config) if e.llm else None
+        if self.llm and hasattr(self.memory, "set_llm"):
+            self.memory.set_llm(self.llm)
 
     def all_health(self) -> dict[str, bool]:
         return {

@@ -18,9 +18,11 @@ def _vec_db(tenant_id: str) -> str:
 
 
 def register(mcp, server: ServerClient, redact_keys: list[str]) -> None:
+    # ── Iceberg 表 ──
+
     @mcp.tool()
     @audited(redact_keys)
-    async def data_query(table: str, columns: str | None = None, filter: str | None = None, limit: int = 100) -> dict[str, Any]:
+    async def query_table(table: str, columns: str | None = None, filter: str | None = None, limit: int = 100) -> dict[str, Any]:
         """Scan Iceberg table. columns: comma-separated, filter: SQL expression."""
         require_scope(SCOPE)
         ctx = get_tenant()
@@ -30,7 +32,7 @@ def register(mcp, server: ServerClient, redact_keys: list[str]) -> None:
 
     @mcp.tool()
     @audited(redact_keys)
-    async def data_write(table: str, rows: list[dict], mode: str = "append") -> dict[str, Any]:
+    async def write_table(table: str, rows: list[dict], mode: str = "append") -> dict[str, Any]:
         """Write to Iceberg table. mode: append|overwrite."""
         require_scope(SCOPE)
         ctx = get_tenant()
@@ -45,7 +47,7 @@ def register(mcp, server: ServerClient, redact_keys: list[str]) -> None:
 
     @mcp.tool()
     @audited(redact_keys)
-    async def data_sql(sql: str) -> dict[str, Any]:
+    async def sql_query(sql: str) -> dict[str, Any]:
         """Execute ad-hoc SQL via DuckDB."""
         require_scope(SCOPE)
         resp = await server.sql_execute(sql)
@@ -53,7 +55,7 @@ def register(mcp, server: ServerClient, redact_keys: list[str]) -> None:
 
     @mcp.tool()
     @audited(redact_keys)
-    async def data_list_tables(namespace: str | None = None) -> dict[str, Any]:
+    async def list_tables(namespace: str | None = None) -> dict[str, Any]:
         """List Iceberg tables."""
         require_scope(SCOPE)
         ctx = get_tenant()
@@ -64,7 +66,7 @@ def register(mcp, server: ServerClient, redact_keys: list[str]) -> None:
 
     @mcp.tool()
     @audited(redact_keys)
-    async def data_describe(table: str) -> dict[str, Any]:
+    async def describe_table(table: str) -> dict[str, Any]:
         """Describe Iceberg table schema."""
         require_scope(SCOPE)
         ctx = get_tenant()
@@ -73,17 +75,29 @@ def register(mcp, server: ServerClient, redact_keys: list[str]) -> None:
 
     @mcp.tool()
     @audited(redact_keys)
-    async def data_create_table(name: str, schema: dict[str, str], partition: str | None = None) -> dict[str, Any]:
-        """Create Iceberg table. schema: {column: type}."""
+    async def create_table(name: str, schema: dict[str, str], partition: str | None = None) -> dict[str, Any]:
+        """Create Iceberg table. schema: {column: type}. partition: optional partition column."""
         require_scope(SCOPE)
         ctx = get_tenant()
         ns = _iceberg_ns(ctx.tenant_id, "data")
         await server.table_create(ns, name, schema)
-        return {"table": name, "columns": list(schema.keys())}
+        return {"table": name, "columns": list(schema.keys()), "partition": partition}
 
     @mcp.tool()
     @audited(redact_keys)
-    async def lance_query(table: str, query: str, top_k: int = 5, filter: str | None = None) -> dict[str, Any]:
+    async def drop_table(table: str) -> dict[str, Any]:
+        """Drop Iceberg table."""
+        require_scope(SCOPE)
+        ctx = get_tenant()
+        ns = _iceberg_ns(ctx.tenant_id, "data")
+        await server.table_drop(ns, table)
+        return {"status": "ok", "dropped": table}
+
+    # ── 向量 ──
+
+    @mcp.tool()
+    @audited(redact_keys)
+    async def vector_search(table: str, query: str, top_k: int = 5, filter: str | None = None) -> dict[str, Any]:
         """Vector search via LanceDB."""
         require_scope(SCOPE)
         ctx = get_tenant()
@@ -94,15 +108,18 @@ def register(mcp, server: ServerClient, redact_keys: list[str]) -> None:
         hits = resp.get("results", [])
         return {"table": table, "hits": hits, "count": len(hits)}
 
+    # ── S3 对象 ──
+
     @mcp.tool()
     @audited(redact_keys)
     async def s3_get(uri: str) -> dict[str, Any]:
-        """Read S3 object."""
+        """Read S3 object. Returns content and size."""
         require_scope(SCOPE)
         parts = uri.replace("s3://", "").split("/", 1)
         bucket, key = parts[0], parts[1] if len(parts) > 1 else ""
         data = await server.object_get(bucket, key)
-        return {"uri": uri, "size": len(data) if data else 0}
+        content = data.decode("utf-8") if isinstance(data, bytes) else str(data)
+        return {"uri": uri, "content": content, "size": len(data) if data else 0}
 
     @mcp.tool()
     @audited(redact_keys)
@@ -113,6 +130,29 @@ def register(mcp, server: ServerClient, redact_keys: list[str]) -> None:
         bucket, key = parts[0], parts[1] if len(parts) > 1 else ""
         await server.object_put(bucket, key, body.encode())
         return {"uri": uri, "written": len(body)}
+
+    @mcp.tool()
+    @audited(redact_keys)
+    async def s3_list(uri: str, limit: int = 100) -> dict[str, Any]:
+        """List S3 objects under prefix."""
+        require_scope(SCOPE)
+        parts = uri.replace("s3://", "").split("/", 1)
+        bucket = parts[0]
+        prefix = parts[1] if len(parts) > 1 else ""
+        resp = await server.object_list(bucket, prefix, limit)
+        return {"uri": uri, "keys": resp.get("keys", []), "count": resp.get("count", 0)}
+
+    @mcp.tool()
+    @audited(redact_keys)
+    async def s3_delete(uri: str) -> dict[str, Any]:
+        """Delete S3 object."""
+        require_scope(SCOPE)
+        parts = uri.replace("s3://", "").split("/", 1)
+        bucket, key = parts[0], parts[1] if len(parts) > 1 else ""
+        await server.object_delete(bucket, key)
+        return {"status": "ok", "deleted": uri}
+
+    # ── KV ──
 
     @mcp.tool()
     @audited(redact_keys)
@@ -139,17 +179,42 @@ def register(mcp, server: ServerClient, redact_keys: list[str]) -> None:
 
     @mcp.tool()
     @audited(redact_keys)
-    async def graph_query(concept: str, relation: str | None = None) -> dict[str, Any]:
-        """Query graph nodes and edges."""
+    async def kv_delete(key: str) -> dict[str, Any]:
+        """Delete Dragonfly KV."""
+        require_scope(SCOPE)
+        ctx = get_tenant()
+        full_key = f"{ctx.tenant_id}:{key}"
+        await server.kv_delete(full_key)
+        return {"status": "ok", "deleted": key}
+
+    @mcp.tool()
+    @audited(redact_keys)
+    async def kv_scan(pattern: str = "*", limit: int = 100) -> dict[str, Any]:
+        """Scan Dragonfly KV keys."""
+        require_scope(SCOPE)
+        ctx = get_tenant()
+        full_pattern = f"{ctx.tenant_id}:{pattern}"
+        resp = await server.kv_scan(full_pattern, limit)
+        return {"pattern": pattern, "keys": resp.get("keys", []), "count": resp.get("count", 0)}
+
+    # ── Graph ──
+
+    @mcp.tool()
+    @audited(redact_keys)
+    async def graph_query(concept: str | None = None, relation: str | None = None) -> dict[str, Any]:
+        """Query graph nodes and edges. concept filters by label, relation filters edges by rel_type."""
         require_scope(SCOPE)
         ctx = get_tenant()
         graph = f"ontology_{ctx.tenant_id}"
-        nodes_resp = await server.graph_query_nodes(graph, ctx.tenant_id)
+        nodes_resp = await server.graph_query_nodes(graph, ctx.tenant_id, label=concept)
         nodes = nodes_resp.get("nodes", [])
         edges = []
         for n in nodes:
             edges_resp = await server.graph_query_edges(graph, n["node_id"], ctx.tenant_id)
-            edges.extend(edges_resp.get("edges", []))
+            node_edges = edges_resp.get("edges", [])
+            if relation:
+                node_edges = [e for e in node_edges if e.get("rel_type") == relation]
+            edges.extend(node_edges)
         return {"nodes": nodes, "edges": edges}
 
     @mcp.tool()

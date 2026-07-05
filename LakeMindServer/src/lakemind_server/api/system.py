@@ -24,4 +24,10 @@ async def nodes(request: Request):
 
 @router.get("/metrics")
 async def metrics(request: Request):
-    return {"message": "metrics endpoint placeholder"}
+    engines = request.app.state.engines
+    health = engines.all_health()
+    return {
+        "engines": health,
+        "healthy_count": sum(1 for v in health.values() if v),
+        "total_count": len(health),
+    }

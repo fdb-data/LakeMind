@@ -51,3 +51,13 @@ def register(mcp, server: ServerClient, redact_keys: list[str]) -> None:
         edge_id = f"e_{uuid.uuid4().hex[:8]}"
         await server.graph_add_edge(graph, edge_id, concept, target, relation, {}, ctx.tenant_id)
         return {"concept": concept, "relation": relation, "target": target, "edge_id": edge_id}
+
+    @mcp.tool()
+    @audited(redact_keys)
+    async def delete_ontology(concept: str) -> dict[str, Any]:
+        """删除概念节点及其关联边。"""
+        require_scope(SCOPE)
+        ctx = get_tenant()
+        graph = f"ontology_{ctx.tenant_id}"
+        await server.graph_delete_node(graph, concept, ctx.tenant_id)
+        return {"status": "ok", "deleted": concept}

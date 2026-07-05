@@ -105,6 +105,13 @@ def register(mcp, server: ServerClient, redact_keys: list[str]) -> None:
 
     @mcp.tool()
     @audited(redact_keys)
+    async def list_asset_types() -> dict[str, Any]:
+        """List all registered asset types."""
+        require_scope(SCOPE)
+        return await server.asset_type_list()
+
+    @mcp.tool()
+    @audited(redact_keys)
     async def get_platform_health() -> dict[str, Any]:
         """Check platform health."""
         require_scope(SCOPE)
@@ -116,3 +123,10 @@ def register(mcp, server: ServerClient, redact_keys: list[str]) -> None:
         """Get service node status."""
         require_scope(SCOPE)
         return await server.nodes()
+
+    @mcp.tool()
+    @audited(redact_keys)
+    async def get_metrics() -> dict[str, Any]:
+        """Get platform metrics (engine health summary)."""
+        require_scope(SCOPE)
+        return await server.metrics()

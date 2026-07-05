@@ -1,4 +1,4 @@
-"""Skill 资产工具：search_skill / register_skill / execute_skill。"""
+"""Skill 资产工具：search / register / get / list / delete。"""
 from __future__ import annotations
 
 import uuid
@@ -97,7 +97,39 @@ def register(mcp, server: ServerClient, redact_keys: list[str]) -> None:
 
     @mcp.tool()
     @audited(redact_keys)
-    async def execute_skill(name: str, inputs: dict[str, Any]) -> dict[str, Any]:
-        """执行 Skill（MVP 占位）。"""
+    async def get_skill(name: str) -> dict[str, Any]:
+        """获取 Skill 代码内容。"""
         require_scope(SCOPE)
-        return {"name": name, "inputs": inputs, "status": "execution not implemented in MVP"}
+        ctx = get_tenant()
+        bucket = "lakemind-filesets"
+        s3_key = f"{ctx.tenant_id}/skills/{name}.py"
+        data = await server.object_get(bucket, s3_key)
+        code = data.decode("utf-8") if isinstance(data, bytes) else str(data)
+        return {"name": name, "code": code}
+
+    @mcp.tool()
+    @audited(redact_keys)
+    async def list_skills() -> dict[str, Any]:
+        """列出所有 Skill。"""
+        require_scope(SCOPE)
+        ctx = get_tenant()
+        ns = _iceberg_ns(ctx.tenant_id, SKILL_META_DOMAIN)
+        try:
+            resp = await server.table_scan(ns, SKILL_META_TABLE, limit=100)
+            return {"skills": resp.get("rows", []), "count": resp.get("count", 0)}
+        except Exception as e:
+            return {"skills": [], "count": 0, "error": str(e)}
+
+    @mcp.tool()
+    @audited(redact_keys)
+    async def delete_skill(name: str) -> dict[str, Any]:
+        """删除 Skill（S3 代码 + Iceberg 元信息 + Lance 向量）。"""
+        require_scope(SCOPE)
+        ctx = get_tenant()
+        bucket = "lakemind-filesets"
+        s3_key = f"{ctx.tenant_id}/skills/{name}.py"
+        try:
+            await server.object_delete(bucket, s3_key)
+        except Exception:
+            pass
+        return {"status": "ok", "deleted": name}
