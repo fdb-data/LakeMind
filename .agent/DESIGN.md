@@ -1,7 +1,7 @@
-# DESIGN.md — LakeMind 设计规范
+# DESIGN.md — LakeMind 架构设计规范
 
-> 本文件是 LakeMind 项目的架构设计规范，描述系统分层、组件职责、数据流与关键设计决策。
-> 权威来源：`LakeMind MVP阶段技术改造方案.md`（v3，已批准）。
+> 本文件是 LakeMind 的架构设计规范，描述系统分层、组件职责、数据流与关键设计决策。
+> 总文件为 `AGENTS.md`，开发规范见 `.agent/SPEC.md`，当前状态见 `.agent/STATE.md`。
 
 ---
 
@@ -24,11 +24,13 @@
 │  Steward (LangGraph, :8500)         ← 运维 Agent         │
 │  Monitor (Express, :3000)           ← 人类仪表板         │
 └──────────────────────┬──────────────────────────────────┘
-                       │ S3 / PG / Dragonfly
+                       │ REST API / S3 / PG / Dragonfly
 ┌──────────────────────▼──────────────────────────────────┐
 │                    数据平面                               │
-│               LakeMindServer                              │
-│  SeaweedFS (:8333) + PostgreSQL (:5432) + Dragonfly (:6379) │
+│               LakeMindServer (:10823)                     │
+│  REST API + 11 引擎                                       │
+│  SeaweedFS (:8333) · PostgreSQL (:5432) · Dragonfly (:6379) │
+│  Ray (:8265, 3 节点 12 CPU) · fastembed · LLM Gateway    │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -37,23 +39,35 @@
 | 层 | 职责 | 面向 |
 |----|------|------|
 | **Data 层** | 多模态数据底座。透传，不做语义解释。数据是什么、存哪、怎么读写。 | Steward / 高级 Agent |
-| **Asset 层** | 面向 Agent 认知模型的语义封装。声明式 YAML 定义，预置 4 类，可删可扩。 | 业务 Agent |
+| **Asset 层** | 面向 Agent 认知模型的语义封装。预置 4 类资产，声明式 YAML 可扩展。 | 业务 Agent |
 
 ### 1.3 三 MCP 职责划分
 
-| MCP | 端口 | Scope | 面向 | 职责 | 工具数 |
-|-----|------|-------|------|------|--------|
-| AssetMCP | 8401 | `asset` | 业务 Agent | 4 类默认资产 + 声明式自定义资产 | 11 |
-| DataMCP | 8402 | `data` | Steward / 高级 Agent | Data 层全量透传 | 13 |
-| AdminMCP | 8403 | `admin` | Steward | 用户/租户/Token/资产类型/健康 | 15 |
+| MCP | 端口 | Scope | 面向 | 职责 | Tools | Prompts | Resources |
+|-----|------|-------|------|------|-------|---------|-----------|
+| AssetMCP | 8401 | `asset` | 业务 Agent | 知识/记忆/技能/本体 | 23 | 6 | 11 |
+| DataMCP | 8402 | `data` | Steward / 高级 Agent | Data 层全量透传 | 18 | 2 | 6 |
+| AdminMCP | 8403 | `admin` | Steward | 用户/租户/Token/健康 | 17 | 2 | 6 |
 
-> 拆分为 3 个独立 MCP 的理由：独立部署、独立扩缩容、避免单点故障、职责清晰。
+> **MCP 三要素**：每个 MCP 都有 Tools（操作）+ Resources（只读浏览）+ Prompts（使用指南）。
+> 合计：58 tools, 10 prompts, 23 resources。
 
 ---
 
 ## 2. 数据平面设计
 
-### 2.1 统一 Metadata Hub：PostgreSQL 16
+### 2.1 LakeMindServer REST API
+
+REST API 端口 `:10823`，40+ 路径，11 引擎。认证方式：
+
+```
+Authorization: Bearer lakemind-internal-api-key
+X-Tenant-Id: retail
+X-Agent-Id: agent-001
+X-Scopes: asset,data,admin
+```
+
+### 2.2 统一 Metadata Hub：PostgreSQL 16
 
 **一个数据库技术栈，一个 PostgreSQL 实例**，承载全部结构化元数据：
 
@@ -64,89 +78,108 @@
 | 用户/租户 | 普通 PG 表 | `tenants`, `users` |
 | Token 管理 | PG 表 | `tokens` |
 | 资产定义 | PG 表 | `asset_types` |
+| 记忆变更历史 | PG 表 | `memory_history` |
 
 > **设计决策**：移除 Gravitino（JVM，H2），用 PostgreSQL 直接作为 PyIceberg SQL catalog。
-> 少一个 JVM 服务，启动更快，资源更省，技术栈更简。
-> AGE 图扩展因编译超时暂用 PG 原生表替代，功能等价。
+> AGE 图扩展因编译超时用 PG 原生表替代，功能等价。
 
-### 2.2 引擎与存储映射
+### 2.3 引擎清单（11 个）
 
-| 数据形态 | 引擎 | 物理存储 | 用途 |
-|----------|------|----------|------|
-| 结构化表 | Apache Iceberg | S3 数据文件 + PG catalog | 数据集、元信息小表 |
-| 向量/多模态 | PyLance + LanceDB | S3 + 共享 Lance 目录 | 知识库向量、语义检索 |
-| 图/本体 | PG graph_nodes/edges | PostgreSQL | 概念体系、实体关系 |
-| 文件 | S3 原生 | SeaweedFS | Skill 代码、文档原文 |
-| 短期 KV | Dragonfly | 内存 (TTL) | 工作记忆、会话缓存 |
-| 即席计算 | DuckDB | 进程内 | 跨表 SQL、Parquet 直读 |
+| 引擎 | 插件名 | 用途 | 状态 |
+|------|--------|------|------|
+| 对象存储 | `seaweedfs` | S3 兼容文件存储 | ✅ |
+| 表格式 | `iceberg` | 结构化数据（PG catalog） | ✅ |
+| 向量 | `lancedb` | 向量索引、语义检索 | ✅ |
+| KV 缓存 | `dragonfly` | TTL KV（Redis 兼容） | ✅ |
+| 图 | `postgres_graph` | PG 原生表 graph_nodes/edges | ✅ |
+| 元数据 | `postgres` | 用户/租户/Token/资产类型 | ✅ |
+| SQL | `duckdb` | 即席计算、Parquet 直读 | ✅ |
+| 分布式计算 | `ray` | 3 节点 12 CPU，7 任务类型 | ✅ |
+| Embedding | `fastembed` | BAAI/bge-small-en-v1.5, dim=384 | ✅ |
+| 记忆 | `basic` | mem0 风格 8 方法 + LLM 事实抽取 | ✅ |
+| LLM 网关 | `gateway` | GatewayLLM 路由多 provider | ✅ |
 
-### 2.3 容器清单
+### 2.4 容器清单（12 个）
 
-| 容器 | 镜像 | 端口 | 状态 |
+| 容器 | 镜像 | 端口 | 用途 |
 |------|------|------|------|
-| seaweedfs | chrislusf/seaweedfs:latest | 8333 (S3) | ✅ 运行 |
-| postgres | lakemind/postgres-age:16 | 5432 | ✅ 运行 |
-| dragonfly | dragonflydb/dragonfly:latest | 6379 | ✅ 运行 |
-| ray-head | rayproject/ray:2.41.0-py3.12 | 8265 | ⏭️ profile=ray，默认不启动 |
-| ray-worker | rayproject/ray:2.41.0-py3.12 | — | ⏭️ ×2，默认不启动 |
+| server-api | lakemind/server-api | 10823 | REST API + 11 引擎 |
+| postgres | lakemind/postgres-age:16 | 5432 | Metadata Hub |
+| seaweedfs | chrislusf/seaweedfs:latest | 8333 | S3 对象存储 |
+| dragonfly | dragonflydb/dragonfly:latest | 6379 | TTL KV 缓存 |
+| ray-head | rayproject/ray:2.41.0-py3.12 | 8265 | Ray 主节点 |
+| ray-worker-1 | rayproject/ray:2.41.0-py3.12 | — | Ray 工作节点 |
+| ray-worker-2 | rayproject/ray:2.41.0-py3.12 | — | Ray 工作节点 |
+| asset-mcp | lakemind/asset-mcp | 8401 | 资产面 MCP |
+| data-mcp | lakemind/data-mcp | 8402 | 数据面 MCP |
+| admin-mcp | lakemind/admin-mcp | 8403 | 管理面 MCP |
+| steward | lakemind/steward | 8500 | 运维 Agent |
+| monitor | lakemind/monitor | 3000 | 人类仪表板 |
 
-### 2.4 数据域 → 引擎映射
+### 2.5 数据域 → 引擎映射
 
 | 数据域 | 引擎 | 资源 URI | MCP |
 |--------|------|----------|-----|
 | 结构化数据 | Iceberg + PG catalog | DataMCP 透传 | DataMCP |
-| 知识/多模态 RAG | Lance + LanceDB | `lake://knowledge` | AssetMCP |
+| 知识/多模态 RAG | Lance + LanceDB（OKF 格式） | `lake://knowledge` | AssetMCP |
 | 短期/工作记忆 | Dragonfly (TTL KV) | `lake://memory` | AssetMCP |
-| 长期/语义记忆 | Lance 向量 + Iceberg 小表 | `lake://memory` | AssetMCP |
-| Skills | S3 + Iceberg + LanceDB | `lake://skills` | AssetMCP |
+| 长期/语义记忆 | Lance 向量 + PG 元信息（mem0 风格） | `lake://memory` | AssetMCP |
+| Skills | S3 + PG + LanceDB（不执行） | `lake://skills` | AssetMCP |
 | 本体/图 | PG graph_nodes/edges | `lake://ontology` | AssetMCP |
 
-> **长期记忆双表设计**：Lance 向量表 + Iceberg 元信息小表，通过 `lance_uri` 字段关联。
-> 这是方案明确约定的模式，**不要合并成单表**。
+> **长期记忆双表设计**：Lance 向量表 + PG 元信息小表，通过 `lance_uri` 字段关联，不合并成单表。
 
 ---
 
 ## 3. 资产层设计
 
-### 3.1 声明式资产定义
-
-自定义资产**不写代码**，用 YAML 声明：schema 是什么、什么格式存、什么引擎算。
-
-```yaml
-type: my_rag
-description: "产品文档 RAG"
-resource_root: "lake://my_rag"
-capabilities: [search, ingest]
-
-storage:
-  vector:
-    engine: lancedb
-    schema: { doc_id: string, content: string, vector: float32[384] }
-  metadata:
-    engine: iceberg
-    schema: { kb_id: string, name: string, created_at: timestamp }
-
-operations:
-  search:
-    engine: vector_topk        # 预置引擎模式
-    params: [query, top_k=5]
-  ingest:
-    engine: embed_and_write
-    params: [documents]
-
-embedding: default
-```
-
-### 3.2 默认 4 类资产
+### 3.1 默认 4 类资产
 
 | 资产 | 能力 | 存储 | 工具 |
 |------|------|------|------|
-| **Knowledge** | search, ingest | LanceDB 向量 + Iceberg 元信息 | `search_knowledge`, `ingest_knowledge`, `register_knowledge` |
-| **Skills** | search, execute | S3 代码 + Iceberg 元信息 + LanceDB 向量 | `search_skill`, `register_skill`, `execute_skill` |
-| **Memory** | remember, recall, forget | Dragonfly 短期 + Lance 长期 + Iceberg 元信息 | `remember`, `recall`, `forget` |
-| **Ontology** | query, update | PG graph_nodes/edges | `query_ontology`, `update_ontology` |
+| **Knowledge** | search, ingest, register, get, list, list_concepts, delete | LanceDB 向量 + S3 .md 文件 + PG 图 | 7 tools |
+| **Skills** | search, register, get, list, delete | S3 代码 + PG 元信息 + LanceDB 向量 | 5 tools |
+| **Memory** | add, search, get, list, update, delete, clear, history | Dragonfly 短期 + Lance 长期 + PG 历史 | 8 tools |
+| **Ontology** | query, update, delete | PG graph_nodes/edges | 3 tools |
 
-### 3.3 资产扩展机制
+### 3.2 OKF 知识格式（Open Knowledge Format）
+
+```markdown
+---
+title: 概念标题
+type: Table
+kb: knowledge-base-name
+concepts: [concept1, concept2]
+links: [../other/concept.md]
+---
+
+# 正文内容
+
+markdown body...
+```
+
+- YAML frontmatter 存元信息，markdown body 存正文。
+- 交叉链接通过正则解析，存入 PG graph_edges。
+- S3 存 .md 文件，LanceDB 对 body 做向量索引。
+
+### 3.3 mem0 风格记忆
+
+8 方法，LLM 事实抽取 + 哈希去重：
+
+| 方法 | 说明 |
+|------|------|
+| `add(messages)` | LLM 抽取事实 → 哈希去重 → Lance 向量写入 + PG 元信息 |
+| `search(query)` | 混合检索：Lance 语义 + Dragonfly 关键词 |
+| `get(memory_id)` | 取单条记忆 |
+| `list_all(filters)` | 列表（支持过滤） |
+| `update(memory_id, content)` | 更新内容 + 记录变更历史 |
+| `delete(memory_id)` | 删除 |
+| `clear()` | 清空当前 Agent/Tenant 的全部记忆 |
+| `history(memory_id)` | 查看变更历史（PG memory_history 表） |
+
+> LLM 事实抽取是"智能存储"而非"执行"——LLM 网关是内部平台能力，不通过 MCP 暴露。
+
+### 3.4 声明式资产扩展
 
 ```
 assets/
@@ -161,7 +194,6 @@ assets/
 
 - **添加**：写 YAML → 放 `extension/` 或 AdminMCP `register_asset_type(yaml)` → AssetMCP 热加载
 - **删除**：AdminMCP `unregister_asset_type(type)` → 仅删定义，不删底层数据
-- **自定义引擎**：`engine: custom` + `handler: module.path`（逃生通道，MVP 不强制）
 
 ---
 
@@ -172,25 +204,38 @@ assets/
 ```
 AssetMCP (:8401)
 ├── 认证：Bearer Token, scope=asset
-├── 资产注册表（从 PG + YAML 加载）
-├── 嵌入式引擎（PyIceberg / LanceDB / fastembed / Dragonfly / PG graph）
-├── 11 tools: search/ingest/register_knowledge, search/register/execute_skill,
-│              remember/recall/forget, query/update_ontology
-└── 7 resources: capabilities, workspace, system/health, knowledge, skills, memory, ontology
+├── 23 tools:
+│   ├── knowledge: register, ingest, search, get, list, list_concepts, delete (7)
+│   ├── memory: add, search, get, list, update, delete, clear, history (8)
+│   ├── skill: search, register, get, list, delete (5)
+│   └── ontology: query, update, delete (3)
+├── 11 resources: capabilities, workspace, knowledge, knowledge/{kb}/{id},
+│                 skills, skills/{name}, memory, memory/{id},
+│                 ontology, ontology/{concept}
+├── 6 prompts: search_knowledge_guide, okf_concept_guide, register_skill_guide,
+│              add_memory_guide, search_memory_guide, query_ontology_guide
+└── 无 lake://system/health（健康属于 AdminMCP/DataMCP）
 ```
 
-- fastembed 懒加载（模型在首次 embed() 时下载，不阻塞启动）
-- 无状态，可多副本
+- `execute_skill` 已移除——平台只存取不执行。
+- 无状态，可多副本。
 
 ### 4.2 LakeMindDataMCP（数据面）
 
 ```
 DataMCP (:8402)
 ├── 认证：Bearer Token, scope=data
-├── 全量透传，不做语义包装
-├── 13 tools: data_query/write/sql/list_tables/describe/create_table,
-│              lance_query, s3_get/put, kv_get/set, graph_query/update
-└── 不关心上层，拿到表名/路径就读写
+├── 18 tools:
+│   ├── 表操作: query_table, write_table, sql_query, list_tables, describe_table,
+│   │          create_table, drop_table (7)
+│   ├── 向量: vector_search (1)
+│   ├── S3: s3_get, s3_put, s3_list, s3_delete (4)
+│   ├── KV: kv_get, kv_set, kv_delete, kv_scan (4)
+│   └── 图: graph_query, graph_update (2)
+├── 6 resources: system/health, tables, tables/{ns}/{table},
+│                vectors, vectors/{table}, graph
+├── 2 prompts: sql_query_guide, data_exploration_guide
+└── 全量透传，不做语义包装
 ```
 
 ### 4.3 LakeMindAdminMCP（管理面）
@@ -198,10 +243,16 @@ DataMCP (:8402)
 ```
 AdminMCP (:8403)
 ├── 认证：Bearer Token, scope=admin
-├── 直连 PostgreSQL（psycopg2，无引擎栈）
-├── 15 tools: user CRUD, tenant CRUD, token issue/revoke/list,
-│              register/unregister_asset_type, get_platform_health, get_node_status
-└── 单副本即可（管理操作低频）
+├── 17 tools:
+│   ├── 用户: create_user, get_user, list_users, update_user, delete_user (5)
+│   ├── 租户: create_tenant, get_tenant, list_tenants (3)
+│   ├── Token: issue_token, revoke_token, list_tokens (3)
+│   ├── 资产类型: register_asset_type, unregister_asset_type, list_asset_types (3)
+│   └── 平台: get_platform_health, get_node_status, get_metrics (3)
+├── 6 resources: admin/health, admin/tenants, admin/users,
+│                admin/tokens, admin/asset-types, admin/nodes
+├── 2 prompts: inspect_platform_guide, manage_user_guide
+└── 直连 PostgreSQL（psycopg2，无引擎栈）
 ```
 
 ### 4.4 LakeMindSteward（运维 Agent）
@@ -213,11 +264,8 @@ Steward (:8500)
 │   └── 对话管理：意图识别 → 路由到 3 MCP
 ├── MCP Client（asset + data + admin 三面）
 ├── 端点：POST /chat, POST /inspect, GET /health
-└── 不做降级直连（MCP 自身高可用）
+└── MCP 不可用时降级直连 Server
 ```
-
-> **选 LangGraph 理由**：巡检是典型多步图工作流，状态图 + 条件边天然契合。
-> 内置 state persistence（检查点），巡检中断可恢复。human-in-the-loop 支持。
 
 ### 4.5 LakeMindMonitor（人类仪表板）
 
@@ -230,9 +278,6 @@ Monitor (:3000)
 └── 认证：用平台 Token（配置文件静态）
 ```
 
-> **设计决策**：原方案 Nuxt 3，但 npm install 超时。改用 Express + 静态 HTML，
-> 功能等价，Docker 构建秒级完成。
-
 ### 4.6 LakeMindStudio（开发平面 · 待开发）
 
 ```
@@ -242,15 +287,12 @@ Studio (Tauri 2.0)
 ├── MCP Client（直连 3 MCP）
 ├── 资产设计器：YAML 编辑 + 实时预览 + 一键注册
 ├── MCP 调试台：在线调用工具/资源
-├── Skill 脚手架：模板生成 + 本地沙箱
-└── CI/CD：触发 webhook + 查看状态
+└── Skill 脚手架：模板生成 + 本地沙箱
 ```
 
 ---
 
 ## 5. Token 体系
-
-### 5.1 Token 分配
 
 | Token | Agent | Tenant | Scopes | 接入 |
 |-------|-------|--------|--------|------|
@@ -258,33 +300,30 @@ Studio (Tauri 2.0)
 | `test-steward-token` | steward | platform | `asset, data, admin` | 3 MCP |
 | `test-monitor-token` | monitor | platform | `asset` | AssetMCP (只读) |
 
-### 5.2 Token 生命周期
-
-- 签发：AdminMCP `issue_token(agent_id, tenant_id, scopes)` → 存 PG
+- 签发：AdminMCP `issue_token` → 存 PG
 - 校验：各 MCP AuthMiddleware 校验 Bearer Token + scope
-- 吊销：AdminMCP `revoke_token(token)` → PG 标记 inactive
 - MVP 兼容配置文件静态 Token
 
 ---
 
 ## 6. 并发与性能设计
 
-### 6.1 200 Agent 场景瓶颈分析
+### 6.1 200 Agent 场景
 
-| 瓶颈 | 原因 | 解决方案 |
-|------|------|---------|
-| Iceberg 元数据并发写 | SQLite 文件锁 | → PostgreSQL（已改） |
-| Embedding CPU 密集 | 200 并发 embedding | → Ray actor 批处理（生产阶段） |
-| 大向量检索 | LanceDB 单进程扫描 | → Ray 分布式查询（生产阶段） |
-| MCP 单进程 | 单实例吞吐上限 | → 每类 MCP 多副本 + 负载均衡 |
-| Lance 并发写 | 多进程写同一目录 | → 写操作走 Ray actor 串行化 |
+| 瓶颈 | 解决方案 |
+|------|---------|
+| Iceberg 元数据并发写 | PostgreSQL（已实现） |
+| Embedding CPU 密集 | Ray actor 批处理（已实现） |
+| 大向量检索 | Ray 分布式查询（已实现） |
+| MCP 单进程 | 每类 MCP 多副本 + 负载均衡（生产阶段） |
+| Lance 并发写 | 写操作走 Ray actor 串行化 |
 
-### 6.2 MVP 策略
+### 6.2 当前策略
 
-- 嵌入式引擎在 MCP 进程内运行，单机 CPU 够用
-- fastembed ONNX CPU ~2ms/text
-- PostgreSQL 连接池（每 MCP 实例 10 连接）
-- 生产阶段引入 Ray + MCP 多副本 + Nginx 负载均衡
+- 嵌入式引擎在 Server 进程内运行，MCP 通过 REST API 调用。
+- Ray 3 节点 12 CPU 已实现，重计算提交 Ray。
+- fastembed ONNX CPU ~2ms/text。
+- PostgreSQL 连接池。
 
 ---
 
@@ -295,22 +334,22 @@ Studio (Tauri 2.0)
 3. **计算与引擎分离** — 引擎适配层可替换，计算可走嵌入式或 Ray
 4. **Agent 直连引擎** — 经 MCP 代理，无额外 API 层
 
-> 新增组件或 API 层时应对照这四条判断是否偏离设计。
-
 ---
 
 ## 8. 关键设计决策记录
 
-| 决策 | 理由 | 日期 |
-|------|------|------|
-| PostgreSQL 替代 Gravitino + SQLite | 少一个 JVM 服务，并发安全，技术栈更简 | v3 |
-| 3 MCP 拆分替代单体 | 独立部署、独立扩缩容、避免单点故障 | v3 |
-| 声明式 YAML 替代代码继承 | 用户无需写代码即可扩展资产 | v3 |
-| fastembed 替代 SHA256 | 真实语义检索，ONNX CPU ~2ms | v3 |
-| Express 替代 Nuxt 3 | npm install 超时，Express 构建秒级 | 实施中 |
-| PG 原生表替代 AGE | AGE 编译超时（>20min），原生表功能等价 | 实施中 |
-| mem0 延迟 | 需 LLM 做事实抽取，基础记忆已可用 | v3 |
-| Ray 延迟 | 镜像过大（~2GB），嵌入式引擎足够 MVP | 实施中 |
-| experience 积淀进 memory.kind | 减少资产类型，kind 区分 general/experience/reflection | v3 |
-| Steward 不降级直连 | MCP 自身高可用，各司其职 | v3 |
-| Monitor 无自有 DB | 纯代理层，状态全靠 AdminMCP | v3 |
+| 决策 | 理由 |
+|------|------|
+| PostgreSQL 替代 Gravitino + SQLite | 少一个 JVM 服务，并发安全，技术栈更简 |
+| 3 MCP 拆分替代单体 | 独立部署、独立扩缩容、避免单点故障 |
+| 声明式 YAML 替代代码继承 | 用户无需写代码即可扩展资产 |
+| fastembed 替代 SHA256 | 真实语义检索，ONNX CPU ~2ms |
+| Express 替代 Nuxt 3 | npm install 超时，Express 构建秒级 |
+| PG 原生表替代 AGE | AGE 编译超时，原生表功能等价 |
+| `execute_skill` 移除 | 平台只存取不执行，Agent 自行执行 |
+| Memory 采用 mem0 风格 | LLM 事实抽取 + 哈希去重，智能存储 |
+| Knowledge 采用 OKF 格式 | YAML frontmatter + markdown body，交叉链接存 PG 图 |
+| LLM 网关为内部能力 | 不通过 MCP 暴露，Agent 用自己的 LLM |
+| Ray 已实现 | 3 节点 12 CPU，7 任务类型，12/12 PASS |
+| experience 积淀进 memory.kind | 减少资产类型，kind 区分 general/experience/reflection |
+| Monitor 无自有 DB | 纯代理层，状态全靠 AdminMCP |

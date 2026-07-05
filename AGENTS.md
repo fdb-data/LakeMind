@@ -1,84 +1,110 @@
-# AGENTS.md
+# AGENTS.md — LakeMind AI Agent 协作约定
 
-本仓库为多包（monorepo）结构。平台基础设施已可运行（见 `LakeMindServer`），其余包待实现。
+> 本文件是**总文件**，定义项目结构、技术栈、设计原则与协作约定。
+> 详细设计见 `.agent/DESIGN.md`，开发规范见 `.agent/SPEC.md`，当前状态见 `.agent/STATE.md`。
 
-## 唯一权威文档
+---
 
-**`LakeMind整体技术方案.md`** 是项目的唯一权威技术方案，整合了产品设计、架构决策、开发规范与当前状态。任何架构、组件选型、数据域映射、开发规范的讨论都必须先读它，不要凭名字猜测。
+## 1. 项目定位
 
-其他文档为素材：
-- `多模智能数据湖方案.md`：原始设计文档
-- `LakeMind简介.md`：产品概要
-- `LakeMind多模智能数据湖规划方案.md`：规划方案
+LakeMind 是**认知资产存取平台**（store/retrieve），不是 Agent 执行平台。
+Agent 通过 MCP 检索和存取知识、记忆、技能等认知资产，在自身运行时执行。
 
-文档名为非 ASCII 中文，在 Windows PowerShell 下读写需注意 UTF-8 编码（`[Console]::OutputEncoding = [System.Text.Encoding]::UTF8`），否则会乱码。
-
-## 仓库包结构（五件套）
+## 2. 仓库包结构
 
 | 目录 | 平面 | 职责 | 状态 |
 |------|------|------|------|
-| `LakeMindServer/` | 数据平面 | 存储与计算底座（3 容器 + 验证脚本） | ✅ 已完成 |
-| `LakeMindMCP/` | 运行平面 | Agent 唯一入口，资产编排，全量引擎适配 | 🔨 待开发（P0） |
-| `LakeMindSteward/` | 运行平面 | 管理运维 Agent，对话式管理 + 自主巡检 | 🔨 待开发（P1） |
-| `LakeMindMonitor/` | 运行平面 | 人类只读仪表板 + Steward 对话窗 | 🔨 待开发（P1） |
-| `LakeMindStudio/` | 开发平面 | 资产设计、MCP 调试、Skill 脚手架、CI/CD | 🔨 待开发（P2） |
+| `LakeMindServer/` | 数据平面 | 存储与计算底座（REST API + 11 引擎 + 12 容器） | ✅ 已完成 |
+| `LakeMindAssetMCP/` | 运行平面 | 资产面 MCP（知识/记忆/技能/本体），23 tools | ✅ 已完成 |
+| `LakeMindDataMCP/` | 运行平面 | 数据面 MCP（全量透传），18 tools | ✅ 已完成 |
+| `LakeMindAdminMCP/` | 运行平面 | 管理面 MCP（用户/租户/Token/健康），17 tools | ✅ 已完成 |
+| `LakeMindMCP/` | 运行平面 | 3 MCP 的 docker-compose 编排 | ✅ 已完成 |
+| `LakeMindSteward/` | 运行平面 | 管理运维 Agent（LangGraph 巡检 + 对话） | ✅ 已完成 |
+| `LakeMindMonitor/` | 运行平面 | 人类只读仪表板 + Steward 对话窗（Express） | ✅ 已完成 |
+| `LakeMindStudio/` | 开发平面 | 资产设计、MCP 调试、Skill 脚手架（Tauri） | ❌ 未开始（P2） |
 
-## 访问拓扑（关键决策）
+## 3. 访问拓扑
 
-- **MCP 是 Agent 唯一入口**，全量嵌入式引擎装在 MCP 中。
-- **Steward** 正常走 MCP admin 域，MCP 不可用时降级直连 Server（保留 pyiceberg + duckdb 应急能力）。
-- **Monitor** 全走 MCP（只读），自身极轻，仅装 MCP 客户端 SDK。
-- **Studio** 走 MCP + Git，装 MCP 客户端 + CLI 工具链。
+```
+Agent ──→ AssetMCP (:8401)  ← 资产面（知识/记忆/技能/本体）
+Steward ─→ DataMCP  (:8402)  ← 数据面（透传）
+Steward ─→ AdminMCP (:8403)  ← 管理面（用户/租户/健康）
+Monitor ─→ 3 MCP（只读）+ Steward（chat/inspect）
+Studio  ─→ 3 MCP + Git
+         │
+         ▼
+LakeMindServer (:10823)  ← REST API，11 引擎
+  SeaweedFS · PostgreSQL · Dragonfly · Ray · fastembed · LLM Gateway
+```
 
-## 约定
+- **MCP 是 Agent 唯一入口**，嵌入式引擎在 Server 进程中运行，MCP 通过 REST API 调用。
+- **MCP 三要素**：Tools（操作）+ Resources（只读浏览）+ Prompts（使用指南），每个 MCP 都有全部三要素。
+- **Steward** 走 MCP admin 域，MCP 不可用时降级直连 Server。
+- **Monitor** 全走 MCP（只读），自身极轻。
 
-- `docker-compose` 必须在 `LakeMindServer/` 内运行（`.env`、`config/` 为相对路径）。
-- 平台验证脚本统一放 `LakeMindServer/scripts/`：
-  - `python LakeMindServer/scripts/verify_services.py`（基础集成，依赖 `boto3 redis`）
-  - `python LakeMindServer/scripts/verify_scenario.py`（端到端场景，依赖全量引擎）
-- 跨包依赖只通过 MCP 协议（运行平面）或 S3/Gravitino/Dragonfly 接口（数据平面），不要跨包直连内部存储。
-- 共享 Lance 数据目录 `LakeMindServer/data/lance/`（bind mount）。
+## 4. 技术栈（锁定，不擅自替换）
 
-## 技术栈是固定的，不要擅自替换
+全开源组件（Apache 2.0 / MIT / BSD）：
 
-方案已锁定全开源组件（Apache 2.0 / MIT / BSD）。除非用户明确要求，不要引入替代品或闭源依赖：
+| 组件 | 选型 | 用途 |
+|------|------|------|
+| 对象存储 | **SeaweedFS** | S3 兼容，承载全部数据文件 |
+| 统一元数据 | **PostgreSQL 16** | Iceberg SQL catalog + 图 + 用户/租户/Token（替代 Gravitino） |
+| 表格式 | **Apache Iceberg** | 结构化数据 |
+| 向量/多模态 | **PyLance + LanceDB** | 知识库向量、语义检索（PyPI 包名 `pylance`） |
+| 缓存 | **Dragonfly** | TTL KV（Redis 兼容协议） |
+| 即席计算 | **DuckDB** | 跨表 SQL、Parquet 直读 |
+| 分布式计算 | **Ray 2.41.0** | 3 节点 12 CPU（已实现） |
+| Embedding | **fastembed** | BAAI/bge-small-en-v1.5, dim=384 |
+| LLM 网关 | **GatewayLLM** | 内部能力，路由多 provider（不通过 MCP 暴露） |
+| MCP SDK | **FastMCP** | tools + resources + prompts 三要素 |
+| Agent 框架 | **LangGraph** | Steward 巡检工作流 |
 
-- 存储底座：**SeaweedFS**（S3 兼容）
-- 表格式：**Apache Iceberg**（结构化），**PyLance**（多模态/向量，PyPI 包名是 `pylance` 不是 `lance`）
-- 元数据：**Apache Gravitino**（Iceberg 表 + Fileset 统一编目）
-- 缓存/短期记忆：**Dragonfly**（TTL KV）
-- 计算：**Daft**（嵌入式 DataFrame）；**Ray** 仅生产阶段引入
-- 向量检索：**LanceDB**；即席分析：**DuckDB**
-- 权限审计：**Apache Ranger**，仅生产阶段引入
+> **不引入**：Apache Gravitino（已用 PG 替代）、Apache Ranger（生产阶段）、Trino、Daft。
 
-## MVP 范围约束
-
-- 部署形态：**单机 `docker-compose`**，所有组件容器化。
-- **MVP 不引入**：Ray、Apache Ranger、Trino。遇到"加分布式/权限"类需求时，先确认是否已进入生产阶段。
-- 嵌入式引擎（PyIceberg / PyLance / LanceDB / DuckDB / Daft）在 MCP 进程内运行，不需要独立容器。
-- 长期记忆采用 Lance 向量 + Iceberg 小表双表设计，两表通过 `lance_uri` 字段关联——这是方案明确约定的模式，实现时不要合并成单表。
-
-## 数据域 → 引擎映射（来自方案，勿偏离）
+## 5. 数据域 → 引擎映射
 
 | 数据域 | 引擎 | MCP 资产 |
 |--------|------|---------|
-| 结构化数据 | Iceberg + Gravitino | `lake://data` |
-| 知识 / 多模态 RAG | Lance + LanceDB，Gravitino Fileset | `lake://knowledge` |
+| 结构化数据 | Iceberg + PG catalog | DataMCP 透传 |
+| 知识 / 多模态 RAG | Lance + LanceDB（OKF 格式） | `lake://knowledge` |
 | 短期/工作记忆 | Dragonfly（TTL KV） | `lake://memory` |
-| 长期/语义记忆 | Lance 向量 + Iceberg 元信息小表（`lance_uri` 关联） | `lake://memory` |
-| Skills | 文件存 SeaweedFS，元信息存 Iceberg，语义检索走 LanceDB | `lake://skills` |
-| Experience | Iceberg 事件表 | `lake://experience` |
+| 长期/语义记忆 | Lance 向量 + PG 元信息（mem0 风格） | `lake://memory` |
+| Skills | S3 + PG + LanceDB（不执行） | `lake://skills` |
+| 本体/图 | PG graph_nodes/edges | `lake://ontology` |
 
-## 设计原则（不可偏离）
+## 6. 设计原则（不可偏离）
 
-1. 统一存储底座
-2. 统一元数据
-3. 计算与引擎分离
-4. Agent 直连引擎（经 MCP 代理）
+1. **统一存储底座** — SeaweedFS 一个对象存储
+2. **统一元数据** — PostgreSQL 一个数据库
+3. **计算与引擎分离** — 引擎可替换，计算可走嵌入式或 Ray
+4. **Agent 直连引擎** — 经 MCP 代理，无额外 API 层
 
-新增组件或 API 层时应对照这四条判断是否偏离设计。
+## 7. 关键设计决策
 
-## 语言与文档约定
+- **`execute_skill` 已移除** — 平台只存取不执行，Agent 自行检索技能代码并在自身运行时执行。
+- **Memory 采用 mem0 风格** — 8 方法（add/search/get/list/update/delete/clear/history），LLM 事实抽取 + 哈希去重。
+- **Knowledge 采用 OKF 格式** — YAML frontmatter + markdown body，交叉链接存 PG 图。
+- **长期记忆双表设计** — Lance 向量表 + PG 元信息小表，通过 `lance_uri` 关联，不合并成单表。
+- **LLM 网关是内部能力** — 不通过 MCP 暴露，Agent 使用自己的 LLM。
 
-- 设计文档为中文。新增的设计说明、架构注释倾向用中文以保持一致；代码标识符用英文。
+## 8. 约定
+
+- `docker-compose` 在各包目录内运行（`.env`、`config/` 为相对路径）。
+- 3 compose 组：`LakeMindServer/`（含 `--profile ray`）、`LakeMindMCP/`（`--profile all`）、`LakeMindMonitor/`。
+- BuildKit 禁用：`$env:DOCKER_BUILDKIT=0`。
+- 跨包依赖只通过 MCP 协议（运行平面）或 REST API / S3 / PG / Dragonfly 接口（数据平面）。
+- 验证脚本放 `scripts/`，主验证脚本 `scripts/verify_three_mcp_v2.py`。
 - 代码不加注释，除非逻辑非显而易见。
+- 设计文档用中文，代码标识符用英文。
+- PowerShell 下读写中文文件名需设置 `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8`。
+
+## 9. 详细文档索引
+
+| 文件 | 内容 |
+|------|------|
+| `.agent/DESIGN.md` | 架构设计规范（三平面、MCP 职责、数据流、设计决策） |
+| `.agent/SPEC.md` | 开发规范（包结构、代码约定、Docker、验证） |
+| `.agent/STATE.md` | 当前状态（进度、容器、验证结果、已知问题） |
+| `docs/` | 发布文档（architecture, api-reference, mcp-tools, etc.） |
+| `reports/` | 验证报告与设计文档 |

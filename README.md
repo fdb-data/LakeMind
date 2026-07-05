@@ -282,5 +282,4 @@ compute:
 ---
 
 ## License
-
-全开源组件（Apache 2.0 / MIT / BSD）。
+本项目遵循：Apache 2.0 协议。

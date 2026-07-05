@@ -118,7 +118,10 @@ def register(mcp, server: ServerClient, redact_keys: list[str]) -> None:
             try:
                 await server.vector_add(db, table, vec_rows)
             except Exception:
-                await server.vector_create(db, table, vec_rows, mode="overwrite")
+                try:
+                    await server.vector_create(db, table, vec_rows, mode="overwrite")
+                except Exception:
+                    pass
 
         return {"kb_name": kb_name, "ingested": ingested}
 
