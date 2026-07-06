@@ -46,14 +46,14 @@
 
 ```
 object_storage:  true   (SeaweedFS)
-tabular:         true   (Iceberg + Gravitino)
+tabular:         true   (Iceberg + PG catalog)
 vector:          true   (LanceDB)
 kv:              true   (Valkey)
 graph:           true   (PostgreSQL)
 metadata:        true   (PostgreSQL)
 sql:             true   (DuckDB)
 distributed:     true   (Ray 2.41.0, 3 nodes, 12 CPU)
-embedding:       true   (fastembed BAAI/bge-small-en-v1.5, dim=384)
+embedding:       true   (fastembed jinaai/jina-embeddings-v2-base-zh, dim=768)
 memory:          true   (BasicMemory)
 ```
 

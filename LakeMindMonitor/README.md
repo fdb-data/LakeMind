@@ -1,44 +1,60 @@
 # LakeMindMonitor
 
-人类只读仪表板 + Steward 对话窗。极轻 Express 应用，无自有 DB，无自有用户系统。
+LakeMind 面向人类的专业可观测性控制台。只读展示 + Steward 对话。
 
 ## 架构
 
 ```
-Express (node:20-alpine)
-├── public/index.html    # 静态页面（Dashboard / Asset / Data / Admin / Chat）
-└── server.js            # API 代理层 → 3 MCP + Steward
+Express BFF (server.js)          # API 代理层 → 3 MCP + Steward
+├── public/                      # Vue 3 + Element Plus 构建产物
+└── frontend/                    # Vue 3 + Vite + Pinia 源码
+    └── src/views/
+        ├── Dashboard.vue        # 系统总览（12容器+11引擎+资产计数）
+        ├── Asset.vue            # 认知资产（知识/技能/记忆/本体）
+        ├── Data.vue             # 数据引擎（Iceberg/向量/S3/KV/图）
+        ├── Admin.vue            # 管理只读（租户/用户/Token/类型/健康）
+        └── Chat.vue             # Steward 对话 + 巡检面板
 ```
+
+## 5 页功能
+
+| 页面 | 功能 |
+|------|------|
+| **Dashboard** | 12 容器状态网格 + 11 引擎健康矩阵 + 资产/数据/平台计数 + 15s 自动刷新 |
+| **Asset** | 4 Tab：知识库（概念数/类型分布）、技能（名称/描述/标签）、记忆（总数/最近条目）、本体（节点/边） |
+| **Data** | 5 Tab：Iceberg 表（schema 描述）、向量表、S3 对象（前缀过滤）、KV（前缀扫描）、图概览 |
+| **Admin** | 5 Tab：租户、用户、Token（脱敏只读）、资产类型、平台健康（引擎+节点）— **无任何写操作** |
+| **Chat** | Steward 对话 UI + 6 快捷指令 + 巡检面板（引擎健康矩阵）+ localStorage 历史 |
 
 ## API 路由
 
-| 路由 | 方法 | 代理目标 | 说明 |
-|------|------|---------|------|
-| `/` | GET | — | 静态页面 |
-| `/api/health` | GET | 4 服务 /health | 平台健康 |
-| `/api/asset/capabilities` | GET | AssetMCP resources/read | 资产能力图 |
-| `/api/asset/knowledge` | GET | AssetMCP resources/read | 知识库列表 |
-| `/api/asset/skills` | GET | AssetMCP resources/read | 技能列表 |
-| `/api/asset/memory` | GET | AssetMCP resources/read | 记忆概况 |
-| `/api/asset/ontology` | GET | AssetMCP resources/read | 本体列表 |
-| `/api/data/tables` | GET | DataMCP tools/call | 表列表 |
-| `/api/admin/health` | GET | AdminMCP tools/call | 平台健康详情 |
-| `/api/admin/tenants` | GET | AdminMCP tools/call | 租户列表 |
-| `/api/admin/users` | GET | AdminMCP tools/call | 用户列表 |
-| `/api/admin/tokens` | GET | AdminMCP tools/call | Token 列表 |
-| `/api/chat` | POST | Steward /chat | 对话 |
-| `/api/inspect` | POST | Steward /inspect | 巡检 |
+| 路由 | 方法 | 说明 |
+|------|------|------|
+| `/api/dashboard/overview` | GET | 聚合端点：容器+引擎+资产+数据+平台 |
+| `/api/asset/*` | GET | 认知资产（knowledge/skills/memory/ontology） |
+| `/api/data/*` | GET | 数据引擎（tables/vectors/s3/kv/graph） |
+| `/api/admin/*` | GET | 管理只读（health/nodes/metrics/tenants/users/tokens/asset-types） |
+| `/api/chat` | POST | Steward 对话代理 |
+| `/api/inspect` | POST | Steward 巡检代理 |
+| `/api/steward/health` | GET | Steward 连通性检测 |
 
 ## 启动
 
 ```bash
+# 前端构建（本地）
+cd LakeMindMonitor/frontend && npm install && npm run build
+cp -r dist/* ../public/
+
+# 容器启动
 cd LakeMindMonitor && docker compose up -d --build
 ```
 
 访问 http://localhost:3000
 
-## 验证
+## 技术栈
 
-```bash
-python scripts/verify_monitor.py   # 18/18 PASS
-```
+| 层 | 选型 |
+|----|------|
+| BFF | Express + node:20-alpine |
+| 前端 | Vue 3 + Vite + Element Plus + Pinia + vue-router |
+| 主题 | 深色主题（GitHub Dark 风格） |

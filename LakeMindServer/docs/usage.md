@@ -1,5 +1,7 @@
 # 使用手册
 
+> **⚠️ 部分内容过期**：本文档仍包含 Apache Gravitino 使用说明。Gravitino 已被 PostgreSQL 16 替代（PG SQL catalog + PG 原生图表）。相关内容仅作历史参考。
+
 LakeMindServer 平台的日常操作指南：启动停止、服务访问、数据管理、验证脚本使用。
 
 ---
@@ -334,7 +336,7 @@ python scripts/verify_scenario.py
 | 2 | 知识/文档 RAG | S3 + Lance + LanceDB | 5 | 上传4篇文档→128维向量→LanceDB检索→S3取原文（完整RAG流程） |
 | 3 | 短期记忆 | Valkey | 7 | 会话状态读写→多轮更新→任务锁NX互斥→短期缓存TTL |
 | 4 | 长期记忆 | Lance + Iceberg | 5 | 向量写入→Iceberg元信息小表→双表lance_uri关联→语义检索 |
-| 5 | Skills | S3 + Iceberg + LanceDB | 6 | 技能文件存S3→元信息存Iceberg→LanceDB语义检索→加载代码 |
+| 5 | Skills | S3 + PG + LanceDB | 6 | 技能文件存S3→元信息存PG→LanceDB语义检索→加载代码 |
 
 合计 **29 项**检查，全部通过即代表平台端到端可用。
 

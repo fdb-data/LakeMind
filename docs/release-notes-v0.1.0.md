@@ -1,15 +1,15 @@
 # LakeMind v0.1.0 发布说明
 
-**发布日期**: 2026-07-05  
+**发布日期**: 2026-07-06  
 **代号**: Agent-Native Data Foundation MVP
 
 ---
 
 ## 发布摘要
 
-LakeMind v0.1.0 是首个可用版本，实现了 Agent 原生的多模态智能数据底座的完整 MVP 功能。
+LakeMind v0.1.0 是首个可用版本，实现了认知资产存取平台的完整 MVP 功能。
 
-**235 项测试全部通过，12 个容器全部运行，11 个引擎全部健康。**
+**297 项测试全部通过，12 个容器全部运行，11 个引擎全部健康。**
 
 ---
 
@@ -45,12 +45,18 @@ Ray 2.41 集群（3 节点 12 CPU），支持 7 种分布式任务：
 
 ### 4. Agent MCP 接口
 
-39 个 MCP 工具，3 个独立 MCP 服务：
+58 个 MCP 工具，3 个独立 MCP 服务：
 - **AssetMCP** (23 tools, 11 resources, 6 prompts)：知识 / 技能 / 记忆 / 本体
 - **DataMCP** (18 tools, 6 resources, 2 prompts)：Iceberg / DuckDB / LanceDB / S3 / Valkey / Graph
 - **AdminMCP** (17 tools, 6 resources, 2 prompts)：用户 / 租户 / Token / 资产类型 / 平台健康
 
-### 5. 运维工具
+### 5. 认知资产
+
+- **mem0 风格记忆**：8 方法（add/search/get/list/update/delete/clear/history），LLM 事实抽取 + 哈希去重
+- **OKF 知识格式**：YAML frontmatter + markdown body + PG 图交叉链接
+- **Embedding**：fastembed + jinaai/jina-embeddings-v2-base-zh（dim=768，中英混合）
+
+### 6. 运维工具
 
 - **Steward**：LangGraph 巡检工作流 + 对话管理
 - **Monitor**：人类仪表板 + Steward 对话窗
@@ -60,17 +66,17 @@ Ray 2.41 集群（3 节点 12 CPU），支持 7 种分布式任务：
 ## 快速开始
 
 ```bash
-# 1. 数据平面
+# 1. 数据平面（7 容器）
 cd LakeMindServer && docker compose --env-file .env --profile ray up -d
 
-# 2. 三个 MCP
+# 2. 三个 MCP（3 容器）
 cd LakeMindMCP && docker compose --profile all up -d --build
 
-# 3. Steward + Monitor
+# 3. Steward + Monitor（2 容器）
 cd LakeMindMonitor && docker compose up -d --build
 
 # 4. 验证
-python scripts/verify_api.py    # 104/104 PASS
+python scripts/verify_full.py    # 297/297 PASS
 ```
 
 详见 [快速入门](quickstart.md)。
@@ -97,13 +103,17 @@ python scripts/verify_api.py    # 104/104 PASS
 
 | 套件 | 测试数 | 结果 |
 |------|--------|------|
-| REST API | 104 | ✅ ALL PASS |
-| 三 MCP 联合 | 22 | ✅ ALL PASS |
-| 全量功能 | 69 | ✅ ALL PASS |
-| Monitor | 18 | ✅ ALL PASS |
-| Ray 分布式 | 12 | ✅ ALL PASS |
-| LLM 网关 | 10 | ✅ ALL PASS |
-| **合计** | **235** | **✅ ALL PASS** |
+| L0 容器健康 | 12 | ✅ ALL PASS |
+| L1 引擎健康 | 12 | ✅ ALL PASS |
+| L2 REST API | 65 | ✅ ALL PASS (1 SKIP) |
+| L3 AssetMCP | 73 | ✅ ALL PASS |
+| L4 DataMCP | 50 | ✅ ALL PASS |
+| L5 AdminMCP | 51 | ✅ ALL PASS |
+| L6 MCP 安全 | 11 | ✅ ALL PASS |
+| L7 Steward+Monitor | 8 | ✅ ALL PASS |
+| L8 端到端业务流 | 5 | ✅ ALL PASS |
+| L9 性能基线 | 10 | ✅ ALL PASS |
+| **合计** | **297** | **✅ ALL PASS** |
 
 ---
 
@@ -113,6 +123,7 @@ python scripts/verify_api.py    # 104/104 PASS
 |------|------|------|
 | 动态 Token 不跨 MCP | MVP 使用静态 Token | v0.2 |
 | Steward 未接 LLM | 关键词匹配 | v0.2 |
+| Steward 无 MCP 降级 | MCP 不可用时无 fallback | v0.2 |
 | LakeMindStudio 未开发 | 无桌面客户端 | v0.3 |
 | 流式响应未支持 | LLM chat 同步 | v0.2 |
 | per-tenant 模型配置 | 全局模型 | v0.2 |
@@ -126,7 +137,7 @@ python scripts/verify_api.py    # 104/104 PASS
 | [快速入门](quickstart.md) | 从零启动 LakeMind |
 | [架构设计](architecture.md) | 两层模型、三 MCP、三大引擎 |
 | [API 参考](api-reference.md) | REST API 40+ 端点 |
-| [MCP 工具](mcp-tools.md) | 39 个工具详细说明 |
+| [MCP 工具](mcp-tools.md) | 58 个工具详细说明 |
 | [配置参考](configuration.md) | engines.yaml 引擎切换 |
 | [部署运维](deployment.md) | 容器管理、故障排查 |
 | [变更日志](changelog.md) | 版本变更记录 |

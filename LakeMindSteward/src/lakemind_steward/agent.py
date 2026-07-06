@@ -11,7 +11,7 @@ INTENTS = [
     (["租户", "tenant"], "admin", "list_tenants", {}),
     (["token", "令牌"], "admin", "list_tokens", {}),
     (["资产", "asset", "能力", "capability"], "asset", "__read_capabilities__", {}),
-    (["数据", "data", "表", "table"], "data", "data_list_tables", {}),
+    (["数据", "data", "表", "table"], "data", "list_tables", {}),
     (["知识", "knowledge"], "asset", "__read_knowledge__", {}),
     (["技能", "skill"], "asset", "__read_skills__", {}),
     (["记忆", "memory"], "asset", "__read_memory__", {}),
@@ -72,7 +72,7 @@ async def inspect(mcp: McpClient) -> dict[str, Any]:
 
     async def analyze(state: dict) -> dict:
         health = state.get("health", {})
-        issues = [k for k, v in health.items() if v != "ok"]
+        issues = [k for k, v in health.items() if v is not True and v != "ok"]
         state["issues"] = issues
         state["healthy"] = len(issues) == 0
         return state

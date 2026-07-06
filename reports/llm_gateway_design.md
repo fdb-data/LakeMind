@@ -11,7 +11,7 @@
 
 | 能力 | 现状 | 问题 |
 |------|------|------|
-| Embedding | fastembed 本地 ONNX（BAAI/bge-small-en-v1.5, dim=384） | 仅英文，无法用外部模型 |
+| Embedding | fastembed 本地 ONNX（jinaai/jina-embeddings-v2-base-zh, dim=768） | 中英混合，无法用外部模型 |
 | LLM 对话 | Steward `provider: "simple"` 关键词匹配 | 无真实 LLM 推理能力 |
 | mem0 记忆 | 延迟 | 依赖 LLM 做事实抽取 |
 | MCP 工具 | 39 个工具无 LLM 调用 | 无法做智能分析、生成 |
@@ -447,7 +447,7 @@ class OllamaProvider:
 | 统一存储底座 | 不涉及存储，纯推理网关 |
 | 统一元数据 | 模型配置在 engines.yaml，不引入新元数据 |
 | 计算与引擎分离 | LLM 推理作为 cognitive 引擎，与存储/计算分离 |
-| Agent 直连引擎（经 MCP 代理） | Steward/MCP → REST API → GatewayLLM → Provider |
+| MCP 通过 REST API 调用 | Steward/MCP → REST API → GatewayLLM → Provider |
 | 插件可替换 | `plugin: gateway` 可换 `plugin: openai_compat` 直连单 provider |
 | 不引入闭源依赖 | httpx 调用外部 API，不引入 SDK；Ollama 开源 |
 

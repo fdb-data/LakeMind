@@ -1,5 +1,7 @@
 # 配置手册
 
+> **⚠️ 部分内容过期**：本文档仍包含 Apache Gravitino 相关配置。Gravitino 已被 PostgreSQL 16 替代（PG SQL catalog）。相关内容仅作历史参考。
+
 LakeMindServer 全部配置文件的说明与调优指引。
 
 ---

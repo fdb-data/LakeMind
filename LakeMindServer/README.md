@@ -49,7 +49,7 @@ python scripts/verify_scenario.py
 | 知识/文档 RAG | S3 + Lance + LanceDB | 上传文档→向量化→语义检索→S3取原文 |
 | 短期记忆 | Valkey | 会话状态→多轮更新→任务锁(NX)→缓存 |
 | 长期记忆 | Lance + Iceberg | 向量写入→元信息小表→双表lance_uri关联→语义检索 |
-| Skills | S3 + Iceberg + LanceDB | 技能文件存储→元信息编目→语义检索→加载代码 |
+| Skills | S3 + PG + LanceDB | 技能文件存储→元信息编目→语义检索→加载代码 |
 
 ## 文档
 

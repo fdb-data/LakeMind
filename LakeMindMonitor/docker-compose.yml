@@ -25,6 +25,12 @@ services:
       - ../LakeMindSteward/config:/etc/lakemind:ro
     networks: [lakemind]
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8500/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   # ── Monitor — 人类只读仪表板 + Steward 对话窗 ──
   monitor:
@@ -35,11 +41,19 @@ services:
       DATA_MCP_URL: "http://lakemind-data-mcp:8402/mcp"
       ADMIN_MCP_URL: "http://lakemind-admin-mcp:8403/mcp"
       STEWARD_URL: "http://lakemind-steward:8500"
-      ASSET_TOKEN: "test-monitor-token"
+      ASSET_TOKEN: "test-business-token"
+      DATA_TOKEN: "test-steward-token"
       ADMIN_TOKEN: "test-steward-token"
     ports:
       - "3000:3000"
     networks: [lakemind]
     restart: unless-stopped
     depends_on:
-      - steward
+      steward:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/api/health').then(r=>{if(!r.ok)process.exit(1)})\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s

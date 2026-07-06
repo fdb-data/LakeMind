@@ -1,8 +1,8 @@
 {
   "name": "lakemind-monitor",
   "private": true,
-  "version": "1.0.0",
-  "description": "LakeMind Monitor — lightweight Express dashboard",
+  "version": "0.1.0",
+  "description": "LakeMind Monitor — Express BFF + Vue 3 dashboard",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

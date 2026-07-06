@@ -248,7 +248,7 @@ class EmbeddingPlugin(Protocol):
     def health(self) -> bool: ...
 ```
 
-**基线实现**：`FastEmbedPlugin`（ONNX + BAAI/bge-small-en-v1.5）
+**基线实现**：`FastEmbedPlugin`（ONNX + jinaai/jina-embeddings-v2-base-zh, dim=768）
 **可插拔实现**：`ExternalEmbeddingPlugin`（OpenAI 兼容 API）、`TEIEmbeddingPlugin`（HuggingFace TEI）
 
 #### 3.2.10 Memory — 记忆引擎
@@ -264,7 +264,7 @@ class MemoryPlugin(Protocol):
     def health(self) -> bool: ...
 ```
 
-**基线实现**：`BasicMemory`（Valkey 短期 + Lance 长期 + Iceberg 元信息）
+**基线实现**：`BasicMemory`（Valkey 短期 + Lance 长期 + PG 元信息，mem0 风格 8 方法）
 **可插拔实现**：`Mem0Memory`（事实抽取 + 合并去重 + 实体图谱）
 
 ---
@@ -530,7 +530,7 @@ cognitive:
   embedding:
     plugin: fastembed          # fastembed | external | tei
     config:
-      model: "BAAI/bge-small-en-v1.5"
+      model: "jinaai/jina-embeddings-v2-base-zh"
       dim: 384
     # 切换到外部 API：
     # plugin: external
@@ -546,7 +546,7 @@ cognitive:
     config:
       short_term_engine: kv    # 复用 storage.kv
       long_term_engine: vector # 复用 storage.vector
-      metadata_engine: tabular # 复用 storage.tabular
+      metadata_engine: metadata  # 复用 storage.metadata（PG）
     # 切换到 mem0：
     # plugin: mem0
     # config:
@@ -637,7 +637,7 @@ LakeMindServer REST API (:10823)
 ├── storage.metadata  → PG 表 tenants/users/tokens/asset_types
 ├── compute.sql       → DuckDB (进程内)
 ├── compute.dist      → Embedded (同步)
-├── cognitive.embed   → fastembed (BAAI/bge-small-en-v1.5, dim=384)
+├── cognitive.embed   → fastembed (jinaai/jina-embeddings-v2-base-zh, dim=768)
 └── cognitive.memory  → Basic (Valkey + Lance + Iceberg)
 ```
 

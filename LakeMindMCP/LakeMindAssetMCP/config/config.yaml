@@ -1,0 +1,24 @@
+server:
+  host: "0.0.0.0"
+  port: 8401
+  mcp_path: "/mcp"
+  stateless: true
+  asset_cache_ttl: 30
+
+tokens:
+  - token: "test-business-token"
+    agent_id: "agent-business-01"
+    tenant_id: "retail"
+    scopes: ["asset"]
+  - token: "test-steward-token"
+    agent_id: "steward"
+    tenant_id: "platform"
+    scopes: ["asset", "data", "admin"]
+  - token: "test-monitor-token"
+    agent_id: "monitor"
+    tenant_id: "platform"
+    scopes: ["asset"]
+
+audit:
+  level: "info"
+  redact_keys: ["token", "api_key", "secret", "password", "content"]

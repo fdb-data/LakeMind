@@ -1,5 +1,7 @@
 # 故障排查手册
 
+> **⚠️ 部分内容过期**：本文档仍包含 Apache Gravitino 故障排查。Gravitino 已被 PostgreSQL 16 替代，相关排查内容仅作历史参考。
+
 LakeMindServer 常见问题的诊断与解决方法。
 
 ---

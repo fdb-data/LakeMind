@@ -62,15 +62,10 @@ docker compose up -d --build
 ## 4. 验证
 
 ```bash
-python scripts/verify_api.py          # 104 REST API 测试
-python scripts/verify_three_mcp.py    # 22 三 MCP 联合
-python scripts/test_full_suite.py     # 69 全量功能
-python scripts/verify_llm.py          # 10 LLM 网关
-python LakeMindServer/scripts/verify_ray.py       # 12 Ray 分布式
-python LakeMindMonitor/scripts/verify_monitor.py  # 18 Monitor
+python scripts/verify_full.py  # L0-L9 全分层验证，297/297 PASS
 ```
 
-期望结果：**235/235 PASS**
+期望结果：**297/297 PASS**
 
 ## 5. 第一个 Agent 调用
 
@@ -79,30 +74,31 @@ python LakeMindMonitor/scripts/verify_monitor.py  # 18 Monitor
 ```python
 import httpx
 
+headers = {"Authorization": "Bearer test-business-token",
+           "Content-Type": "application/json"}
+
 # 摄入知识
-r = httpx.post("http://localhost:8401/mcp/tools/call", json={
-    "method": "tools/call",
+r = httpx.post("http://localhost:8401/mcp", headers=headers, json={
+    "jsonrpc": "2.0", "id": 1, "method": "tools/call",
     "params": {
         "name": "ingest_knowledge",
         "arguments": {
-            "kb": "my_kb",
-            "documents": [
-                {"content": "LakeMind 是 Agent 原生的多模态智能数据底座"},
-                {"content": "LakeMind 使用 MCP 协议作为 Agent 入口"},
+            "kb_name": "my_kb",
+            "concepts": [
+                {"frontmatter": {"type": "concept", "title": "LakeMind"},
+                 "body": "LakeMind 是认知资产存取平台"},
             ]
         }
-    },
-    "headers": {"Authorization": "Bearer test-business-token"}
+    }
 })
 
 # 语义检索
-r = httpx.post("http://localhost:8401/mcp/tools/call", json={
-    "method": "tools/call",
+r = httpx.post("http://localhost:8401/mcp", headers=headers, json={
+    "jsonrpc": "2.0", "id": 1, "method": "tools/call",
     "params": {
         "name": "search_knowledge",
-        "arguments": {"kb": "my_kb", "query": "什么是 LakeMind", "top_k": 3}
-    },
-    "headers": {"Authorization": "Bearer test-business-token"}
+        "arguments": {"kb_name": "my_kb", "query": "什么是 LakeMind", "top_k": 3}
+    }
 })
 print(r.json())
 ```
@@ -129,6 +125,6 @@ curl -X POST http://localhost:10823/api/v1/cognitive/llm/chat \
 
 - [架构设计](architecture.md) — 理解两层模型、三 MCP、三大引擎
 - [API 参考](api-reference.md) — REST API 40+ 端点完整文档
-- [MCP 工具](mcp-tools.md) — 39 个 MCP 工具详细说明
+- [MCP 工具](mcp-tools.md) — 58 个 MCP 工具详细说明
 - [配置参考](configuration.md) — engines.yaml 引擎切换指南
 - [部署运维](deployment.md) — 容器管理、引擎切换、故障排查

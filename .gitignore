@@ -6,10 +6,25 @@ venv/
 *.egg-info/
 .pytest_cache/
 
+# Node
+node_modules/
+
+# Build output
+**/dist/
+
 # IDE
 .vscode/
 .idea/
 
 # 本地环境
 .env
-.gitignore
+
+# 数据卷（docker-compose bind mount）
+data/
+**/data/
+
+# HuggingFace cache
+**/hf_cache/
+
+# 日志
+*.log

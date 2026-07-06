@@ -15,10 +15,10 @@ Agent 通过 MCP 检索和存取知识、记忆、技能等认知资产，在自
 | 目录 | 平面 | 职责 | 状态 |
 |------|------|------|------|
 | `LakeMindServer/` | 数据平面 | 存储与计算底座（REST API + 11 引擎 + 12 容器） | ✅ 已完成 |
-| `LakeMindAssetMCP/` | 运行平面 | 资产面 MCP（知识/记忆/技能/本体），23 tools | ✅ 已完成 |
-| `LakeMindDataMCP/` | 运行平面 | 数据面 MCP（全量透传），18 tools | ✅ 已完成 |
-| `LakeMindAdminMCP/` | 运行平面 | 管理面 MCP（用户/租户/Token/健康），17 tools | ✅ 已完成 |
-| `LakeMindMCP/` | 运行平面 | 3 MCP 的 docker-compose 编排 | ✅ 已完成 |
+| `LakeMindMCP/` | 运行平面 | 3 MCP 编排（docker-compose + --profile all） | ✅ 已完成 |
+| `LakeMindMCP/LakeMindAssetMCP/` | 运行平面 | 资产面 MCP（知识/记忆/技能/本体），23 tools | ✅ 已完成 |
+| `LakeMindMCP/LakeMindDataMCP/` | 运行平面 | 数据面 MCP（全量透传），18 tools | ✅ 已完成 |
+| `LakeMindMCP/LakeMindAdminMCP/` | 运行平面 | 管理面 MCP（用户/租户/Token/健康），17 tools | ✅ 已完成 |
 | `LakeMindSteward/` | 运行平面 | 管理运维 Agent（LangGraph 巡检 + 对话） | ✅ 已完成 |
 | `LakeMindMonitor/` | 运行平面 | 人类只读仪表板 + Steward 对话窗（Express） | ✅ 已完成 |
 | `LakeMindStudio/` | 开发平面 | 资产设计、MCP 调试、Skill 脚手架（Tauri） | ❌ 未开始（P2） |
@@ -39,7 +39,7 @@ LakeMindServer (:10823)  ← REST API，11 引擎
 
 - **MCP 是 Agent 唯一入口**，嵌入式引擎在 Server 进程中运行，MCP 通过 REST API 调用。
 - **MCP 三要素**：Tools（操作）+ Resources（只读浏览）+ Prompts（使用指南），每个 MCP 都有全部三要素。
-- **Steward** 走 MCP admin 域，MCP 不可用时降级直连 Server。
+- **Steward** 走 MCP admin 域。
 - **Monitor** 全走 MCP（只读），自身极轻。
 
 ## 4. 技术栈（锁定，不擅自替换）
@@ -78,7 +78,6 @@ LakeMindServer (:10823)  ← REST API，11 引擎
 1. **统一存储底座** — SeaweedFS 一个对象存储
 2. **统一元数据** — PostgreSQL 一个数据库
 3. **计算与引擎分离** — 引擎可替换，计算可走嵌入式或 Ray
-4. **Agent 直连引擎** — 经 MCP 代理，无额外 API 层
 
 ## 7. 关键设计决策
 
@@ -94,7 +93,7 @@ LakeMindServer (:10823)  ← REST API，11 引擎
 - 3 compose 组：`LakeMindServer/`（含 `--profile ray`）、`LakeMindMCP/`（`--profile all`）、`LakeMindMonitor/`。
 - BuildKit 禁用：`$env:DOCKER_BUILDKIT=0`。
 - 跨包依赖只通过 MCP 协议（运行平面）或 REST API / S3 / PG / Valkey 接口（数据平面）。
-- 验证脚本放 `scripts/`，主验证脚本 `scripts/verify_three_mcp_v2.py`。
+- 验证脚本放 `scripts/`，主验证脚本 `scripts/verify_full.py`（L0-L9 全分层，297/297 PASS）。
 - 代码不加注释，除非逻辑非显而易见。
 - 设计文档用中文，代码标识符用英文。
 - PowerShell 下读写中文文件名需设置 `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8`。

@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-07-06T12:29:03",
+  "timestamp": "2026-07-06T22:02:19",
   "summary": {
     "total": 297,
     "pass": 297,
@@ -64,7 +64,7 @@
       "category": "container",
       "name": "lakemind-server-api",
       "passed": true,
-      "detail": "status=Up About an hour",
+      "detail": "status=Up 5 minutes",
       "duration_ms": 0
     },
     {
@@ -72,7 +72,7 @@
       "category": "container",
       "name": "lakemind-postgres",
       "passed": true,
-      "detail": "status=Up 28 hours",
+      "detail": "status=Up 5 minutes",
       "duration_ms": 0
     },
     {
@@ -80,7 +80,7 @@
       "category": "container",
       "name": "lakemind-seaweedfs",
       "passed": true,
-      "detail": "status=Up 28 hours",
+      "detail": "status=Up 5 minutes",
       "duration_ms": 0
     },
     {
@@ -88,7 +88,7 @@
       "category": "container",
       "name": "lakemind-valkey",
       "passed": true,
-      "detail": "status=Up 16 hours",
+      "detail": "status=Up 5 minutes",
       "duration_ms": 0
     },
     {
@@ -96,7 +96,7 @@
       "category": "container",
       "name": "lakemind-ray-head",
       "passed": true,
-      "detail": "status=Up 26 hours",
+      "detail": "status=Up 5 minutes",
       "duration_ms": 0
     },
     {
@@ -104,7 +104,7 @@
       "category": "container",
       "name": "lakemind-ray-worker-1",
       "passed": true,
-      "detail": "status=Up 26 hours",
+      "detail": "status=Up 5 minutes",
       "duration_ms": 0
     },
     {
@@ -112,7 +112,7 @@
       "category": "container",
       "name": "lakemind-ray-worker-2",
       "passed": true,
-      "detail": "status=Up 26 hours",
+      "detail": "status=Up 5 minutes",
       "duration_ms": 0
     },
     {
@@ -120,7 +120,7 @@
       "category": "container",
       "name": "lakemind-asset-mcp",
       "passed": true,
-      "detail": "status=Up 4 minutes",
+      "detail": "status=Up About a minute (healthy)",
       "duration_ms": 0
     },
     {
@@ -128,7 +128,7 @@
       "category": "container",
       "name": "lakemind-data-mcp",
       "passed": true,
-      "detail": "status=Up 18 hours",
+      "detail": "status=Up About a minute (healthy)",
       "duration_ms": 0
     },
     {
@@ -136,7 +136,7 @@
       "category": "container",
       "name": "lakemind-admin-mcp",
       "passed": true,
-      "detail": "status=Up 18 hours",
+      "detail": "status=Up About a minute (healthy)",
       "duration_ms": 0
     },
     {
@@ -144,7 +144,7 @@
       "category": "container",
       "name": "lakemind-steward",
       "passed": true,
-      "detail": "status=Up 28 hours",
+      "detail": "status=Up 5 minutes (healthy)",
       "duration_ms": 0
     },
     {
@@ -152,7 +152,7 @@
       "category": "container",
       "name": "lakemind-monitor",
       "passed": true,
-      "detail": "status=Up 28 hours",
+      "detail": "status=Up 5 minutes (healthy)",
       "duration_ms": 0
     },
     {
@@ -527,7 +527,7 @@
       "layer": "L2",
       "category": "jobs",
       "name": "submit",
-      "passed": "job_5731ccff",
+      "passed": "job_9907a9ef",
       "detail": "got 200",
       "duration_ms": 0
     },
@@ -536,7 +536,7 @@
       "category": "jobs",
       "name": "status",
       "passed": true,
-      "detail": "got 200: {'job_id': 'job_5731ccff', 'status': 'completed', 'num_tasks': 1}",
+      "detail": "got 200: {'job_id': 'job_9907a9ef', 'status': 'completed', 'num_tasks': 1}",
       "duration_ms": 0
     },
     {
@@ -576,7 +576,7 @@
       "category": "memory",
       "name": "add",
       "passed": true,
-      "detail": "got 200: {'results': [{'id': '4629d467-cf8b-44c2-b1e1-5ccd4416351e', 'memory': 'I like Python', 'event': 'ADD'}]}",
+      "detail": "got 200: {'results': [{'id': '0ba6efcd-2649-4eaf-be24-b100122d50d4', 'memory': 'I like Python', 'event': 'ADD'}]}",
       "duration_ms": 0
     },
     {
@@ -1088,7 +1088,7 @@
       "category": "tool",
       "name": "add_memory",
       "passed": true,
-      "detail": "{'results': [{'id': 'cc612b9f-811b-4cd5-8124-265f879c262f', 'memory': 'I prefer ",
+      "detail": "{'results': [{'id': '85b7e3b4-4672-40ee-b366-60428633a6be', 'memory': 'I prefer ",
       "duration_ms": 0
     },
     {
@@ -1104,7 +1104,7 @@
       "category": "tool",
       "name": "get_memory",
       "passed": true,
-      "detail": "{'id': 'cc612b9f-811b-4cd5-8124-265f879c262f', 'memory': 'I prefer dark mode', '",
+      "detail": "{'id': '85b7e3b4-4672-40ee-b366-60428633a6be', 'memory': 'I prefer dark mode', '",
       "duration_ms": 0
     },
     {
@@ -1112,7 +1112,7 @@
       "category": "tool",
       "name": "list_memory",
       "passed": true,
-      "detail": "{'count': 1, 'page': 1, 'page_size': 10, 'results': [{'id': 'cc612b9f-811b-4cd5-",
+      "detail": "{'count': 3, 'page': 1, 'page_size': 10, 'results': [{'id': '85b7e3b4-4672-40ee-",
       "duration_ms": 0
     },
     {
@@ -1120,7 +1120,7 @@
       "category": "tool",
       "name": "update_memory",
       "passed": true,
-      "detail": "{'status': 'ok', 'id': 'cc612b9f-811b-4cd5-8124-265f879c262f', 'memory': 'I pref",
+      "detail": "{'status': 'ok', 'id': '85b7e3b4-4672-40ee-b366-60428633a6be', 'memory': 'I pref",
       "duration_ms": 0
     },
     {
@@ -1128,7 +1128,7 @@
       "category": "tool",
       "name": "memory_history",
       "passed": true,
-      "detail": "{'results': [{'memory_id': 'cc612b9f-811b-4cd5-8124-265f879c262f', 'old_memory':",
+      "detail": "{'results': [{'memory_id': '85b7e3b4-4672-40ee-b366-60428633a6be', 'old_memory':",
       "duration_ms": 0
     },
     {
@@ -1136,7 +1136,7 @@
       "category": "tool",
       "name": "delete_memory",
       "passed": true,
-      "detail": "{'status': 'ok', 'deleted': 'cc612b9f-811b-4cd5-8124-265f879c262f'}",
+      "detail": "{'status': 'ok', 'deleted': '85b7e3b4-4672-40ee-b366-60428633a6be'}",
       "duration_ms": 0
     },
     {
@@ -1144,7 +1144,7 @@
       "category": "tool",
       "name": "clear_memory",
       "passed": true,
-      "detail": "{'status': 'ok', 'deleted': 0}",
+      "detail": "{'status': 'ok', 'deleted': 2}",
       "duration_ms": 0
     },
     {
@@ -1152,7 +1152,7 @@
       "category": "tool",
       "name": "register_skill",
       "passed": true,
-      "detail": "{'skill_id': 'skill-df030f5f', 'name': 'vf_skill', 's3_uri': 's3://lakemind-file",
+      "detail": "{'skill_id': 'skill-f6a76129', 'name': 'vf_skill', 's3_uri': 's3://lakemind-file",
       "duration_ms": 0
     },
     {
@@ -1168,7 +1168,7 @@
       "category": "tool",
       "name": "list_skills",
       "passed": true,
-      "detail": "{'skills': [{'skill_id': 'skill-df030f5f', 'name': 'vf_skill', 'description': 't",
+      "detail": "{'skills': [{'skill_id': 'skill-f6a76129', 'name': 'vf_skill', 'description': 't",
       "duration_ms": 0
     },
     {
@@ -1192,7 +1192,7 @@
       "category": "tool",
       "name": "update_ontology",
       "passed": true,
-      "detail": "{'concept': 'Cat', 'relation': 'is_a', 'target': 'Animal', 'edge_id': 'e_99041db",
+      "detail": "{'concept': 'Cat', 'relation': 'is_a', 'target': 'Animal', 'edge_id': 'e_00c5716",
       "duration_ms": 0
     },
     {
@@ -1936,7 +1936,7 @@
       "category": "tool",
       "name": "list_tenants",
       "passed": true,
-      "detail": "{'tenants': [{'tenant_id': 'vft', 'name': 'VF Test', 'status': 'active'}, {'tena",
+      "detail": "{'tenants': [{'tenant_id': 'test_tenant', 'name': 'Test Tenant', 'status': 'acti",
       "duration_ms": 0
     },
     {
@@ -1992,7 +1992,7 @@
       "category": "tool",
       "name": "issue_token",
       "passed": true,
-      "detail": "{'token': 'tk_0815f7a205dc41ef', 'agent_id': 'vfagent', 'tenant_id': 'retail', '",
+      "detail": "{'token': 'tk_de9d78f0c1a74298', 'agent_id': 'vfagent', 'tenant_id': 'retail', '",
       "duration_ms": 0
     },
     {
@@ -2328,7 +2328,7 @@
       "category": "E2E",
       "name": "memory_loop",
       "passed": true,
-      "detail": "{'query': '张三的技术栈', 'results': [{'id': '6e461c03-adec-40a8-9110-e0aa43c6642f', '",
+      "detail": "{'query': '张三的技术栈', 'results': [{'id': 'f6fc2de2-917b-41bd-9ce0-3d5dcff323cd', '",
       "duration_ms": 0
     },
     {
@@ -2352,7 +2352,7 @@
       "category": "E2E",
       "name": "cross_domain",
       "passed": true,
-      "detail": "kb=0 ont=17 mem=1",
+      "detail": "kb=0 ont=19 mem=1",
       "duration_ms": 0
     },
     {
@@ -2360,7 +2360,7 @@
       "category": "latency",
       "name": "mcp_single_tool",
       "passed": true,
-      "detail": "mean=0.47ms p99=0.53ms (n=30)",
+      "detail": "mean=0.46ms p99=0.63ms (n=30)",
       "duration_ms": 0
     },
     {
@@ -2368,7 +2368,7 @@
       "category": "latency",
       "name": "rest_single_api",
       "passed": true,
-      "detail": "mean=0.1s p99=0.15s (n=50)",
+      "detail": "mean=0.09s p99=0.15s (n=50)",
       "duration_ms": 0
     },
     {
@@ -2376,7 +2376,7 @@
       "category": "latency",
       "name": "embedding_100",
       "passed": true,
-      "detail": "mean=3.05s p99=3.26s (n=10)",
+      "detail": "mean=2.77s p99=3.0s (n=10)",
       "duration_ms": 0
     },
     {
@@ -2384,7 +2384,7 @@
       "category": "latency",
       "name": "vector_search",
       "passed": true,
-      "detail": "mean=0.37s p99=0.42s (n=30)",
+      "detail": "mean=0.36s p99=0.52s (n=30)",
       "duration_ms": 0
     },
     {
@@ -2392,7 +2392,7 @@
       "category": "latency",
       "name": "memory_add_search",
       "passed": true,
-      "detail": "mean=1.08s errors=0/20",
+      "detail": "mean=1.14s errors=0/20",
       "duration_ms": 0
     },
     {
@@ -2400,7 +2400,7 @@
       "category": "concurrent",
       "name": "150agent_50ops",
       "passed": true,
-      "detail": "ops=7500 ok=7500 fail=0 qps=33.1 elapsed=226.8s",
+      "detail": "ops=7500 ok=7498 fail=2 qps=35.1 elapsed=213.9s",
       "duration_ms": 0
     },
     {
@@ -2408,7 +2408,7 @@
       "category": "concurrent",
       "name": "150agent_30s",
       "passed": true,
-      "detail": "ops=1104 ok=1104 fail=0 qps=33.2 err_rate=0.0%",
+      "detail": "ops=1077 ok=1077 fail=0 qps=32.4 err_rate=0.0%",
       "duration_ms": 0
     },
     {
@@ -2416,7 +2416,7 @@
       "category": "compare",
       "name": "mcp_vs_rest",
       "passed": true,
-      "detail": "mcp_mean=0.48s rest_mean=0.07s overhead=0.41s",
+      "detail": "mcp_mean=0.49s rest_mean=0.07s overhead=0.42s",
       "duration_ms": 0
     },
     {
@@ -2424,7 +2424,7 @@
       "category": "cold_start",
       "name": "asset_mcp",
       "passed": true,
-      "detail": "cold_start=2.42s",
+      "detail": "cold_start=2.56s",
       "duration_ms": 0
     },
     {
@@ -2432,7 +2432,7 @@
       "category": "staircase",
       "name": "150_no_degrade",
       "passed": true,
-      "detail": "err_rate@150=0.0% qps@150=35.1",
+      "detail": "err_rate@150=0.0% qps@150=34.5",
       "duration_ms": 0
     }
   ]

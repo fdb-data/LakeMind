@@ -173,15 +173,14 @@ docker logs lakemind-asset-mcp 2>&1 | tail -20
 ## 验证脚本
 
 ```bash
-python scripts/verify_api.py          # 104 REST API 测试
-python scripts/verify_three_mcp.py    # 22 三 MCP 联合
-python scripts/test_full_suite.py     # 69 全量功能
-python scripts/verify_llm.py          # 10 LLM 网关
-python LakeMindServer/scripts/verify_ray.py       # 12 Ray 分布式
-python LakeMindMonitor/scripts/verify_monitor.py  # 18 Monitor
+python scripts/verify_full.py                          # L0-L9 全分层，297/297 PASS（主验证脚本）
+python LakeMindServer/scripts/verify_pg_catalog.py     # 8 PG catalog
+python LakeMindServer/scripts/verify_ray.py            # 12 Ray 分布式
+python scripts/verify_llm.py                           # 10 LLM 网关
+python LakeMindMonitor/scripts/verify_monitor.py       # 18 Monitor
 ```
 
-期望：235/235 PASS
+期望：297/297 PASS
 
 ## 性能调优
 

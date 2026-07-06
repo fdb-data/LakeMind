@@ -1,6 +1,6 @@
 # STATE.md — LakeMind 项目开发进展状态
 
-> 最后更新：2026-07-06 12:30
+> 最后更新：2026-07-06 22:05
 > 总文件：`AGENTS.md`，设计规范：`.agent/DESIGN.md`，开发规范：`.agent/SPEC.md`
 
 ---
@@ -13,8 +13,9 @@
 开发平面  ░░░░░░░░░░░░░░░░░░░░    0%  (Studio 未开始)
 验证      ████████████████████  100%  (297/297 PASS，含 150 Agent 并发压测)
 文档      ████████████████████  100%  (AGENTS + .agent/ + docs/ + README 全刷新)
+v0.1.0 审计 ████████████████████  100%  (3 BLOCKER + 9 NEEDS ATTENTION 已修复)
 
-总体      ████████████████████  ~98%
+总体      ████████████████████  ~99%
 ```
 
 ### 里程碑时间线
@@ -28,14 +29,16 @@
 | MCP 重设计 | mem0 记忆 + OKF 知识 + execute_skill 移除 + 三要素 | ✅ 完成 |
 | 许可证审计 | Dragonfly BSL 1.1 → Valkey BSD 3-Clause | ✅ 完成 |
 | 文档刷新 | AGENTS + .agent/ + docs/ + README + reports/ | ✅ 完成 |
+| 文档一致性修复 | 5 核心文档对齐 + docs/reports 传播修复 | ✅ 完成 |
 | 全面测试 | L0-L9 全分层验证，297/297 PASS | ✅ 完成 |
+| v0.1.0 审计修复 | 3 BLOCKER + 9 NEEDS ATTENTION 全修复，二次审查通过 | ✅ 完成 |
 | LakeMindStudio | Tauri 桌面客户端 | ❌ 未开始 |
 
 ---
 
 ## 2. 容器运行状态
 
-> 检查时间：2026-07-06 12:30
+> 检查时间：2026-07-06 22:02
 
 | 容器 | 端口 | 状态 | 用途 |
 |------|------|------|------|
@@ -113,7 +116,7 @@ memory:          True    llm:          True
 | LLM 网关 | `scripts/verify_llm.py` | 10/10 PASS | 3 provider 路由 |
 | Monitor | `LakeMindMonitor/scripts/verify_monitor.py` | 18/18 PASS | 14 API 路由 + 4 health |
 
-### 全面测试分层明细（verify_full.py，2026-07-06 12:29）
+### 全面测试分层明细（verify_full.py，2026-07-06 22:02）
 
 | 层 | 内容 | 结果 |
 |----|------|------|
@@ -132,27 +135,27 @@ memory:          True    llm:          True
 
 | 测试 | 结果 | 指标 |
 |------|------|------|
-| MCP 单次 tool 延迟 | PASS | mean<0.5s, 30 次取样 |
-| REST 单次 API 延迟 | PASS | mean<0.2s, 50 次取样 |
-| Embedding 100 条中英文 | PASS | mean<5s, 10 轮取样 |
-| Vector search top-10 | PASS | mean<0.5s, 30 次取样 |
+| MCP 单次 tool 延迟 | PASS | mean=0.46ms, p99=0.63ms, 30 次取样 |
+| REST 单次 API 延迟 | PASS | mean=0.09s, p99=0.15s, 50 次取样 |
+| Embedding 100 条中英文 | PASS | mean=2.77s, p99=3.0s, 10 轮取样 |
+| Vector search top-10 | PASS | mean=0.36s, p99=0.52s, 30 次取样 |
 | Memory add+search 闭环 | PASS | 20 轮 0 错误 |
-| 150 Agent × 50 ops 并发 | PASS | 7500 ops, QPS=35, 0 错误 |
-| 150 Agent 持续 30s 稳定性 | PASS | QPS=35, err_rate=0% |
-| MCP vs REST 延迟对比 | PASS | MCP 开销 < 1s |
-| 冷启动延迟 | PASS | asset-mcp 重启后 < 5s 可用 |
+| 150 Agent × 50 ops 并发 | PASS | 7500 ops, QPS=35.1, 2 错误 (0.03%) |
+| 150 Agent 持续 30s 稳定性 | PASS | QPS=32.4, err_rate=0.0% |
+| MCP vs REST 延迟对比 | PASS | MCP 开销 0.42s |
+| 冷启动延迟 | PASS | asset-mcp 重启后 2.56s 可用 |
 | 并发递增阶梯 10→200 | PASS | 150 workers 无降级 |
 
 ### 阶梯压测 QPS 数据
 
 | workers | QPS | err_rate |
 |---------|-----|----------|
-| 10 | 52.2 | 0.00% |
-| 30 | 38.6 | 0.00% |
-| 50 | 37.0 | 0.00% |
-| 100 | 35.2 | 0.00% |
-| 150 | 35.1 | 0.00% |
-| 200 | 29.4 | 0.05% |
+| 10 | 53.8 | 0.00% |
+| 30 | 42.5 | 0.00% |
+| 50 | 37.4 | 0.00% |
+| 100 | 36.6 | 0.00% |
+| 150 | 34.5 | 0.00% |
+| 200 | 34.4 | 0.00% |
 
 ---
 
@@ -195,7 +198,7 @@ memory:          True    llm:          True
 - ✅ 17 tools（用户 4 + 租户 4 + Token 3 + 资产类型 3 + 平台 3）
 - ✅ 2 prompts
 - ✅ 6 resources
-- ✅ 直连 PostgreSQL（psycopg2）
+- ✅ 通过 REST API 访问 Server（不直连任何引擎）
 - ✅ 认证中间件（scope=admin）
 
 ### 5.5 LakeMindSteward — 100%
@@ -208,9 +211,17 @@ memory:          True    llm:          True
 
 ### 5.6 LakeMindMonitor — 100%
 
-- ✅ Express 服务（:3000）
-- ✅ 14 API 路由
-- ✅ 静态页面（Dashboard / Asset / Data / Admin / Chat + Inspection）
+- ✅ Express BFF（:3000）+ Vue 3 + Element Plus + Pinia 前端
+- ✅ 23 API 路由（含 `/api/dashboard/overview` 聚合端点）
+- ✅ 5 页专业仪表板：
+  - Dashboard：12 容器状态 + 11 引擎健康 + 资产/数据/平台计数 + 15s 自动刷新
+  - Asset：4 Tab（知识库/技能/记忆/本体）结构化表格
+  - Data：5 Tab（Iceberg/向量/S3/KV/图）前缀过滤
+  - Admin：5 Tab（租户/用户/Token/类型/健康）全只读
+  - Chat：Steward 对话 + 6 快捷指令 + 巡检面板 + localStorage
+- ✅ 深色主题（GitHub Dark 风格）
+- ✅ Steward inspect() bug 修复（`v != "ok"` → `v is not True`）
+- ✅ Steward chat() 工具名修复（`data_list_tables` → `list_tables`）
 - ✅ 无自有 DB，无自有用户系统
 
 ### 5.7 LakeMindStudio — 0%
@@ -225,10 +236,10 @@ memory:          True    llm:          True
 
 | # | 问题 | 影响 | 优先级 | 状态 |
 |---|------|------|--------|------|
-| 1 | Steward LLM provider=simple | 未接 GatewayLLM，关键词匹配 | P1 | 待接入 |
-| 2 | 3 个 server_client.py 重复 | AssetMCP/DataMCP/AdminMCP 各有一份 | P2 | 待提取共享包 |
+| 1 | Steward LLM provider=simple | 未接 GatewayLLM，关键词匹配 | P1 | v0.2 接入 |
+| 2 | 3 个 server_client.py 重复 | AssetMCP/DataMCP/AdminMCP 各有一份 | P2 | v0.2 提取共享包 |
 | 3 | 动态 Token 不跨 MCP 共享 | 静态 config.yaml Token，MVP 限制 | P2 | 已知限制 |
-| 4 | Monitor 历史遗留代码 | frontend/backend/pages/nuxt.config.ts | P3 | 待清理 |
+| 4 | Steward inspect() 无 MCP 降级 | MCP 不可用时无 fallback | P2 | v0.2 实现 |
 | 5 | server-api Docker build 耗时 | Ray 依赖安装 ~10min | P3 | 用 docker cp 热更新 |
 | 6 | REST API /system/nodes 无 auth | 部分端点未强制认证 | P3 | 待排查 |
 

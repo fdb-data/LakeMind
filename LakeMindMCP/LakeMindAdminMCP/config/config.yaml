@@ -1,0 +1,15 @@
+server:
+  host: "0.0.0.0"
+  port: 8403
+  mcp_path: "/mcp"
+  stateless: true
+
+tokens:
+  - token: "test-steward-token"
+    agent_id: "steward"
+    tenant_id: "platform"
+    scopes: ["admin"]
+
+audit:
+  level: "info"
+  redact_keys: ["token", "password", "secret"]

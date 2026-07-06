@@ -1,5 +1,7 @@
 # 安装手册
 
+> **⚠️ 部分内容过期**：本文档仍包含 Apache Gravitino 安装步骤。Gravitino 已被 PostgreSQL 16 替代，无需单独安装。相关内容仅作历史参考。
+
 LakeMindServer 平台的完整安装步骤。按顺序执行即可从零搭建到验证通过。
 
 ---
