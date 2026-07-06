@@ -518,7 +518,7 @@ storage:
     schema:
       id: string
       content: string
-      vector: float32[384]
+      vector: float32[768]
 operations:
   search:
     engine: vector_topk

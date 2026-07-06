@@ -322,9 +322,9 @@ def test_embedding():
     })
     check("embed 200", r.status_code == 200, f"got {r.status_code}: {r.text[:300]}")
     check("embed count 2", data and data.get("count") == 2, str(data)[:200])
-    check("embed dim 384", data and data.get("dim") == 384, str(data)[:200])
+    check("embed dim 768", data and data.get("dim") == 768, str(data)[:200])
     if data and data.get("vectors"):
-        check("embed vector len 384", len(data["vectors"][0]) == 384, str(len(data["vectors"][0])))
+        check("embed vector len 768", len(data["vectors"][0]) == 768, str(len(data["vectors"][0])))
 
     r, data = api_json("POST", "/cognitive/embedding/embed", json={"texts": []})
     check("embed empty list", r.status_code == 200 and data and data.get("count") == 0,

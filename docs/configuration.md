@@ -175,8 +175,8 @@ cognitive:
   embedding:
     plugin: fastembed
     config:
-      model: "BAAI/bge-small-en-v1.5"
-      dim: 384
+      model: "jinaai/jina-embeddings-v2-base-zh"
+      dim: 768
 ```
 
 切换到外部 API：
@@ -203,10 +203,10 @@ cognitive:
       user: "lakemind"
       password: "lakemind_pass"
       kv_host: "lakemind-valkey"
+      embedding_model: "jinaai/jina-embeddings-v2-base-zh"
       kv_port: 6379
       lance_uri: "/data/lance"
-      embedding_model: "BAAI/bge-small-en-v1.5"
-      embedding_dim: 384
+      embedding_dim: 768
 ```
 
 ## 11. LLM 推理网关

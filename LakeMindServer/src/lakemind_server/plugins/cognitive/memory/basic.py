@@ -21,8 +21,8 @@ class BasicMemory:
                  password: str = "lakemind_pass",
                  kv_host: str = "lakemind-valkey", kv_port: int = 6379,
                  lance_uri: str = "/data/lance",
-                 embedding_model: str = "BAAI/bge-small-en-v1.5",
-                 embedding_dim: int = 384, **kwargs):
+                 embedding_model: str = "jinaai/jina-embeddings-v2-base-zh",
+                 embedding_dim: int = 768, **kwargs):
         self._dsn = f"host={host} port={port} dbname={db} user={user} password={password}"
         self._kv_host = kv_host
         self._kv_port = kv_port

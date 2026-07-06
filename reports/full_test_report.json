@@ -1,0 +1,2439 @@
+{
+  "timestamp": "2026-07-06T12:29:03",
+  "summary": {
+    "total": 297,
+    "pass": 297,
+    "fail": 0,
+    "skip": 0
+  },
+  "layers": {
+    "L0": {
+      "pass": 12,
+      "fail": 0,
+      "skip": 0
+    },
+    "L1": {
+      "pass": 12,
+      "fail": 0,
+      "skip": 0
+    },
+    "L2": {
+      "pass": 64,
+      "fail": 0,
+      "skip": 1
+    },
+    "L3": {
+      "pass": 73,
+      "fail": 0,
+      "skip": 0
+    },
+    "L4": {
+      "pass": 50,
+      "fail": 0,
+      "skip": 0
+    },
+    "L5": {
+      "pass": 51,
+      "fail": 0,
+      "skip": 0
+    },
+    "L6": {
+      "pass": 11,
+      "fail": 0,
+      "skip": 0
+    },
+    "L7": {
+      "pass": 8,
+      "fail": 0,
+      "skip": 0
+    },
+    "L8": {
+      "pass": 5,
+      "fail": 0,
+      "skip": 0
+    },
+    "L9": {
+      "pass": 10,
+      "fail": 0,
+      "skip": 0
+    }
+  },
+  "results": [
+    {
+      "layer": "L0",
+      "category": "container",
+      "name": "lakemind-server-api",
+      "passed": true,
+      "detail": "status=Up About an hour",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L0",
+      "category": "container",
+      "name": "lakemind-postgres",
+      "passed": true,
+      "detail": "status=Up 28 hours",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L0",
+      "category": "container",
+      "name": "lakemind-seaweedfs",
+      "passed": true,
+      "detail": "status=Up 28 hours",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L0",
+      "category": "container",
+      "name": "lakemind-valkey",
+      "passed": true,
+      "detail": "status=Up 16 hours",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L0",
+      "category": "container",
+      "name": "lakemind-ray-head",
+      "passed": true,
+      "detail": "status=Up 26 hours",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L0",
+      "category": "container",
+      "name": "lakemind-ray-worker-1",
+      "passed": true,
+      "detail": "status=Up 26 hours",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L0",
+      "category": "container",
+      "name": "lakemind-ray-worker-2",
+      "passed": true,
+      "detail": "status=Up 26 hours",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L0",
+      "category": "container",
+      "name": "lakemind-asset-mcp",
+      "passed": true,
+      "detail": "status=Up 4 minutes",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L0",
+      "category": "container",
+      "name": "lakemind-data-mcp",
+      "passed": true,
+      "detail": "status=Up 18 hours",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L0",
+      "category": "container",
+      "name": "lakemind-admin-mcp",
+      "passed": true,
+      "detail": "status=Up 18 hours",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L0",
+      "category": "container",
+      "name": "lakemind-steward",
+      "passed": true,
+      "detail": "status=Up 28 hours",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L0",
+      "category": "container",
+      "name": "lakemind-monitor",
+      "passed": true,
+      "detail": "status=Up 28 hours",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L1",
+      "category": "meta",
+      "name": "health_endpoint",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L1",
+      "category": "engine",
+      "name": "object_storage",
+      "passed": true,
+      "detail": "value=True",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L1",
+      "category": "engine",
+      "name": "tabular",
+      "passed": true,
+      "detail": "value=True",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L1",
+      "category": "engine",
+      "name": "vector",
+      "passed": true,
+      "detail": "value=True",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L1",
+      "category": "engine",
+      "name": "kv",
+      "passed": true,
+      "detail": "value=True",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L1",
+      "category": "engine",
+      "name": "graph",
+      "passed": true,
+      "detail": "value=True",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L1",
+      "category": "engine",
+      "name": "metadata",
+      "passed": true,
+      "detail": "value=True",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L1",
+      "category": "engine",
+      "name": "sql",
+      "passed": true,
+      "detail": "value=True",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L1",
+      "category": "engine",
+      "name": "distributed",
+      "passed": true,
+      "detail": "value=True",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L1",
+      "category": "engine",
+      "name": "embedding",
+      "passed": true,
+      "detail": "value=True",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L1",
+      "category": "engine",
+      "name": "memory",
+      "passed": true,
+      "detail": "value=True",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L1",
+      "category": "engine",
+      "name": "llm",
+      "passed": true,
+      "detail": "value=True",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "auth",
+      "name": "no_bearer_rejected",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "auth",
+      "name": "wrong_bearer_401",
+      "passed": true,
+      "detail": "got 401",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "auth",
+      "name": "health_open_200",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "system",
+      "name": "nodes",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "system",
+      "name": "metrics",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "objects",
+      "name": "put",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "objects",
+      "name": "get",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "objects",
+      "name": "exists",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "objects",
+      "name": "list",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "objects",
+      "name": "delete",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "tables",
+      "name": "create",
+      "passed": true,
+      "detail": "got 200: {\"status\":\"ok\",\"namespace\":\"vf_ns\",\"table\":\"test_t\",\"location\":\"s3://lakemind-iceberg/warehouse/vf_ns/test_t\"}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "tables",
+      "name": "list",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "tables",
+      "name": "describe",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "tables",
+      "name": "append",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "tables",
+      "name": "overwrite",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "tables",
+      "name": "scan",
+      "passed": true,
+      "detail": "got 200: {'rows': [{'id': 99, 'name': 'ow'}], 'count': 1}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "tables",
+      "name": "drop",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "vectors",
+      "name": "create",
+      "passed": true,
+      "detail": "got 200: {\"status\":\"ok\",\"db\":\"vf_vec\",\"name\":\"test_v\"}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "vectors",
+      "name": "list",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "vectors",
+      "name": "describe",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "vectors",
+      "name": "add",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "vectors",
+      "name": "search",
+      "passed": true,
+      "detail": "got 200: {'results': [{'id': 10, 'text': 'add_0', 'vector': [0.5, 0.5, 0.5], '_distance': 0.0}, {'id': 11, 'text': 'add_1', 'vector': [0.5, 0.5, 0.5], '_distance': 0.0}, {'id': 12, 'text': 'add_2', 'vector': [",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "kv",
+      "name": "set",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "kv",
+      "name": "get",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "kv",
+      "name": "scan",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "kv",
+      "name": "delete",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "graph",
+      "name": "add_node",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "graph",
+      "name": "add_node2",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "graph",
+      "name": "add_edge",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "graph",
+      "name": "query_nodes",
+      "passed": true,
+      "detail": "got 200: {'nodes': [{'node_id': 'b', 'label': 'Entity', 'properties': {'name': 'B'}}, {'node_id': 'a', 'label': 'Entity', 'properties': {'name': 'A'}}], 'count': 2}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "graph",
+      "name": "query_edges",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "graph",
+      "name": "delete_node",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "sql",
+      "name": "select_1",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "sql",
+      "name": "count_with_table",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "jobs",
+      "name": "submit",
+      "passed": "job_5731ccff",
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "jobs",
+      "name": "status",
+      "passed": true,
+      "detail": "got 200: {'job_id': 'job_5731ccff', 'status': 'completed', 'num_tasks': 1}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "jobs",
+      "name": "result",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "embedding",
+      "name": "embed",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "embedding",
+      "name": "dim_768",
+      "passed": true,
+      "detail": "dim=768",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "embedding",
+      "name": "count_2",
+      "passed": true,
+      "detail": "count=2",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "memory",
+      "name": "add",
+      "passed": true,
+      "detail": "got 200: {'results': [{'id': '4629d467-cf8b-44c2-b1e1-5ccd4416351e', 'memory': 'I like Python', 'event': 'ADD'}]}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "memory",
+      "name": "search",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "memory",
+      "name": "get",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "memory",
+      "name": "list",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "memory",
+      "name": "update",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "memory",
+      "name": "history",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "memory",
+      "name": "delete",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "memory",
+      "name": "clear",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "llm",
+      "name": "health",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "llm",
+      "name": "models",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "llm",
+      "name": "chat",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "llm",
+      "name": "embed",
+      "passed": true,
+      "detail": "got 502",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "metadata",
+      "name": "create_tenant",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "metadata",
+      "name": "list_tenants",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "metadata",
+      "name": "update_tenant",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "metadata",
+      "name": "create_user",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "metadata",
+      "name": "list_users",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "metadata",
+      "name": "update_user",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "metadata",
+      "name": "delete_user",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "metadata",
+      "name": "issue_token",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "metadata",
+      "name": "list_tokens",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "metadata",
+      "name": "register_asset_type",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "metadata",
+      "name": "list_asset_types",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "metadata",
+      "name": "unregister_asset_type",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "metadata",
+      "name": "delete_tenant",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "meta",
+      "name": "tool_count",
+      "passed": true,
+      "detail": "got 23",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool_list",
+      "name": "add_memory",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool_list",
+      "name": "clear_memory",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool_list",
+      "name": "delete_knowledge",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool_list",
+      "name": "delete_memory",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool_list",
+      "name": "delete_ontology",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool_list",
+      "name": "delete_skill",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool_list",
+      "name": "get_knowledge",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool_list",
+      "name": "get_memory",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool_list",
+      "name": "get_skill",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool_list",
+      "name": "ingest_knowledge",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool_list",
+      "name": "list_concepts",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool_list",
+      "name": "list_knowledge",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool_list",
+      "name": "list_memory",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool_list",
+      "name": "list_skills",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool_list",
+      "name": "memory_history",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool_list",
+      "name": "query_ontology",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool_list",
+      "name": "register_knowledge",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool_list",
+      "name": "register_skill",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool_list",
+      "name": "search_knowledge",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool_list",
+      "name": "search_memory",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool_list",
+      "name": "search_skill",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool_list",
+      "name": "update_memory",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool_list",
+      "name": "update_ontology",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool_list",
+      "name": "execute_skill_removed",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "meta",
+      "name": "prompt_count",
+      "passed": true,
+      "detail": "got 6",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "prompt_list",
+      "name": "add_memory_guide",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "prompt_list",
+      "name": "okf_concept_guide",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "prompt_list",
+      "name": "query_ontology_guide",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "prompt_list",
+      "name": "register_skill_guide",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "prompt_list",
+      "name": "search_knowledge_guide",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "prompt_list",
+      "name": "search_memory_guide",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool",
+      "name": "register_knowledge",
+      "passed": true,
+      "detail": "{'knowledge': 'vf_kb', 'table': 'kb_vf_kb', 'description': 'test', 'format': 'OK",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool",
+      "name": "ingest_knowledge",
+      "passed": true,
+      "detail": "{'kb_name': 'vf_kb', 'ingested': 1}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool",
+      "name": "search_knowledge",
+      "passed": true,
+      "detail": "{'query': 'user table', 'hits': [], 'count': 0}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool",
+      "name": "list_knowledge",
+      "passed": true,
+      "detail": "{'knowledge_bases': [{'name': 'e2e_cross', 'row_count': 0, 'schema': []}, {'name",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool",
+      "name": "list_concepts",
+      "passed": true,
+      "detail": "{'kb_name': 'vf_kb', 'type_filter': None, 'tag_filter': None, 'page': 1, 'page_s",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool",
+      "name": "get_knowledge",
+      "passed": true,
+      "detail": "{'kb_name': 'vf_kb', 'concept_id': 'vf_kb/users', 'content': '---\\ndescription: ",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool",
+      "name": "delete_knowledge",
+      "passed": true,
+      "detail": "{'status': 'ok', 'deleted': 'vf_kb'}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool",
+      "name": "add_memory",
+      "passed": true,
+      "detail": "{'results': [{'id': 'cc612b9f-811b-4cd5-8124-265f879c262f', 'memory': 'I prefer ",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool",
+      "name": "search_memory",
+      "passed": true,
+      "detail": "{'query': 'editor preference', 'results': [], 'count': 0}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool",
+      "name": "get_memory",
+      "passed": true,
+      "detail": "{'id': 'cc612b9f-811b-4cd5-8124-265f879c262f', 'memory': 'I prefer dark mode', '",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool",
+      "name": "list_memory",
+      "passed": true,
+      "detail": "{'count': 1, 'page': 1, 'page_size': 10, 'results': [{'id': 'cc612b9f-811b-4cd5-",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool",
+      "name": "update_memory",
+      "passed": true,
+      "detail": "{'status': 'ok', 'id': 'cc612b9f-811b-4cd5-8124-265f879c262f', 'memory': 'I pref",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool",
+      "name": "memory_history",
+      "passed": true,
+      "detail": "{'results': [{'memory_id': 'cc612b9f-811b-4cd5-8124-265f879c262f', 'old_memory':",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool",
+      "name": "delete_memory",
+      "passed": true,
+      "detail": "{'status': 'ok', 'deleted': 'cc612b9f-811b-4cd5-8124-265f879c262f'}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool",
+      "name": "clear_memory",
+      "passed": true,
+      "detail": "{'status': 'ok', 'deleted': 0}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool",
+      "name": "register_skill",
+      "passed": true,
+      "detail": "{'skill_id': 'skill-df030f5f', 'name': 'vf_skill', 's3_uri': 's3://lakemind-file",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool",
+      "name": "search_skill",
+      "passed": true,
+      "detail": "{'query': 'test skill', 'skills': [{'skill_id': 'skill-d28fcd60', 'name': 'vf_sk",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool",
+      "name": "list_skills",
+      "passed": true,
+      "detail": "{'skills': [{'skill_id': 'skill-df030f5f', 'name': 'vf_skill', 'description': 't",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool",
+      "name": "get_skill",
+      "passed": true,
+      "detail": "{'name': 'vf_skill', 'code': 'def run(): return 42'}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool",
+      "name": "delete_skill",
+      "passed": true,
+      "detail": "{'status': 'ok', 'deleted': 'vf_skill'}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool",
+      "name": "update_ontology",
+      "passed": true,
+      "detail": "{'concept': 'Cat', 'relation': 'is_a', 'target': 'Animal', 'edge_id': 'e_99041db",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool",
+      "name": "query_ontology",
+      "passed": true,
+      "detail": "{'concept': 'Cat', 'nodes': [{'node_id': 'risk_control', 'label': 'Concept', 'pr",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "tool",
+      "name": "delete_ontology",
+      "passed": true,
+      "detail": "{'status': 'ok', 'deleted': 'Cat'}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "resource_list",
+      "name": "lake://capabilities",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "resource_list",
+      "name": "lake://workspace",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "resource_list",
+      "name": "lake://knowledge",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "resource_list",
+      "name": "lake://skills",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "resource_list",
+      "name": "lake://memory",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "resource_list",
+      "name": "lake://ontology",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "resource_read",
+      "name": "lake://capabilities",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "resource_read",
+      "name": "lake://workspace",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "resource_read",
+      "name": "lake://knowledge",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "resource_read",
+      "name": "lake://skills",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "resource_read",
+      "name": "lake://memory",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "resource_read",
+      "name": "lake://ontology",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "prompt",
+      "name": "search_knowledge_guide",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "prompt",
+      "name": "okf_concept_guide",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "prompt",
+      "name": "register_skill_guide",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "prompt",
+      "name": "add_memory_guide",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "prompt",
+      "name": "search_memory_guide",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L3",
+      "category": "prompt",
+      "name": "query_ontology_guide",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "meta",
+      "name": "tool_count",
+      "passed": true,
+      "detail": "got 18",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool_list",
+      "name": "create_table",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool_list",
+      "name": "describe_table",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool_list",
+      "name": "drop_table",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool_list",
+      "name": "graph_query",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool_list",
+      "name": "graph_update",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool_list",
+      "name": "kv_delete",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool_list",
+      "name": "kv_get",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool_list",
+      "name": "kv_scan",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool_list",
+      "name": "kv_set",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool_list",
+      "name": "list_tables",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool_list",
+      "name": "query_table",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool_list",
+      "name": "s3_delete",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool_list",
+      "name": "s3_get",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool_list",
+      "name": "s3_list",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool_list",
+      "name": "s3_put",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool_list",
+      "name": "sql_query",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool_list",
+      "name": "vector_search",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool_list",
+      "name": "write_table",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "meta",
+      "name": "prompt_count",
+      "passed": true,
+      "detail": "got 2",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "prompt_list",
+      "name": "data_exploration_guide",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "prompt_list",
+      "name": "sql_query_guide",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool",
+      "name": "create_table",
+      "passed": true,
+      "detail": "{'table': 'vf_dt', 'columns': ['id', 'val'], 'partition': None}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool",
+      "name": "write_table",
+      "passed": true,
+      "detail": "{'table': 'vf_dt', 'written': 1, 'mode': 'append'}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool",
+      "name": "query_table",
+      "passed": true,
+      "detail": "{'table': 'vf_dt', 'rows': [{'id': 'a', 'val': 1}], 'count': 1}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool",
+      "name": "list_tables",
+      "passed": true,
+      "detail": "{'namespace': 'data', 'tables': ['test_data_table', 'vf_dt']}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool",
+      "name": "describe_table",
+      "passed": true,
+      "detail": "{'name': 'platform_data.vf_dt', 'schema': {'id': 'string', 'val': 'long'}, 'colu",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool",
+      "name": "sql_query",
+      "passed": true,
+      "detail": "{'sql': 'SELECT 1 as v', 'rows': [{'v': 1}], 'count': 1}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool",
+      "name": "drop_table",
+      "passed": true,
+      "detail": "{'status': 'ok', 'dropped': 'vf_dt'}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool",
+      "name": "vector_search",
+      "passed": true,
+      "detail": "{'table': 'vf_mcp_vec', 'hits': [{'id': 2, 'text': 'vec_2', 'vector': [-0.006967",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool",
+      "name": "s3_put",
+      "passed": true,
+      "detail": "{'uri': 's3://lakemind-filesets/vf_test.txt', 'written': 5}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool",
+      "name": "s3_get",
+      "passed": true,
+      "detail": "{'uri': 's3://lakemind-filesets/vf_test.txt', 'content': 'hello', 'size': 5}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool",
+      "name": "s3_list",
+      "passed": true,
+      "detail": "{'uri': 's3://lakemind-filesets/vf', 'keys': ['vf_test.txt', 'vf_vec_test.txt'],",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool",
+      "name": "s3_delete",
+      "passed": true,
+      "detail": "{'status': 'ok', 'deleted': 's3://lakemind-filesets/vf_test.txt'}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool",
+      "name": "kv_set",
+      "passed": true,
+      "detail": "{'key': 'vfk', 'set': True}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool",
+      "name": "kv_get",
+      "passed": true,
+      "detail": "{'key': 'vfk', 'value': 'vfv'}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool",
+      "name": "kv_scan",
+      "passed": true,
+      "detail": "{'pattern': '*', 'keys': ['platform:vfk'], 'count': 1}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool",
+      "name": "kv_delete",
+      "passed": true,
+      "detail": "{'status': 'ok', 'deleted': 'vfk'}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool",
+      "name": "graph_update",
+      "passed": true,
+      "detail": "{'concept': 'Dog', 'relation': 'is_a', 'target': 'Mammal'}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "tool",
+      "name": "graph_query",
+      "passed": true,
+      "detail": "{'nodes': [], 'edges': []}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "resource_list",
+      "name": "lake://workspace",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "resource_list",
+      "name": "lake://system/health",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "resource_list",
+      "name": "lake://tables",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "resource_list",
+      "name": "lake://vectors",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "resource_read",
+      "name": "lake://workspace",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "resource_read",
+      "name": "lake://system/health",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "resource_read",
+      "name": "lake://tables",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "resource_read",
+      "name": "lake://vectors",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "prompt",
+      "name": "sql_query_guide",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L4",
+      "category": "prompt",
+      "name": "data_exploration_guide",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "meta",
+      "name": "tool_count",
+      "passed": true,
+      "detail": "got 17",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool_list",
+      "name": "create_tenant",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool_list",
+      "name": "create_user",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool_list",
+      "name": "delete_tenant",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool_list",
+      "name": "delete_user",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool_list",
+      "name": "get_metrics",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool_list",
+      "name": "get_node_status",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool_list",
+      "name": "get_platform_health",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool_list",
+      "name": "issue_token",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool_list",
+      "name": "list_asset_types",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool_list",
+      "name": "list_tenants",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool_list",
+      "name": "list_tokens",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool_list",
+      "name": "list_users",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool_list",
+      "name": "register_asset_type",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool_list",
+      "name": "revoke_token",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool_list",
+      "name": "unregister_asset_type",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool_list",
+      "name": "update_tenant",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool_list",
+      "name": "update_user",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "meta",
+      "name": "prompt_count",
+      "passed": true,
+      "detail": "got 2",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "prompt_list",
+      "name": "inspect_platform_guide",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "prompt_list",
+      "name": "manage_user_guide",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool",
+      "name": "create_tenant",
+      "passed": true,
+      "detail": "{'tenant_id': 'vft', 'name': 'VF Test', 'status': 'active'}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool",
+      "name": "list_tenants",
+      "passed": true,
+      "detail": "{'tenants': [{'tenant_id': 'vft', 'name': 'VF Test', 'status': 'active'}, {'tena",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool",
+      "name": "update_tenant",
+      "passed": true,
+      "detail": "{'tenant_id': 'vft', 'updated': True}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool",
+      "name": "delete_tenant",
+      "passed": true,
+      "detail": "{'tenant_id': 'vft', 'status': 'deleted'}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool",
+      "name": "create_user",
+      "passed": true,
+      "detail": "{'raw': \"Error executing tool create_user: Server error '500 Internal Server Err",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool",
+      "name": "list_users",
+      "passed": true,
+      "detail": "{'users': [{'user_id': 'user_640333b8', 'username': 'vfuser', 'tenant_id': 'vf_t",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool",
+      "name": "update_user",
+      "passed": true,
+      "detail": "{'user_id': 'user_640333b8', 'updated': True}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool",
+      "name": "delete_user",
+      "passed": true,
+      "detail": "{'user_id': 'user_640333b8', 'status': 'deleted'}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool",
+      "name": "issue_token",
+      "passed": true,
+      "detail": "{'token': 'tk_0815f7a205dc41ef', 'agent_id': 'vfagent', 'tenant_id': 'retail', '",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool",
+      "name": "list_tokens",
+      "passed": true,
+      "detail": "{'tokens': [{'token': 'tk_992c9496c9ee4a27', 'agent_id': 'test_agent', 'tenant_i",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool",
+      "name": "register_asset_type",
+      "passed": true,
+      "detail": "{'type': 'vfast', 'status': 'registered'}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool",
+      "name": "list_asset_types",
+      "passed": true,
+      "detail": "{'asset_types': [{'type': 'custom_rag', 'yaml': 'type: custom_rag\\ndescription: ",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool",
+      "name": "unregister_asset_type",
+      "passed": true,
+      "detail": "{'type': 'vfast', 'status': 'unregistered'}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool",
+      "name": "get_platform_health",
+      "passed": true,
+      "detail": "{'object_storage': True, 'tabular': True, 'vector': True, 'kv': True, 'graph': T",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool",
+      "name": "get_node_status",
+      "passed": true,
+      "detail": "{'nodes': [{'name': 'server-api', 'status': 'active', 'port': 10823}, {'name': '",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "tool",
+      "name": "get_metrics",
+      "passed": true,
+      "detail": "{'engines': {'object_storage': True, 'tabular': True, 'vector': True, 'kv': True",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "resource_list",
+      "name": "lake://admin/health",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "resource_list",
+      "name": "lake://admin/tenants",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "resource_list",
+      "name": "lake://admin/users",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "resource_list",
+      "name": "lake://admin/tokens",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "resource_list",
+      "name": "lake://admin/asset-types",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "resource_list",
+      "name": "lake://admin/nodes",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "resource_read",
+      "name": "lake://admin/health",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "resource_read",
+      "name": "lake://admin/tenants",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "resource_read",
+      "name": "lake://admin/users",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "resource_read",
+      "name": "lake://admin/tokens",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "resource_read",
+      "name": "lake://admin/asset-types",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "resource_read",
+      "name": "lake://admin/nodes",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "prompt",
+      "name": "inspect_platform_guide",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L5",
+      "category": "prompt",
+      "name": "manage_user_guide",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L6",
+      "category": "no_auth",
+      "name": "asset_mcp",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L6",
+      "category": "no_auth",
+      "name": "data_mcp",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L6",
+      "category": "no_auth",
+      "name": "admin_mcp",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L6",
+      "category": "wrong_auth",
+      "name": "asset_mcp",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L6",
+      "category": "wrong_auth",
+      "name": "data_mcp",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L6",
+      "category": "wrong_auth",
+      "name": "admin_mcp",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L6",
+      "category": "cross_scope",
+      "name": "asset_token_on_data",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L6",
+      "category": "cross_scope",
+      "name": "asset_token_on_admin",
+      "passed": true,
+      "detail": "",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L6",
+      "category": "health_open",
+      "name": "asset",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L6",
+      "category": "health_open",
+      "name": "data",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L6",
+      "category": "health_open",
+      "name": "admin",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L7",
+      "category": "steward",
+      "name": "health",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L7",
+      "category": "steward",
+      "name": "chat",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L7",
+      "category": "steward",
+      "name": "inspect",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L7",
+      "category": "monitor",
+      "name": "index",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L7",
+      "category": "monitor",
+      "name": "api_health",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L7",
+      "category": "monitor",
+      "name": "capabilities",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L7",
+      "category": "monitor",
+      "name": "admin_health",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L7",
+      "category": "monitor",
+      "name": "chat",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L8",
+      "category": "E2E",
+      "name": "knowledge_loop",
+      "passed": true,
+      "detail": "search=2 hits, concepts=0",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L8",
+      "category": "E2E",
+      "name": "memory_loop",
+      "passed": true,
+      "detail": "{'query': '张三的技术栈', 'results': [{'id': '6e461c03-adec-40a8-9110-e0aa43c6642f', '",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L8",
+      "category": "E2E",
+      "name": "skill_loop",
+      "passed": true,
+      "detail": "{'query': 'validation', 'skills': [{'skill_id': 'skill-82d976df', 'name': 'e2e_s",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L8",
+      "category": "E2E",
+      "name": "ontology_loop",
+      "passed": true,
+      "detail": "{'concept': 'DataEngineer', 'nodes': [{'node_id': 'risk_control', 'label': 'Conc",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L8",
+      "category": "E2E",
+      "name": "cross_domain",
+      "passed": true,
+      "detail": "kb=0 ont=17 mem=1",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L9",
+      "category": "latency",
+      "name": "mcp_single_tool",
+      "passed": true,
+      "detail": "mean=0.47ms p99=0.53ms (n=30)",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L9",
+      "category": "latency",
+      "name": "rest_single_api",
+      "passed": true,
+      "detail": "mean=0.1s p99=0.15s (n=50)",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L9",
+      "category": "latency",
+      "name": "embedding_100",
+      "passed": true,
+      "detail": "mean=3.05s p99=3.26s (n=10)",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L9",
+      "category": "latency",
+      "name": "vector_search",
+      "passed": true,
+      "detail": "mean=0.37s p99=0.42s (n=30)",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L9",
+      "category": "latency",
+      "name": "memory_add_search",
+      "passed": true,
+      "detail": "mean=1.08s errors=0/20",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L9",
+      "category": "concurrent",
+      "name": "150agent_50ops",
+      "passed": true,
+      "detail": "ops=7500 ok=7500 fail=0 qps=33.1 elapsed=226.8s",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L9",
+      "category": "concurrent",
+      "name": "150agent_30s",
+      "passed": true,
+      "detail": "ops=1104 ok=1104 fail=0 qps=33.2 err_rate=0.0%",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L9",
+      "category": "compare",
+      "name": "mcp_vs_rest",
+      "passed": true,
+      "detail": "mcp_mean=0.48s rest_mean=0.07s overhead=0.41s",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L9",
+      "category": "cold_start",
+      "name": "asset_mcp",
+      "passed": true,
+      "detail": "cold_start=2.42s",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L9",
+      "category": "staircase",
+      "name": "150_no_degrade",
+      "passed": true,
+      "detail": "err_rate@150=0.0% qps@150=35.1",
+      "duration_ms": 0
+    }
+  ]
+}

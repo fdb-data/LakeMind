@@ -55,7 +55,7 @@ LakeMindServer (:10823)  ← REST API，11 引擎
 | 缓存 | **Valkey** | TTL KV（Redis 兼容协议，BSD 3-Clause） |
 | 即席计算 | **DuckDB** | 跨表 SQL、Parquet 直读 |
 | 分布式计算 | **Ray 2.41.0** | 3 节点 12 CPU（已实现） |
-| Embedding | **fastembed** | BAAI/bge-small-en-v1.5, dim=384 |
+| Embedding | **fastembed** | jinaai/jina-embeddings-v2-base-zh, dim=768（中英混合） |
 | LLM 网关 | **GatewayLLM** | 内部能力，路由多 provider（不通过 MCP 暴露） |
 | MCP SDK | **FastMCP** | tools + resources + prompts 三要素 |
 | Agent 框架 | **LangGraph** | Steward 巡检工作流 |

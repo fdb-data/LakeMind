@@ -60,8 +60,8 @@ class EnginesCfg(BaseModel):
 
 class EmbeddingCfg(BaseModel):
     provider: str = "fastembed"
-    model: str = "BAAI/bge-small-en-v1.5"
-    dim: int = 384
+    model: str = "jinaai/jina-embeddings-v2-base-zh"
+    dim: int = 768
     base_url: str = ""
     api_key: str = ""
 

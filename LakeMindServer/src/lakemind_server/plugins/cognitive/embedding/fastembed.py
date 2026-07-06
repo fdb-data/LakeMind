@@ -2,7 +2,7 @@ from __future__ import annotations
 
 
 class FastEmbedPlugin:
-    def __init__(self, model: str = "BAAI/bge-small-en-v1.5", dim: int = 384, **kwargs):
+    def __init__(self, model: str = "jinaai/jina-embeddings-v2-base-zh", dim: int = 768, **kwargs):
         self._model_name = model
         self._dim = dim
         self._model = None

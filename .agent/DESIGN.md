@@ -95,7 +95,7 @@ X-Scopes: asset,data,admin
 | 元数据 | `postgres` | 用户/租户/Token/资产类型 | ✅ |
 | SQL | `duckdb` | 即席计算、Parquet 直读 | ✅ |
 | 分布式计算 | `ray` | 3 节点 12 CPU，7 任务类型 | ✅ |
-| Embedding | `fastembed` | BAAI/bge-small-en-v1.5, dim=384 | ✅ |
+| Embedding | `fastembed` | jinaai/jina-embeddings-v2-base-zh, dim=768（中英混合） | ✅ |
 | 记忆 | `basic` | mem0 风格 8 方法 + LLM 事实抽取 | ✅ |
 | LLM 网关 | `gateway` | GatewayLLM 路由多 provider | ✅ |
 

@@ -124,7 +124,7 @@ class RayCompute:
             @ray.remote
             def _embed(texts):
                 from fastembed import TextEmbedding
-                model = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
+                model = TextEmbedding(model_name="jinaai/jina-embeddings-v2-base-zh")
                 return list(model.embed(texts))
 
             ref = _embed.remote(texts)
