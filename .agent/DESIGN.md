@@ -24,7 +24,7 @@
 │  Steward (LangGraph, :8500)         ← 运维 Agent         │
 │  Monitor (Express, :3000)           ← 人类仪表板         │
 └──────────────────────┬──────────────────────────────────┘
-                       │ REST API / S3 / PG / Valkey
+                       │ REST API (:10823)
 ┌──────────────────────▼──────────────────────────────────┐
 │                    数据平面                               │
 │               LakeMindServer (:10823)                     │
@@ -38,7 +38,7 @@
 
 | 层 | 职责 | 面向 |
 |----|------|------|
-| **Data 层** | 多模态数据底座。透传，不做语义解释。数据是什么、存哪、怎么读写。 | Steward / 高级 Agent |
+| **Data 层** | 多模态数据底座。通过 REST API 透传，不做语义解释。数据是什么、存哪、怎么读写。 | Steward / 高级 Agent |
 | **Asset 层** | 面向 Agent 认知模型的语义封装。预置 4 类资产，声明式 YAML 可扩展。 | 业务 Agent |
 
 ### 1.3 三 MCP 职责划分
@@ -46,7 +46,7 @@
 | MCP | 端口 | Scope | 面向 | 职责 | Tools | Prompts | Resources |
 |-----|------|-------|------|------|-------|---------|-----------|
 | AssetMCP | 8401 | `asset` | 业务 Agent | 知识/记忆/技能/本体 | 23 | 6 | 11 |
-| DataMCP | 8402 | `data` | Steward / 高级 Agent | Data 层全量透传 | 18 | 2 | 6 |
+| DataMCP | 8402 | `data` | Steward / 高级 Agent | Data 层 REST API 透传 | 18 | 2 | 6 |
 | AdminMCP | 8403 | `admin` | Steward | 用户/租户/Token/健康 | 17 | 2 | 6 |
 
 > **MCP 三要素**：每个 MCP 都有 Tools（操作）+ Resources（只读浏览）+ Prompts（使用指南）。
@@ -120,7 +120,7 @@ X-Scopes: asset,data,admin
 
 | 数据域 | 引擎 | 资源 URI | MCP |
 |--------|------|----------|-----|
-| 结构化数据 | Iceberg + PG catalog | DataMCP 透传 | DataMCP |
+| 结构化数据 | Iceberg + PG catalog | DataMCP（REST API 透传） | DataMCP |
 | 知识/多模态 RAG | Lance + LanceDB（OKF 格式） | `lake://knowledge` | AssetMCP |
 | 短期/工作记忆 | Valkey (TTL KV) | `lake://memory` | AssetMCP |
 | 长期/语义记忆 | Lance 向量 + PG 元信息（mem0 风格） | `lake://memory` | AssetMCP |
@@ -235,7 +235,7 @@ DataMCP (:8402)
 ├── 6 resources: system/health, tables, tables/{ns}/{table},
 │                vectors, vectors/{table}, graph
 ├── 2 prompts: sql_query_guide, data_exploration_guide
-└── 全量透传，不做语义包装
+└── 全量透传（通过 REST API），不做语义包装
 ```
 
 ### 4.3 LakeMindAdminMCP（管理面）
@@ -252,7 +252,7 @@ AdminMCP (:8403)
 ├── 6 resources: admin/health, admin/tenants, admin/users,
 │                admin/tokens, admin/asset-types, admin/nodes
 ├── 2 prompts: inspect_platform_guide, manage_user_guide
-└── 直连 PostgreSQL（psycopg2，无引擎栈）
+└── 通过 REST API 访问 Server（不直连任何引擎）
 ```
 
 ### 4.4 LakeMindSteward（运维 Agent）
@@ -264,7 +264,7 @@ Steward (:8500)
 │   └── 对话管理：意图识别 → 路由到 3 MCP
 ├── MCP Client（asset + data + admin 三面）
 ├── 端点：POST /chat, POST /inspect, GET /health
-└── MCP 不可用时降级直连 Server
+└── MCP 不可用时降级直连 REST API
 ```
 
 ### 4.5 LakeMindMonitor（人类仪表板）
@@ -329,9 +329,10 @@ Studio (Tauri 2.0)
 
 ## 7. 设计原则（不可偏离）
 
-1. **统一存储底座** — SeaweedFS 一个对象存储承载全部数据文件
-2. **统一元数据** — PostgreSQL 一个数据库承载全部结构化元数据
-3. **计算与引擎分离** — 引擎适配层可替换，计算可走嵌入式或 Ray
+1. **统一认知资产管理与多模态数据管理** — 提供一套标准化的认知管理接口和多模态数据管理接口
+2. **统一存储底座** — SeaweedFS 一个对象存储承载全部数据文件
+3. **统一元数据** — PostgreSQL 一个数据库承载全部结构化元数据
+4. **计算与引擎分离** — 引擎适配层可替换，计算可走嵌入式或 Ray
 
 ---
 

@@ -17,7 +17,7 @@ Agent 通过 MCP 检索和存取知识、记忆、技能等认知资产，在自
 | `LakeMindServer/` | 数据平面 | 存储与计算底座（REST API + 11 引擎 + 12 容器） | ✅ 已完成 |
 | `LakeMindMCP/` | 运行平面 | 3 MCP 编排（docker-compose + --profile all） | ✅ 已完成 |
 | `LakeMindMCP/LakeMindAssetMCP/` | 运行平面 | 资产面 MCP（知识/记忆/技能/本体），23 tools | ✅ 已完成 |
-| `LakeMindMCP/LakeMindDataMCP/` | 运行平面 | 数据面 MCP（全量透传），18 tools | ✅ 已完成 |
+| `LakeMindMCP/LakeMindDataMCP/` | 运行平面 | 数据面 MCP（通过 REST API 透传，不做语义包装），18 tools | ✅ 已完成 |
 | `LakeMindMCP/LakeMindAdminMCP/` | 运行平面 | 管理面 MCP（用户/租户/Token/健康），17 tools | ✅ 已完成 |
 | `LakeMindSteward/` | 运行平面 | 管理运维 Agent（LangGraph 巡检 + 对话） | ✅ 已完成 |
 | `LakeMindMonitor/` | 运行平面 | 人类只读仪表板 + Steward 对话窗（Express） | ✅ 已完成 |
@@ -27,17 +27,17 @@ Agent 通过 MCP 检索和存取知识、记忆、技能等认知资产，在自
 
 ```
 Agent ──→ AssetMCP (:8401)  ← 资产面（知识/记忆/技能/本体）
-Steward ─→ DataMCP  (:8402)  ← 数据面（透传）
+Steward ─→ DataMCP  (:8402)  ← 数据面（REST API 透传）
 Steward ─→ AdminMCP (:8403)  ← 管理面（用户/租户/健康）
 Monitor ─→ 3 MCP（只读）+ Steward（chat/inspect）
 Studio  ─→ 3 MCP + Git
          │
          ▼
-LakeMindServer (:10823)  ← REST API，11 引擎
+LakeMindServer (:10823)  ← 统一 REST API，11 引擎
   SeaweedFS · PostgreSQL · Valkey · Ray · fastembed · LLM Gateway
 ```
 
-- **MCP 是 Agent 唯一入口**，嵌入式引擎在 Server 进程中运行，MCP 通过 REST API 调用。
+- **MCP 是 Agent 唯一入口**，嵌入式引擎在 Server 进程中运行，MCP 通过 REST API 调用，不直连任何底层引擎。
 - **MCP 三要素**：Tools（操作）+ Resources（只读浏览）+ Prompts（使用指南），每个 MCP 都有全部三要素。
 - **Steward** 走 MCP admin 域。
 - **Monitor** 全走 MCP（只读），自身极轻。
@@ -66,7 +66,7 @@ LakeMindServer (:10823)  ← REST API，11 引擎
 
 | 数据域 | 引擎 | MCP 资产 |
 |--------|------|---------|
-| 结构化数据 | Iceberg + PG catalog | DataMCP 透传 |
+| 结构化数据 | Iceberg + PG catalog | DataMCP（REST API 透传） |
 | 知识 / 多模态 RAG | Lance + LanceDB（OKF 格式） | `lake://knowledge` |
 | 短期/工作记忆 | Valkey（TTL KV） | `lake://memory` |
 | 长期/语义记忆 | Lance 向量 + PG 元信息（mem0 风格） | `lake://memory` |
@@ -75,9 +75,10 @@ LakeMindServer (:10823)  ← REST API，11 引擎
 
 ## 6. 设计原则（不可偏离）
 
-1. **统一存储底座** — SeaweedFS 一个对象存储
-2. **统一元数据** — PostgreSQL 一个数据库
-3. **计算与引擎分离** — 引擎可替换，计算可走嵌入式或 Ray
+1. **统一认知资产管理与多模态数据管理** — 提供一套标准化的认知管理接口和多模态数据管理接口
+2. **统一存储底座** — SeaweedFS 一个对象存储
+3. **统一元数据** — PostgreSQL 一个数据库
+4. **计算与引擎分离** — 引擎可替换，计算可走嵌入式或 Ray
 
 ## 7. 关键设计决策
 
@@ -92,7 +93,7 @@ LakeMindServer (:10823)  ← REST API，11 引擎
 - `docker-compose` 在各包目录内运行（`.env`、`config/` 为相对路径）。
 - 3 compose 组：`LakeMindServer/`（含 `--profile ray`）、`LakeMindMCP/`（`--profile all`）、`LakeMindMonitor/`。
 - BuildKit 禁用：`$env:DOCKER_BUILDKIT=0`。
-- 跨包依赖只通过 MCP 协议（运行平面）或 REST API / S3 / PG / Valkey 接口（数据平面）。
+- 跨包依赖只通过 MCP 协议（运行平面）或 REST API（数据平面，:10823），不直连任何底层引擎。
 - 验证脚本放 `scripts/`，主验证脚本 `scripts/verify_full.py`（L0-L9 全分层，297/297 PASS）。
 - 代码不加注释，除非逻辑非显而易见。
 - 设计文档用中文，代码标识符用英文。

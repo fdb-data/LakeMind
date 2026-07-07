@@ -32,7 +32,7 @@
 
 #### 三个 MCP 服务
 - LakeMindAssetMCP（:8401）：23 tools, 11 resources, 6 prompts，认知资产面
-- LakeMindDataMCP（:8402）：18 tools, 6 resources, 2 prompts，数据面全量透传
+- LakeMindDataMCP（:8402）：18 tools, 6 resources, 2 prompts，数据面通过 REST API 透传
 - LakeMindAdminMCP（:8403）：17 tools, 6 resources, 2 prompts，管理面
 - 合计：58 tools, 23 resources, 10 prompts
 - MCP 瘦客户端：仅 mcp + pydantic + pyyaml + structlog + httpx
@@ -101,7 +101,7 @@
 
 - 动态 Token 不跨 MCP 共享（MVP 使用静态 config.yaml Token）
 - Steward LLM provider=simple（关键词匹配，未接 LLM 网关）
-- Steward inspect() 无 MCP 降级处理（MCP 不可用时无 fallback 直连 Server）
+- Steward inspect() 无 MCP 降级处理（MCP 不可用时无 fallback 直连 REST API）
 - LakeMindStudio 未开发（Tauri 桌面客户端）
 - 流式响应未支持（LLM chat 为同步）
 - per-tenant 模型配置未实现
