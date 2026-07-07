@@ -61,3 +61,54 @@ CREATE TABLE IF NOT EXISTS asset_types (
     tenant_id       TEXT,
     created_at      TIMESTAMPTZ DEFAULT now()
 );
+
+-- Tenant secrets (AES-256-GCM encrypted)
+CREATE TABLE IF NOT EXISTS tenant_secrets (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id       TEXT NOT NULL REFERENCES tenants(tenant_id) ON DELETE CASCADE,
+    key_name        VARCHAR(100) NOT NULL,
+    encrypted_value BYTEA NOT NULL,
+    iv              BYTEA NOT NULL,
+    auth_tag        BYTEA NOT NULL,
+    description     TEXT,
+    created_at      TIMESTAMPTZ DEFAULT now(),
+    updated_at      TIMESTAMPTZ DEFAULT now(),
+    created_by      TEXT,
+
+    UNIQUE(tenant_id, key_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_secrets_tenant ON tenant_secrets(tenant_id);
+
+-- Secret access audit log
+CREATE TABLE IF NOT EXISTS secret_access_log (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id   TEXT NOT NULL,
+    key_name    VARCHAR(100) NOT NULL,
+    task_id     TEXT,
+    ray_job_id  TEXT,
+    accessed_by TEXT NOT NULL,
+    accessed_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_secret_log_tenant ON secret_access_log(tenant_id, accessed_at);
+
+-- Ray job records
+CREATE TABLE IF NOT EXISTS ray_jobs (
+    job_id          TEXT PRIMARY KEY,
+    tenant_id       TEXT NOT NULL,
+    agent_id        TEXT NOT NULL,
+    skill_uri       TEXT NOT NULL,
+    job_name        TEXT NOT NULL,
+    entrypoint      TEXT,
+    params          JSONB DEFAULT '{}',
+    task_id         TEXT,
+    status          TEXT DEFAULT 'submitted',
+    ray_job_id      TEXT,
+    result_uri      TEXT,
+    created_at      TIMESTAMPTZ DEFAULT now(),
+    completed_at    TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_ray_jobs_tenant ON ray_jobs(tenant_id, status);
+CREATE INDEX IF NOT EXISTS idx_ray_jobs_task ON ray_jobs(tenant_id, task_id);

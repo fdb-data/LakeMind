@@ -130,3 +130,33 @@ def register(mcp, server: ServerClient, redact_keys: list[str]) -> None:
         """Get platform metrics (engine health summary)."""
         require_scope(SCOPE)
         return await server.metrics()
+
+    # ── Tenant Secrets ──
+
+    @mcp.tool()
+    @audited(redact_keys + ["value"])
+    async def create_secret(key_name: str, value: str, description: str = "") -> dict[str, Any]:
+        """Create or update a tenant secret (encrypted at rest)."""
+        require_scope(SCOPE)
+        return await server.secret_create(key_name, value, description)
+
+    @mcp.tool()
+    @audited(redact_keys + ["value"])
+    async def update_secret(key_name: str, value: str, description: str = "") -> dict[str, Any]:
+        """Update an existing tenant secret."""
+        require_scope(SCOPE)
+        return await server.secret_update(key_name, value, description)
+
+    @mcp.tool()
+    @audited(redact_keys)
+    async def delete_secret(key_name: str) -> dict[str, Any]:
+        """Delete a tenant secret."""
+        require_scope(SCOPE)
+        return await server.secret_delete(key_name)
+
+    @mcp.tool()
+    @audited(redact_keys)
+    async def list_secrets() -> dict[str, Any]:
+        """List tenant secret names and metadata (values not returned)."""
+        require_scope(SCOPE)
+        return await server.secret_list()

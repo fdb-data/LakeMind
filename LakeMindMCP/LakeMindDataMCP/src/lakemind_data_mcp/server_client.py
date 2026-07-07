@@ -178,6 +178,55 @@ class ServerClient:
     async def job_result(self, job_id: str) -> dict:
         return await self.get(f"/api/v1/compute/jobs/{job_id}/result")
 
+    async def job_submit_skill(self, skill_uri: str, job_name: str,
+                               params: dict = {}, task_id: str = "",
+                               env_overrides: dict = {}, resources: dict = {}) -> dict:
+        return await self.post("/api/v1/compute/jobs/submit", json={
+            "skill_uri": skill_uri, "job_name": job_name, "params": params,
+            "task_id": task_id, "env_overrides": env_overrides, "resources": resources})
+
+    async def job_get(self, job_id: str) -> dict:
+        return await self.get(f"/api/v1/compute/jobs/{job_id}")
+
+    async def job_cancel(self, job_id: str) -> dict:
+        return await self.post(f"/api/v1/compute/jobs/{job_id}/cancel")
+
+    async def job_list(self, status: str = "") -> dict:
+        params = {}
+        if status:
+            params["status"] = status
+        return await self.get("/api/v1/compute/jobs", params=params)
+
+    async def skill_job_list(self, skill_uri: str) -> dict:
+        from .context import get_identity
+        import io, zipfile, base64
+        try:
+            ident = get_identity()
+            tenant_id = ident.tenant_id
+        except LookupError:
+            tenant_id = "default"
+        name_ver = skill_uri.replace("lake://skills/", "")
+        if "@" in name_ver:
+            name, ver = name_ver.split("@", 1)
+        else:
+            name, ver = name_ver, ""
+        bucket = "lakemind-filesets"
+        s3_key = f"{tenant_id}/skills/{name}.zip"
+        try:
+            data = await self.get(f"/api/v1/storage/objects/{bucket}/{s3_key}")
+            if isinstance(data, str):
+                data = data.encode()
+            with zipfile.ZipFile(io.BytesIO(data)) as zf:
+                job_names: set[str] = set()
+                for n in zf.namelist():
+                    if n.startswith("jobs/") and len(n) > 5:
+                        rest = n[5:]
+                        if "/" in rest:
+                            job_names.add(rest.split("/")[0])
+            return {"skill_uri": skill_uri, "jobs": sorted(job_names)}
+        except Exception as e:
+            return {"skill_uri": skill_uri, "jobs": [], "error": str(e)}
+
     # ── Embedding ──
     async def embed(self, texts: list[str]) -> dict:
         return await self.post("/api/v1/cognitive/embedding/embed", json={"texts": texts})

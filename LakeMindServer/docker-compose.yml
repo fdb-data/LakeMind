@@ -114,6 +114,7 @@ services:
     environment:
       LAKE_CONFIG: /etc/lakemind/engines.yaml
       API_KEY: "${SERVER_API_KEY:-lakemind-internal-api-key}"
+      LAKEMIND_MASTER_KEY: "${LAKEMIND_MASTER_KEY}"
       S3_ENDPOINT: "http://lakemind-seaweedfs:8333"
       MAAS_API_KEY: "${MAAS_API_KEY}"
     ports:

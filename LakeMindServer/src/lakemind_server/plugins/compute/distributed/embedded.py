@@ -26,3 +26,11 @@ class EmbeddedCompute:
 
     def health(self) -> bool:
         return True
+
+    def submit_skill_job(self, skill_zip: bytes, job_name: str,
+                         env_vars: dict[str, str], resources_override: dict,
+                         job_id: str) -> str:
+        raise NotImplementedError("submit_skill_job requires Ray compute engine")
+
+    def cancel_job(self, job_id: str) -> dict:
+        return {"job_id": job_id, "status": "cancelled"}

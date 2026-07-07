@@ -31,6 +31,7 @@ class ServerConfig:
     host: str = "0.0.0.0"
     port: int = 10823
     api_key: str = "lakemind-internal-api-key"
+    master_key: str = ""
     engines: EnginesConfig = None
 
 
@@ -59,6 +60,7 @@ def load_config(path: str | None = None) -> ServerConfig:
 
     server_cfg = raw.get("server", {})
     api_key = os.environ.get("API_KEY", server_cfg.get("api_key", "lakemind-internal-api-key"))
+    master_key = os.environ.get("LAKEMIND_MASTER_KEY", server_cfg.get("master_key", ""))
 
     storage = raw.get("storage", {})
     compute = raw.get("compute", {})
@@ -87,5 +89,6 @@ def load_config(path: str | None = None) -> ServerConfig:
         host=server_cfg.get("host", "0.0.0.0"),
         port=int(server_cfg.get("port", 10823)),
         api_key=api_key,
+        master_key=master_key,
         engines=engines,
     )

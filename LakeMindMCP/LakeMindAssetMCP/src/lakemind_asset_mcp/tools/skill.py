@@ -51,14 +51,22 @@ def register(mcp, server: ServerClient, redact_keys: list[str]) -> None:
     @mcp.tool()
     @audited(redact_keys)
     async def register_skill(
-        name: str, description: str | None = None, code: str = "", version: str = "1.0.0"
+        name: str, description: str | None = None, code: str = "", version: str = "1.0.0",
+        format: str = "py",
     ) -> dict[str, Any]:
-        """注册 Skill：上传代码到 S3、写 Iceberg 元信息、建 Lance 向量索引。"""
+        """Register Skill: upload code to S3, write Iceberg metadata, build Lance vector index.
+        format: 'py' (single file) or 'zip' (multi-file package with jobs/)."""
         require_scope(SCOPE)
         ctx = get_tenant()
         bucket = "lakemind-filesets"
-        s3_key = f"{ctx.tenant_id}/skills/{name}.py"
-        await server.object_put(bucket, s3_key, code.encode())
+        ext = ".zip" if format == "zip" else ".py"
+        s3_key = f"{ctx.tenant_id}/skills/{name}{ext}"
+        if format == "zip":
+            import base64
+            code_bytes = base64.b64decode(code)
+        else:
+            code_bytes = code.encode()
+        await server.object_put(bucket, s3_key, code_bytes)
         s3_uri = f"s3://{bucket}/{s3_key}"
 
         skill_id = f"skill-{uuid.uuid4().hex[:8]}"
@@ -97,15 +105,20 @@ def register(mcp, server: ServerClient, redact_keys: list[str]) -> None:
 
     @mcp.tool()
     @audited(redact_keys)
-    async def get_skill(name: str) -> dict[str, Any]:
-        """获取 Skill 代码内容。"""
+    async def get_skill(name: str, format: str = "py") -> dict[str, Any]:
+        """Get Skill code content. format: 'py' or 'zip'."""
         require_scope(SCOPE)
         ctx = get_tenant()
         bucket = "lakemind-filesets"
-        s3_key = f"{ctx.tenant_id}/skills/{name}.py"
+        ext = ".zip" if format == "zip" else ".py"
+        s3_key = f"{ctx.tenant_id}/skills/{name}{ext}"
         data = await server.object_get(bucket, s3_key)
-        code = data.decode("utf-8") if isinstance(data, bytes) else str(data)
-        return {"name": name, "code": code}
+        if format == "zip":
+            import base64
+            code = base64.b64encode(data).decode() if isinstance(data, bytes) else str(data)
+        else:
+            code = data.decode("utf-8") if isinstance(data, bytes) else str(data)
+        return {"name": name, "code": code, "format": format}
 
     @mcp.tool()
     @audited(redact_keys)
@@ -122,12 +135,13 @@ def register(mcp, server: ServerClient, redact_keys: list[str]) -> None:
 
     @mcp.tool()
     @audited(redact_keys)
-    async def delete_skill(name: str) -> dict[str, Any]:
-        """删除 Skill（S3 代码 + Iceberg 元信息 + Lance 向量）。"""
+    async def delete_skill(name: str, format: str = "py") -> dict[str, Any]:
+        """Delete Skill (S3 code + Iceberg metadata + Lance vector)."""
         require_scope(SCOPE)
         ctx = get_tenant()
         bucket = "lakemind-filesets"
-        s3_key = f"{ctx.tenant_id}/skills/{name}.py"
+        ext = ".zip" if format == "zip" else ".py"
+        s3_key = f"{ctx.tenant_id}/skills/{name}{ext}"
         try:
             await server.object_delete(bucket, s3_key)
         except Exception:

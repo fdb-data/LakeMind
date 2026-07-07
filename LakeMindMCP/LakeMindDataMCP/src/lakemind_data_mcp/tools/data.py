@@ -230,3 +230,61 @@ def register(mcp, server: ServerClient, redact_keys: list[str]) -> None:
         edge_id = f"e_{uuid.uuid4().hex[:8]}"
         await server.graph_add_edge(graph, edge_id, concept, target, relation, {}, ctx.tenant_id)
         return {"concept": concept, "relation": relation, "target": target}
+
+    # ── Ray Jobs (Skill-based) ──
+
+    @mcp.tool()
+    @audited(redact_keys + ["env_overrides"])
+    async def ray_submit_job(
+        skill_uri: str,
+        job_name: str,
+        params: dict = {},
+        task_id: str = "",
+        env_overrides: dict = {},
+        resources: dict = {},
+    ) -> dict[str, Any]:
+        """Submit a Skill-based Ray job. Server fetches code, reads ray.yaml, injects secrets."""
+        require_scope(SCOPE)
+        return await server.job_submit_skill(
+            skill_uri=skill_uri,
+            job_name=job_name,
+            params=params,
+            task_id=task_id,
+            env_overrides=env_overrides,
+            resources=resources,
+        )
+
+    @mcp.tool()
+    @audited(redact_keys)
+    async def ray_job_status(job_id: str) -> dict[str, Any]:
+        """Query Ray job status."""
+        require_scope(SCOPE)
+        return await server.job_get(job_id)
+
+    @mcp.tool()
+    @audited(redact_keys)
+    async def ray_job_result(job_id: str) -> dict[str, Any]:
+        """Get Ray job result."""
+        require_scope(SCOPE)
+        return await server.job_result(job_id)
+
+    @mcp.tool()
+    @audited(redact_keys)
+    async def ray_job_cancel(job_id: str) -> dict[str, Any]:
+        """Cancel a Ray job."""
+        require_scope(SCOPE)
+        return await server.job_cancel(job_id)
+
+    @mcp.tool()
+    @audited(redact_keys)
+    async def ray_job_list(status: str = "") -> dict[str, Any]:
+        """List Ray jobs for current tenant."""
+        require_scope(SCOPE)
+        return await server.job_list(status)
+
+    @mcp.tool()
+    @audited(redact_keys)
+    async def list_skill_jobs(skill_uri: str) -> dict[str, Any]:
+        """List available job_names in a Skill package's jobs/ directory."""
+        require_scope(SCOPE)
+        return await server.skill_job_list(skill_uri)

@@ -1,7 +1,11 @@
 from __future__ import annotations
 from typing import Any
 import logging
+import os
+import tempfile
 import uuid
+
+from ...utils.ray_yaml import parse_ray_yaml
 
 logger = logging.getLogger(__name__)
 
@@ -219,3 +223,42 @@ class RayCompute:
             return ray.is_initialized()
         except Exception:
             return False
+
+    def submit_skill_job(self, skill_zip: bytes, job_name: str,
+                         env_vars: dict[str, str], resources_override: dict,
+                         job_id: str) -> str:
+        self._ensure()
+        import ray
+
+        ray_cfg = parse_ray_yaml(skill_zip, job_name)
+
+        with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as f:
+            f.write(skill_zip)
+            code_path = f.name
+
+        resources = {**ray_cfg["resources"], **resources_override}
+
+        runtime_env: dict[str, Any] = {
+            "env_vars": env_vars,
+            "py_modules": [code_path],
+        }
+        if ray_cfg["dependencies"]:
+            runtime_env["pip"] = ray_cfg["dependencies"]
+
+        submission_client = ray.job_submission.JobSubmissionClient(self._address)
+        ray_job_id = submission_client.submit_job(
+            entrypoint=ray_cfg["entrypoint"],
+            runtime_env=runtime_env,
+        )
+        logger.info("Submitted skill job %s -> ray job %s (job_name=%s)", job_id, ray_job_id, job_name)
+        return ray_job_id
+
+    def cancel_job(self, job_id: str) -> dict:
+        self._ensure()
+        import ray
+        submission_client = ray.job_submission.JobSubmissionClient(self._address)
+        try:
+            submission_client.stop_job(job_id)
+            return {"job_id": job_id, "status": "cancelled"}
+        except Exception as e:
+            return {"job_id": job_id, "status": "error", "error": str(e)}

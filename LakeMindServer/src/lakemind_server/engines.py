@@ -7,12 +7,16 @@ from .plugins.registry import build_engine
 class Engines:
     def __init__(self, cfg: ServerConfig):
         e = cfg.engines
+        meta_cfg = e.metadata
+        meta_config = dict(meta_cfg.config)
+        if cfg.master_key:
+            meta_config["master_key"] = cfg.master_key
         self.object_storage = build_engine("storage.object", e.object_storage.plugin, e.object_storage.config)
         self.tabular = build_engine("storage.tabular", e.tabular.plugin, e.tabular.config)
         self.vector = build_engine("storage.vector", e.vector.plugin, e.vector.config)
         self.kv = build_engine("storage.kv", e.kv.plugin, e.kv.config)
         self.graph = build_engine("storage.graph", e.graph.plugin, e.graph.config)
-        self.metadata = build_engine("storage.metadata", e.metadata.plugin, e.metadata.config)
+        self.metadata = build_engine("storage.metadata", meta_cfg.plugin, meta_config)
         self.sql = build_engine("compute.sql", e.sql.plugin, e.sql.config)
         self.distributed = build_engine("compute.distributed", e.distributed.plugin, e.distributed.config)
         self.embedding = build_engine("cognitive.embedding", e.embedding.plugin, e.embedding.config)

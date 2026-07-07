@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 from .config import load_config, ServerConfig
 from .engines import Engines
 from .auth import verify_api_key, get_tenant_context
-from .api import objects, tables, vectors, kv, graph, sql, jobs, embedding, memory, metadata, system, llm
+from .api import objects, tables, vectors, kv, graph, sql, jobs, embedding, memory, metadata, system, llm, secrets
 
 cfg = load_config()
 engines = Engines(cfg)
@@ -39,4 +39,5 @@ app.include_router(embedding.router, prefix="/api/v1/cognitive/embedding", tags=
 app.include_router(memory.router, prefix="/api/v1/cognitive/memory", tags=["cognitive-memory"])
 app.include_router(llm.router, prefix="/api/v1/cognitive/llm", tags=["cognitive-llm"])
 app.include_router(metadata.router, prefix="/api/v1/metadata", tags=["metadata"])
+app.include_router(secrets.router, prefix="/api/v1/metadata/secrets", tags=["metadata-secrets"])
 app.include_router(system.router, prefix="/api/v1/system", tags=["system"])

@@ -271,3 +271,18 @@ class ServerClient:
 
     async def asset_type_unregister(self, type: str) -> dict:
         return await self.delete(f"/api/v1/metadata/asset-types/{type}")
+
+    # ── Secrets ──
+    async def secret_create(self, key_name: str, value: str, description: str = "") -> dict:
+        return await self.post("/api/v1/metadata/secrets", json={
+            "key_name": key_name, "value": value, "description": description})
+
+    async def secret_update(self, key_name: str, value: str, description: str = "") -> dict:
+        return await self.put(f"/api/v1/metadata/secrets/{key_name}", json={
+            "value": value, "description": description})
+
+    async def secret_delete(self, key_name: str) -> dict:
+        return await self.delete(f"/api/v1/metadata/secrets/{key_name}")
+
+    async def secret_list(self) -> dict:
+        return await self.get("/api/v1/metadata/secrets")

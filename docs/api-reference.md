@@ -268,3 +268,32 @@ POST /api/v1/cognitive/memory/recall
 | POST | /api/v1/metadata/asset-types | 注册资产类型 |
 | GET | /api/v1/metadata/asset-types | 列出资产类型 |
 | DELETE | /api/v1/metadata/asset-types/{type} | 注销资产类型 |
+| POST | /api/v1/metadata/secrets | 创建租户密钥（加密） |
+| PUT | /api/v1/metadata/secrets/{key_name} | 更新密钥 |
+| DELETE | /api/v1/metadata/secrets/{key_name} | 删除密钥 |
+| GET | /api/v1/metadata/secrets | 列出密钥（不返回值） |
+
+## 13. Ray Jobs (Skill-based)
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | /api/v1/compute/jobs/submit | 提交 Skill-based Ray job |
+| GET | /api/v1/compute/jobs/{job_id} | 查询 job 状态 |
+| GET | /api/v1/compute/jobs/{job_id}/result | 获取 job 结果 |
+| POST | /api/v1/compute/jobs/{job_id}/cancel | 取消 job |
+| GET | /api/v1/compute/jobs | 列出 jobs（按租户过滤） |
+
+提交请求体：
+
+```json
+{
+  "skill_uri": "lake://skills/meeting-processing@v1",
+  "job_name": "asr",
+  "params": {"file_uris": ["s3://..."]},
+  "task_id": "meeting-001",
+  "env_overrides": {},
+  "resources": {}
+}
+```
+
+> 详见 [开发指南](develop-guide.md) 了解 Skill 包结构、ray.yaml 格式和密钥管理。

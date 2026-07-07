@@ -1,6 +1,6 @@
 # MCP 工具参考
 
-LakeMind 通过 3 个 MCP 服务提供 **58 个工具**、**23 个资源**、**10 个 prompts**，Agent 通过 MCP 协议直连。
+LakeMind 通过 3 个 MCP 服务提供 **68 个工具**、**23 个资源**、**10 个 prompts**，Agent 通过 MCP 协议直连。
 
 ---
 
@@ -44,13 +44,14 @@ LakeMind 通过 3 个 MCP 服务提供 **58 个工具**、**23 个资源**、**1
 
 | 工具 | 参数 | 说明 |
 |------|------|------|
-| `register_skill` | name, code, description | 注册技能（存 S3 + PG + LanceDB 向量） |
+| `register_skill` | name, code, description, format="py", version="1.0.0" | 注册技能（format: "py" 单文件 / "zip" 多文件包） |
 | `search_skill` | query, top_k=5 | 语义检索技能 |
-| `get_skill` | name | 获取技能代码 |
+| `get_skill` | name, format="py" | 获取技能代码 |
 | `list_skills` | — | 列出全部技能 |
-| `delete_skill` | name | 删除技能 |
+| `delete_skill` | name, format="py" | 删除技能 |
 
 > `execute_skill` 已移除 — 平台只存取不执行，Agent 自行检索技能代码并在自身运行时执行。
+> `format="zip"` 的 Skill 包可包含 `jobs/{job_name}/` 目录，支持通过 `ray_submit_job` 提交到 Ray 执行。详见 [开发指南](develop-guide.md)。
 
 #### Ontology（本体，3 tools）
 
@@ -95,7 +96,7 @@ LakeMind 通过 3 个 MCP 服务提供 **58 个工具**、**23 个资源**、**1
 - **端口**: 8402
 - **Scope**: `data`
 - **面向**: Steward / 高级 Agent
-- **工具数**: 18
+- **工具数**: 24
 - **资源数**: 6
 - **Prompts**: 2
 
@@ -144,6 +145,19 @@ LakeMind 通过 3 个 MCP 服务提供 **58 个工具**、**23 个资源**、**1
 | `graph_query` | concept | 查询节点/边 |
 | `graph_update` | concept, relation, target | 添加节点/边 |
 
+#### Ray Jobs（Skill-based 分布式作业，6 tools）
+
+| 工具 | 参数 | 说明 |
+|------|------|------|
+| `ray_submit_job` | skill_uri, job_name, params={}, task_id="", env_overrides={}, resources={} | 提交 Skill-based Ray job |
+| `ray_job_status` | job_id | 查询 job 状态 |
+| `ray_job_result` | job_id | 获取 job 结果 |
+| `ray_job_cancel` | job_id | 取消 job |
+| `ray_job_list` | status="" | 列出当前租户的 jobs |
+| `list_skill_jobs` | skill_uri | 列出 Skill 包中可用的 job_name |
+
+> Ray job 提交后，Server 自动从 S3 拉取 Skill zip 包，读 `jobs/{job_name}/ray.yaml`，解析租户密钥并注入为环境变量。详见 [开发指南](develop-guide.md)。
+
 ### 资源（6 resources）
 
 | URI | 说明 |
@@ -169,7 +183,7 @@ LakeMind 通过 3 个 MCP 服务提供 **58 个工具**、**23 个资源**、**1
 - **端口**: 8403
 - **Scope**: `admin`
 - **面向**: Steward
-- **工具数**: 17
+- **工具数**: 21
 - **资源数**: 6
 - **Prompts**: 2
 
@@ -217,6 +231,17 @@ LakeMind 通过 3 个 MCP 服务提供 **58 个工具**、**23 个资源**、**1
 | `get_platform_health` | — | 11 引擎健康状态 |
 | `get_node_status` | — | 平台节点状态 |
 | `get_metrics` | — | 平台指标 |
+
+#### 租户密钥管理（4 tools）
+
+| 工具 | 参数 | 说明 |
+|------|------|------|
+| `create_secret` | key_name, value, description="" | 创建租户密钥（AES-256-GCM 加密存储） |
+| `update_secret` | key_name, value, description="" | 更新密钥 |
+| `delete_secret` | key_name | 删除密钥 |
+| `list_secrets` | — | 列出密钥名 + metadata（不返回值） |
+
+> 密钥在 Ray job 提交时由 Server 自动解密并注入为 `runtime_env.env_vars`，业务代码通过 `os.environ` 读取。详见 [开发指南](develop-guide.md)。
 
 ### 资源（6 resources）
 
