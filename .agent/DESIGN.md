@@ -28,9 +28,11 @@
 ┌──────────────────────▼──────────────────────────────────┐
 │                    数据平面                               │
 │               LakeMindServer (:10823)                     │
-│  REST API + 11 引擎                                       │
+│  REST API + 9 引擎                                        │
 │  SeaweedFS (:8333) · PostgreSQL (:5432) · Valkey (:6379) │
-│  Ray (:8265, 3 节点 12 CPU) · fastembed · LLM Gateway    │
+│  Ray (:8265, 3 节点 12 CPU)                              │
+│               LakeMindModelServing (:10824)               │
+│  litellm · fastembed · FunASR                            │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -83,7 +85,7 @@ X-Scopes: asset,data,admin
 > **设计决策**：移除 Gravitino（JVM，H2），用 PostgreSQL 直接作为 PyIceberg SQL catalog。
 > AGE 图扩展因编译超时用 PG 原生表替代，功能等价。
 
-### 2.3 引擎清单（11 个）
+### 2.3 引擎清单（9 个）
 
 | 引擎 | 插件名 | 用途 | 状态 |
 |------|--------|------|------|
@@ -95,15 +97,16 @@ X-Scopes: asset,data,admin
 | 元数据 | `postgres` | 用户/租户/Token/资产类型 | ✅ |
 | SQL | `duckdb` | 即席计算、Parquet 直读 | ✅ |
 | 分布式计算 | `ray` | 3 节点 12 CPU，7 任务类型 | ✅ |
-| Embedding | `fastembed` | jinaai/jina-embeddings-v2-base-zh, dim=768（中英混合） | ✅ |
 | 记忆 | `basic` | mem0 风格 8 方法 + LLM 事实抽取 | ✅ |
-| LLM 网关 | `gateway` | GatewayLLM 路由多 provider | ✅ |
 
-### 2.4 容器清单（12 个）
+> Embedding 和 LLM 网关已移至 LakeMindModelServing（:10824）
+
+### 2.4 容器清单（13 个）
 
 | 容器 | 镜像 | 端口 | 用途 |
 |------|------|------|------|
-| server-api | lakemind/server-api | 10823 | REST API + 11 引擎 |
+| server-api | lakemind/server-api | 10823 | REST API + 9 引擎 |
+| model-serving | lakemind/model-serving | 10824 | 统一模型服务（litellm + fastembed + FunASR） |
 | postgres | lakemind/postgres-age:16 | 5432 | Metadata Hub |
 | seaweedfs | chrislusf/seaweedfs:latest | 8333 | S3 对象存储 |
 | valkey | valkey/valkey:8.0 | 6379 | TTL KV 缓存（BSD 3-Clause） |
@@ -350,6 +353,7 @@ Studio (Tauri 2.0)
 | Memory 采用 mem0 风格 | LLM 事实抽取 + 哈希去重，智能存储 |
 | Knowledge 采用 OKF 格式 | YAML frontmatter + markdown body，交叉链接存 PG 图 |
 | LLM 网关为内部能力 | 不通过 MCP 暴露，Agent 用自己的 LLM |
+| LLM 网关独立为 LakeMindModelServing | litellm 替代手写 GatewayLLM，新增 ASR，统一模型服务 |
 | Ray 已实现 | 3 节点 12 CPU，7 任务类型，12/12 PASS |
 | experience 积淀进 memory.kind | 减少资产类型，kind 区分 general/experience/reflection |
 | Monitor 无自有 DB | 纯代理层，状态全靠 AdminMCP |

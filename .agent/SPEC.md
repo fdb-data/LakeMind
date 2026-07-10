@@ -16,6 +16,7 @@ LakeMind/
 │   ├── SPEC.md                  # 开发规范（本文件）
 │   └── STATE.md                 # 项目开发进展状态
 ├── LakeMindServer/              # 数据平面（REST API + 11 引擎）
+├── LakeMindModelServing/         # 模型平面 - 统一模型服务（litellm + fastembed + FunASR）
 ├── LakeMindMCP/                 # 运行平面 - 3 MCP 编排（docker-compose + --profile all）
 │   ├── LakeMindAssetMCP/        #   资产面 MCP（23 tools, 11 resources, 6 prompts）
 │   ├── LakeMindDataMCP/         #   数据面 MCP（18 tools, 6 resources, 2 prompts）
@@ -191,7 +192,7 @@ REST API 认证：`Bearer lakemind-internal-api-key` + `X-Tenant-Id` / `X-Agent-
 
 ### 4.2 docker-compose 约定
 
-- 3 compose 组：`LakeMindServer/`、`LakeMindMCP/`、`LakeMindMonitor/`
+- 4 compose 组：`LakeMindServer/`、`LakeMindModelServing/`、`LakeMindMCP/`、`LakeMindMonitor/`
 - `name: lakemind`（统一项目名）
 - 外部网络：`lakemind_lakemind`（由 LakeMindServer 创建）
 - 持久化：bind mount 到 `./data/`
@@ -204,10 +205,13 @@ REST API 认证：`Bearer lakemind-internal-api-key` + `X-Tenant-Id` / `X-Agent-
 # 1. 数据平面（含 Ray）
 cd LakeMindServer; docker compose --env-file .env --profile ray up -d
 
-# 2. 3 MCP
+# 2. 模型服务
+cd ../LakeMindModelServing; docker compose up -d --build
+
+# 3. 3 MCP
 cd ../LakeMindMCP; docker compose --profile all up -d --build
 
-# 3. 监控
+# 4. 监控
 cd ../LakeMindMonitor; docker compose up -d --build
 ```
 
@@ -265,7 +269,8 @@ docker restart lakemind-server-api
 | 即席计算 | DuckDB | `duckdb` |
 | 分布式计算 | Ray 2.41.0 | `ray[default]` |
 | Embedding | fastembed | `fastembed` |
-| LLM 网关 | GatewayLLM | — |
+| LLM 网关 | litellm | `litellm` |
+| ASR | FunASR | `funasr` |
 | MCP SDK | FastMCP | `mcp` |
 | Agent 框架 | LangGraph | `langgraph` |
 | Web 框架 | FastAPI（Steward）/ Express（Monitor） | — |

@@ -5,7 +5,7 @@ from datetime import datetime
 import psycopg2
 from psycopg2 import pool
 
-from ...utils.crypto import SecretCrypto
+from lakemind_server.utils.crypto import SecretCrypto
 
 
 class PostgresMetadataStore:

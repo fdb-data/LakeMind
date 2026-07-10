@@ -5,7 +5,7 @@ import os
 import tempfile
 import uuid
 
-from ...utils.ray_yaml import parse_ray_yaml
+from lakemind_server.utils.ray_yaml import parse_ray_yaml
 
 logger = logging.getLogger(__name__)
 

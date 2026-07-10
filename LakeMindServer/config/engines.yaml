@@ -108,19 +108,8 @@ compute:
     # config: {}
 
 cognitive:
-  # ── Embedding ──
-  embedding:
-    plugin: fastembed          # fastembed | (future: external, tei)
-    config:
-      model: "jinaai/jina-embeddings-v2-base-zh"
-      dim: 768
-    # 切换到外部 API：
-    # plugin: external
-    # config:
-    #   base_url: "https://api.openai.com/v1"
-    #   model: "text-embedding-3-small"
-    #   dim: 1536
-    #   api_key: "${EMBEDDING_API_KEY}"
+  # ── 模型服务 URL（LakeMindModelServing）──
+  model_serving_url: "http://lakemind-model-serving:10824"
 
   # ── 记忆引擎 ──
   memory:
@@ -134,59 +123,12 @@ cognitive:
       kv_host: "lakemind-valkey"
       kv_port: 6379
       lance_uri: "/data/lance"
-      embedding_model: "jinaai/jina-embeddings-v2-base-zh"
+      embedding_model: "jina-embeddings-v2-base-zh"
       embedding_dim: 768
+      llm_model: "deepseek-v4-flash"
     # 切换到 mem0：
     # plugin: mem0
     # config:
     #   fact_extraction: true
     #   consolidation: true
     #   entity_graph: true
-
-  # ── LLM 推理网关 ──
-  llm:
-    plugin: gateway
-    config:
-      default_chat_model: "auto"
-      default_embed_model: "auto"
-      providers:
-        - name: "modelarts"
-          type: "openai_compat"
-          base_url: "https://api.modelarts-maas.com/openai/v1"
-          api_key: "${MAAS_API_KEY}"
-          models:
-            - id: "deepseek-v4-flash"
-              context: 64000
-              tags: [chat, general]
-          priority: 1
-        # ── OpenAI ──
-        # - name: "openai"
-        #   type: "openai_compat"
-        #   base_url: "https://api.openai.com/v1"
-        #   api_key: "${OPENAI_API_KEY}"
-        #   models:
-        #     - id: "gpt-4o-mini"
-        #       context: 128000
-        #       tags: [chat, general]
-        #   priority: 2
-        # ── Anthropic ──
-        # - name: "anthropic"
-        #   type: "anthropic"
-        #   api_key: "${ANTHROPIC_API_KEY}"
-        #   models:
-        #     - id: "claude-3-haiku-20240307"
-        #       context: 200000
-        #       tags: [chat, general]
-        #   priority: 3
-        # ── Ollama 本地 ──
-        # - name: "ollama"
-        #   type: "ollama"
-        #   base_url: "http://host.docker.internal:11434"
-        #   models:
-        #     - id: "qwen2.5:7b"
-        #       context: 32768
-        #       tags: [chat, general]
-        #   priority: 4
-      fallback:
-        chat: ["deepseek-v4-flash"]
-        embed: []

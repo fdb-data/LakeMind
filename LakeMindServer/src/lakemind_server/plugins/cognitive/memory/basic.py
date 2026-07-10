@@ -5,6 +5,7 @@ import uuid
 import hashlib
 import psycopg2
 import pyarrow as pa
+import httpx
 
 
 _EXTRACT_PROMPT = """Extract key facts from the following messages. Return a JSON object with a "memory" array. Each element has a "text" field with one concise factual statement.
@@ -22,14 +23,20 @@ class BasicMemory:
                  kv_host: str = "lakemind-valkey", kv_port: int = 6379,
                  lance_uri: str = "/data/lance",
                  embedding_model: str = "jinaai/jina-embeddings-v2-base-zh",
-                 embedding_dim: int = 768, **kwargs):
+                 embedding_dim: int = 768,
+                 model_serving_url: str = "http://lakemind-model-serving:10824",
+                 model_serving_api_key: str = "lakemind-modelserving-key",
+                 llm_model: str = "deepseek-v4-flash",
+                 **kwargs):
         self._dsn = f"host={host} port={port} dbname={db} user={user} password={password}"
         self._kv_host = kv_host
         self._kv_port = kv_port
         self._lance_uri = lance_uri
-        self._embed_model = None
         self._embed_dim = embedding_dim
         self._embed_model_name = embedding_model
+        self._model_serving_url = model_serving_url.rstrip("/")
+        self._model_serving_api_key = model_serving_api_key
+        self._llm_model = llm_model
         self._redis = None
         self._llm = None
         self._history_ready = False
@@ -42,15 +49,19 @@ class BasicMemory:
             import redis
             self._redis = redis.Redis(host=self._kv_host, port=self._kv_port, decode_responses=True)
 
-    def _ensure_embed(self):
-        if self._embed_model is None:
-            from fastembed import TextEmbedding
-            self._embed_model = TextEmbedding(model_name=self._embed_model_name,
-                                              cache_dir="/tmp/fastembed_cache")
-
     def _embed(self, text: str) -> list[float]:
-        self._ensure_embed()
-        return [float(x) for x in next(self._embed_model.embed([text]))]
+        try:
+            resp = httpx.post(
+                f"{self._model_serving_url}/v1/embeddings",
+                json={"model": "jina-embeddings-v2-base-zh", "input": [text]},
+                headers={"Authorization": f"Bearer {self._model_serving_api_key}"},
+                timeout=30.0,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            return data["data"][0]["embedding"]
+        except Exception:
+            return [0.0] * self._embed_dim
 
     def _ensure_history(self):
         if not self._history_ready:
@@ -96,7 +107,7 @@ class BasicMemory:
         return conn, tbl_name
 
     def _extract_facts(self, messages: list[dict]) -> list[str]:
-        if not self._llm:
+        if not self._llm and not self._model_serving_url:
             texts = []
             for m in messages:
                 role = m.get("role", "user")
@@ -110,11 +121,22 @@ class BasicMemory:
         )
         prompt = _EXTRACT_PROMPT.format(messages_text=messages_text)
         try:
-            resp = self._llm.chat(
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.0, max_tokens=512
-            )
-            content = resp.get("content", "")
+            if self._llm:
+                resp = self._llm.chat(
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.0, max_tokens=512
+                )
+                content = resp.get("content", "")
+            else:
+                r = httpx.post(
+                    f"{self._model_serving_url}/v1/chat/completions",
+                    json={"model": self._llm_model, "messages": [{"role": "user", "content": prompt}], "temperature": 0.0, "max_tokens": 512},
+                    headers={"Authorization": f"Bearer {self._model_serving_api_key}"},
+                    timeout=30.0,
+                )
+                r.raise_for_status()
+                result = r.json()
+                content = result["choices"][0]["message"]["content"]
             import re
             content = re.sub(r"```json\s*", "", content)
             content = re.sub(r"```\s*$", "", content.strip())

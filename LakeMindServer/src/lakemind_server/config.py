@@ -24,6 +24,7 @@ class EnginesConfig:
     embedding: EngineConfig = None
     memory: EngineConfig = None
     llm: EngineConfig = None
+    model_serving_url: str = "http://lakemind-model-serving:10824"
 
 
 @dataclass
@@ -83,6 +84,7 @@ def load_config(path: str | None = None) -> ServerConfig:
         embedding=ec(cognitive.get("embedding")),
         memory=ec(cognitive.get("memory")),
         llm=ec(cognitive.get("llm")),
+        model_serving_url=os.environ.get("MODEL_SERVING_URL", cognitive.get("model_serving_url", "http://lakemind-model-serving:10824")),
     )
 
     return ServerConfig(

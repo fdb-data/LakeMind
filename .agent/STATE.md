@@ -8,7 +8,7 @@
 ## 1. 总体进度
 
 ```
-数据平面  ████████████████████  100%  (REST API + 11 引擎 + Ray + LLM 网关)
+数据平面  ████████████████████  100%  (REST API + 9 引擎 + Ray + ModelServing)
 运行平面  ████████████████████  100%  (3 MCP + Steward + Monitor 全完成)
 开发平面  ░░░░░░░░░░░░░░░░░░░░    0%  (Studio 未开始)
 验证      ████████████████████  100%  (297/297 PASS，含 150 Agent 并发压测)
@@ -43,6 +43,7 @@ v0.1.0 审计 ████████████████████  100%
 | 容器 | 端口 | 状态 | 用途 |
 |------|------|------|------|
 | lakemind-server-api | 10823 | ✅ Up | REST API + 11 引擎 |
+| lakemind-model-serving | 10824 | ✅ Up | 统一模型服务（litellm + fastembed + FunASR） |
 | lakemind-postgres | 5432 | ✅ Up | Metadata Hub |
 | lakemind-seaweedfs | 8333 | ✅ Up | S3 对象存储 |
 | lakemind-valkey | 6379 | ✅ Up | TTL KV 缓存（BSD 3-Clause） |
@@ -224,7 +225,17 @@ memory:          True    llm:          True
 - ✅ Steward chat() 工具名修复（`data_list_tables` → `list_tables`）
 - ✅ 无自有 DB，无自有用户系统
 
-### 5.7 LakeMindStudio — 0%
+### 5.7 LakeMindModelServing — 100%
+
+- ✅ FastAPI 服务（:10824）
+- ✅ litellm Router（统一 LLM 路由，多 provider 支持）
+- ✅ fastembed 本地嵌入（jina-embeddings-v2-base-zh, dim=768）
+- ✅ FunASR 本地 ASR（SenseVoice-Small，CPU）
+- ✅ 模型注册表（PG model_registry 表，运行时热加载）
+- ✅ OpenAI 兼容 API（/v1/chat/completions, /v1/embeddings, /v1/audio/transcriptions）
+- ✅ 模型管理 API（/v1/models/register, /v1/models/{id}）
+
+### 5.8 LakeMindStudio — 0%
 
 - ❌ 空目录，未开始
 - 规划：Tauri 2.0 + Vue 3 + Vite
@@ -242,6 +253,7 @@ memory:          True    llm:          True
 | 4 | Steward inspect() 无 MCP 降级 | MCP 不可用时无 fallback | P2 | v0.2 实现 |
 | 5 | server-api Docker build 耗时 | Ray 依赖安装 ~10min | P3 | 用 docker cp 热更新 |
 | 6 | REST API /system/nodes 无 auth | 部分端点未强制认证 | P3 | 待排查 |
+| 7 | funasr 仍在后台安装 | ASR health=false，首次启动需下载模型 | P2 | 等待安装完成 |
 
 ---
 
@@ -310,6 +322,21 @@ api_key: from MAAS_API_KEY env
 head: lakemind-ray-head:8265
 workers: lakemind-ray-worker-1, lakemind-ray-worker-2
 CPU: 12 (4 per node)
+```
+
+### 7.9 LakeMindModelServing
+
+```
+port: 10824
+container: lakemind-model-serving
+litellm: Router（多 provider 路由）
+fastembed: jinaai/jina-embeddings-v2-base-zh, dim=768
+funasr: SenseVoice-Small（CPU）
+endpoints:
+  /v1/chat/completions, /v1/embeddings, /v1/audio/transcriptions
+  /v1/models/register, /v1/models/{id}
+config: LakeMindModelServing/config/models.yaml
+pg_table: model_registry（运行时热加载）
 ```
 
 ---

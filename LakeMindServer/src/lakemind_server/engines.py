@@ -19,8 +19,10 @@ class Engines:
         self.metadata = build_engine("storage.metadata", meta_cfg.plugin, meta_config)
         self.sql = build_engine("compute.sql", e.sql.plugin, e.sql.config)
         self.distributed = build_engine("compute.distributed", e.distributed.plugin, e.distributed.config)
-        self.embedding = build_engine("cognitive.embedding", e.embedding.plugin, e.embedding.config)
-        self.memory = build_engine("cognitive.memory", e.memory.plugin, e.memory.config)
+        self.embedding = build_engine("cognitive.embedding", e.embedding.plugin, e.embedding.config) if e.embedding else None
+        memory_config = dict(e.memory.config)
+        memory_config["model_serving_url"] = e.model_serving_url
+        self.memory = build_engine("cognitive.memory", e.memory.plugin, memory_config)
         self.llm = build_engine("cognitive.llm", e.llm.plugin, e.llm.config) if e.llm else None
         if self.llm and hasattr(self.memory, "set_llm"):
             self.memory.set_llm(self.llm)
@@ -35,7 +37,7 @@ class Engines:
             "metadata": self.metadata.health(),
             "sql": self.sql.health(),
             "distributed": self.distributed.health(),
-            "embedding": self.embedding.health(),
+            "embedding": self.embedding.health() if self.embedding else False,
             "memory": self.memory.health(),
             "llm": self.llm.health() if self.llm else False,
         }

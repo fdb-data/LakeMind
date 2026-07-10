@@ -12,7 +12,6 @@ from .compute.distributed.embedded import EmbeddedCompute
 from .compute.distributed.ray_compute import RayCompute
 from .cognitive.embedding.fastembed import FastEmbedPlugin
 from .cognitive.memory.basic import BasicMemory
-from .cognitive.llm.gateway import GatewayLLM
 
 PLUGIN_REGISTRY: dict[str, dict[str, type]] = {
     "storage.object": {
@@ -45,9 +44,6 @@ PLUGIN_REGISTRY: dict[str, dict[str, type]] = {
     },
     "cognitive.memory": {
         "basic": BasicMemory,
-    },
-    "cognitive.llm": {
-        "gateway": GatewayLLM,
     },
 }
 
