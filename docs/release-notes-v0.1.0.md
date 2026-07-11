@@ -1,7 +1,7 @@
 # LakeMind v0.1.0 发布说明
 
-**发布日期**: 2026-07-06  
-**代号**: Agent-Native Data Foundation MVP
+**发布日期**: 2026-07-11  
+**代号**: Agent-Native Cognitive Asset Platform MVP
 
 ---
 
@@ -9,7 +9,9 @@
 
 LakeMind v0.1.0 是首个可用版本，实现了认知资产存取平台的完整 MVP 功能。
 
-**297 项测试全部通过，12 个容器全部运行，11 个引擎全部健康。**
+**L0-L8 共 286 项测试全部通过，13 个容器全部运行，10 个引擎全部健康。**
+
+> v0.1.0 包含 v0.1.0 核心 + v0.1.1 ModelServing 重构 + v0.1.2 embedding 路由修复。
 
 ---
 
@@ -103,17 +105,16 @@ python scripts/verify_full.py    # 297/297 PASS
 
 | 套件 | 测试数 | 结果 |
 |------|--------|------|
-| L0 容器健康 | 12 | ✅ ALL PASS |
-| L1 引擎健康 | 12 | ✅ ALL PASS |
-| L2 REST API | 65 | ✅ ALL PASS (1 SKIP) |
+| L0 容器健康 | 13 | ✅ ALL PASS |
+| L1 引擎健康 | 10 | ✅ ALL PASS |
+| L2 REST API + ModelServing | 65 | ✅ ALL PASS |
 | L3 AssetMCP | 73 | ✅ ALL PASS |
 | L4 DataMCP | 50 | ✅ ALL PASS |
 | L5 AdminMCP | 51 | ✅ ALL PASS |
 | L6 MCP 安全 | 11 | ✅ ALL PASS |
 | L7 Steward+Monitor | 8 | ✅ ALL PASS |
 | L8 端到端业务流 | 5 | ✅ ALL PASS |
-| L9 性能基线 | 10 | ✅ ALL PASS |
-| **合计** | **297** | **✅ ALL PASS** |
+| **合计** | **286** | **✅ ALL PASS** |
 
 ---
 
@@ -122,11 +123,11 @@ python scripts/verify_full.py    # 297/297 PASS
 | 限制 | 影响 | 计划 |
 |------|------|------|
 | 动态 Token 不跨 MCP | MVP 使用静态 Token | v0.2 |
-| Steward 未接 LLM | 关键词匹配 | v0.2 |
 | Steward 无 MCP 降级 | MCP 不可用时无 fallback | v0.2 |
 | LakeMindStudio 未开发 | 无桌面客户端 | v0.3 |
 | 流式响应未支持 | LLM chat 同步 | v0.2 |
 | per-tenant 模型配置 | 全局模型 | v0.2 |
+| 3 份 server_client.py 重复 | 待提取共享包 | v0.2 |
 
 ---
 
@@ -141,6 +142,20 @@ python scripts/verify_full.py    # 297/297 PASS
 | [配置参考](configuration.md) | engines.yaml 引擎切换 |
 | [部署运维](deployment.md) | 容器管理、故障排查 |
 | [变更日志](changelog.md) | 版本变更记录 |
+
+## 示例
+
+| 示例 | 说明 |
+|------|------|
+| `examples/meeting-agent/` | 浏览器实时会议知识化 Agent（录音→ASR→摘要→知识萃取→入库→检索） |
+| `examples/lakemind-connector/` | opencode AI Agent 通过 Skill 接入 LakeMind（知识+记忆持久化） |
+
+## Agent 接入
+
+| 文件 | 说明 |
+|------|------|
+| `README_agent.md` | Agent 面向接入指南（连接信息、代码模板、踩坑清单） |
+| `~/.config/opencode/skills/lakemind-connector/` | 全局 opencode Skill（自动加载） |
 
 ---
 

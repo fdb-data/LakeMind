@@ -50,15 +50,20 @@ ADMIN_TOKEN = "test-steward-token"
 
 CONTAINERS = [
     "lakemind-server-api", "lakemind-postgres", "lakemind-seaweedfs",
-    "lakemind-valkey", "lakemind-ray-head", "lakemind-ray-worker-1",
-    "lakemind-ray-worker-2", "lakemind-asset-mcp", "lakemind-data-mcp",
+    "lakemind-valkey", "lakemind-ray-head", "lakemind-server-ray-worker-1",
+    "lakemind-server-ray-worker-2", "lakemind-model-serving",
+    "lakemind-asset-mcp", "lakemind-data-mcp",
     "lakemind-admin-mcp", "lakemind-steward", "lakemind-monitor",
 ]
 
 EXPECTED_ENGINES = [
     "object_storage", "tabular", "vector", "kv", "graph", "metadata",
-    "sql", "distributed", "embedding", "memory", "llm",
+    "sql", "distributed", "memory",
 ]
+
+MS_BASE = "http://localhost:10824"
+MS_KEY = "lakemind-modelserving-key"
+MS_H = {"Authorization": f"Bearer {MS_KEY}", "Content-Type": "application/json"}
 
 # ─── Result tracking ──────────────────────────────────────────────
 
@@ -323,10 +328,18 @@ def _l2_jobs():
 
 
 def _l2_embedding():
-    r, d = rest_json("POST", "/cognitive/embedding/embed", json={"texts": ["hello", "你好世界"]})
+    with httpx.Client() as c:
+        r = c.post(f"{MS_BASE}/v1/embeddings", headers=MS_H,
+                   json={"model": "jina-embeddings-v2-base-zh", "input": ["hello", "你好世界"]}, timeout=60)
+    d = None
+    try:
+        d = r.json()
+    except Exception:
+        pass
     record("L2", "embedding", "embed", r.status_code == 200, f"got {r.status_code}")
-    record("L2", "embedding", "dim_768", d and d.get("dim") == 768, f"dim={d.get('dim') if d else '?'}")
-    record("L2", "embedding", "count_2", d and d.get("count") == 2, f"count={d.get('count') if d else '?'}")
+    dim = d["data"][0]["embedding"] if d and d.get("data") else []
+    record("L2", "embedding", "dim_768", len(dim) == 768, f"dim={len(dim)}")
+    record("L2", "embedding", "count_2", d and len(d.get("data", [])) == 2, f"count={len(d.get('data', [])) if d else '?'}")
 
 
 def _l2_memory():
@@ -358,14 +371,26 @@ def _l2_memory():
 
 
 def _l2_llm():
-    r, d = rest_json("GET", "/cognitive/llm/health")
-    record("L2", "llm", "health", r.status_code == 200 and d and d.get("healthy") is True, f"got {r.status_code}")
-    r, d = rest_json("GET", "/cognitive/llm/models")
-    record("L2", "llm", "models", r.status_code == 200 and d and len(d.get("models", [])) >= 1, f"got {r.status_code}")
-    r, d = rest_json("POST", "/cognitive/llm/chat", json={"messages": [{"role": "user", "content": "Say OK"}], "model": "auto", "max_tokens": 20})
+    with httpx.Client() as c:
+        r = c.get(f"{MS_BASE}/health", headers=MS_H, timeout=10)
+    record("L2", "llm", "health", r.status_code == 200, f"got {r.status_code}")
+    with httpx.Client() as c:
+        r = c.get(f"{MS_BASE}/v1/models", headers=MS_H, timeout=10)
+    d = None
+    try:
+        d = r.json()
+    except Exception:
+        pass
+    model_count = len(d.get("data", [])) if d else 0
+    record("L2", "llm", "models", r.status_code == 200 and model_count >= 1, f"got {r.status_code}, models={model_count}")
+    with httpx.Client() as c:
+        r = c.post(f"{MS_BASE}/v1/chat/completions", headers=MS_H,
+                   json={"model": "deepseek-v4-flash", "messages": [{"role": "user", "content": "Say OK"}], "max_tokens": 20}, timeout=30)
     record("L2", "llm", "chat", r.status_code == 200, f"got {r.status_code}")
-    r, d = rest_json("POST", "/cognitive/llm/embed", json={"texts": ["test"], "model": "auto"})
-    record("L2", "llm", "embed", r.status_code in (200, 502), f"got {r.status_code}")
+    with httpx.Client() as c:
+        r = c.post(f"{MS_BASE}/v1/embeddings", headers=MS_H,
+                   json={"model": "jina-embeddings-v2-base-zh", "input": ["test"]}, timeout=30)
+    record("L2", "llm", "embed", r.status_code == 200, f"got {r.status_code}")
 
 
 def _l2_metadata():

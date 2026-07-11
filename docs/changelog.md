@@ -2,6 +2,44 @@
 
 所有 notable 变更记录在此。日期格式 YYYY-MM-DD。
 
+## [v0.1.2] — 2026-07-11
+
+### 修复
+
+#### AssetMCP/DataMCP embedding 路由
+- `server_client.py` 的 `embed()` 方法从 Server `/api/v1/cognitive/embedding/embed`（404 未 mount）改为直接调用 ModelServing `/v1/embeddings`
+- 影响：`ingest_knowledge`、`search_knowledge`、`register_skill`、`search_skill`、`vector_search` 全部恢复正常
+- AssetMCP 和 DataMCP 的 `server_client.py` 均已修复
+
+#### Memory 搜索距离度量
+- `basic.py` 的 `search()` 从默认 L2 距离改为 `.metric("cosine")`
+- 根因：L2 距离 >1.0 时 `score = 1.0 - dist = 0`，低于 threshold 0.1，导致所有结果被过滤
+- 修复后：4 query × top-3 均返回相关结果（score 0.12~0.67）
+
+#### verify_full.py 适配 ModelServing 架构
+- L0：修正 ray-worker 容器名（`lakemind-server-ray-worker-*`），新增 `lakemind-model-serving`
+- L1：移除 `embedding`/`llm` 引擎检查（已移至 ModelServing）
+- L2：`_l2_embedding()` 和 `_l2_llm()` 改为检查 ModelServing `:10824` 端点
+- 验证结果：L0-L8 共 286/286 PASS
+
+### 新增
+
+#### examples/meeting-agent/
+- 浏览器实时会议知识化 Agent Demo
+- 流水线：录音 → ASR → 摘要 → 知识萃取 → 入库 → 检索
+- MediaRecorder per-chunk restart + host ffmpeg WebM→WAV + FunASR 标签清理
+- E2E 验证通过：12 chunk ASR, 3 摘要, 1 萃取, 检索自检
+
+#### examples/lakemind-connector/
+- opencode AI Agent 通过 Skill 接入 LakeMind 的示例
+- `LakeMindConnector`：MCP + REST 统一封装
+- 9 知识概念 + 5 记忆入库，全量检索验证通过
+- 全局 opencode Skill 安装（`~/.config/opencode/skills/lakemind-connector/`）
+
+#### README_agent.md
+- Agent 面向的接入指南，位于项目根目录
+- 包含连接信息、copy-paste 代码、MCP 工具表、REST API 速查、踩坑清单
+
 ## [v0.1.1] — 2026-07-10
 
 ### 新增

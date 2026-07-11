@@ -11,6 +11,8 @@ class ServerClient:
     def __init__(self, base_url: str | None = None, api_key: str | None = None):
         self._base_url = (base_url or os.environ.get("SERVER_API_URL", "http://lakemind-server-api:10823")).rstrip("/")
         self._api_key = api_key or os.environ.get("SERVER_API_KEY", "lakemind-internal-api-key")
+        self._ms_url = os.environ.get("MODEL_SERVING_URL", "http://lakemind-model-serving:10824").rstrip("/")
+        self._ms_key = os.environ.get("MODELSERVING_API_KEY", "lakemind-modelserving-key")
         self._client: httpx.AsyncClient | None = None
 
     @property
@@ -184,7 +186,14 @@ class ServerClient:
 
     # ── Embedding ──
     async def embed(self, texts: list[str]) -> dict:
-        return await self.post("/api/v1/cognitive/embedding/embed", json={"texts": texts})
+        resp = await self.client.post(
+            f"{self._ms_url}/v1/embeddings",
+            headers={"Authorization": f"Bearer {self._ms_key}"},
+            json={"model": "jina-embeddings-v2-base-zh", "input": texts},
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        return {"vectors": [item["embedding"] for item in data["data"]]}
 
     # ── Memory (mem0-style) ──
     async def memory_add(self, messages: list[dict], metadata: dict | None = None,

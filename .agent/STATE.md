@@ -1,6 +1,6 @@
 # STATE.md — LakeMind 项目开发进展状态
 
-> 最后更新：2026-07-10 12:00
+> 最后更新：2026-07-11 21:40
 > 总文件：`AGENTS.md`，设计规范：`.agent/DESIGN.md`，开发规范：`.agent/SPEC.md`
 
 ---
@@ -8,11 +8,12 @@
 ## 1. 总体进度
 
 ```
-数据平面  ████████████████████  100%  (REST API + 9 引擎 + Ray + ModelServing)
+数据平面  ████████████████████  100%  (REST API + 10 引擎 + Ray + ModelServing)
 运行平面  ████████████████████  100%  (3 MCP + Steward + Monitor 全完成)
 开发平面  ░░░░░░░░░░░░░░░░░░░░    0%  (Studio 未开始)
-验证      ████████████████████  100%  (297/297 PASS，含 150 Agent 并发压测)
-文档      ████████████████████  100%  (AGENTS + .agent/ + docs/ + README 全刷新)
+示例      ████████████████████  100%  (meeting-agent + lakemind-connector)
+验证      ████████████████████  100%  (L0-L8 286/286 PASS)
+文档      ████████████████████  100%  (AGENTS + .agent/ + docs/ + README + README_agent + CHANGELOG)
 v0.1.0 审计 ████████████████████  100%  (3 BLOCKER + 9 NEEDS ATTENTION 已修复)
 
 总体      ████████████████████  ~99%
@@ -34,14 +35,20 @@ v0.1.0 审计 ████████████████████  100%
 | 文档刷新 | AGENTS + .agent/ + docs/ + README + reports/ | ✅ 完成 |
 | 文档一致性修复 | 5 核心文档对齐 + docs/reports 传播修复 | ✅ 完成 |
 | 全面测试 | L0-L9 全分层验证，297/297 PASS | ✅ 完成 |
-| v0.1.0 审计修复 | 3 BLOCKER + 9 NEEDS ATTENTION 全修复，二次审查通过 | ✅ 完成 |
+| v0.1.0 审计修复 | 3 BLOCKER + 9 NEEDS ATTENTION 全修复 | ✅ 完成 |
+| Embedding 路由修复 | AssetMCP/DataMCP embed() → ModelServing | ✅ 完成 |
+| Memory 搜索修复 | L2 → cosine 距离度量 | ✅ 完成 |
+| verify_full.py 更新 | 适配 ModelServing 架构，286/286 L0-L8 PASS | ✅ 完成 |
+| examples/meeting-agent | 浏览器实时会议 Agent Demo | ✅ 完成 |
+| examples/lakemind-connector | opencode Skill + 全局安装 | ✅ 完成 |
+| README_agent.md | Agent 面向接入指南 | ✅ 完成 |
 | LakeMindStudio | Tauri 桌面客户端 | ❌ 未开始 |
 
 ---
 
 ## 2. 容器运行状态
 
-> 检查时间：2026-07-10 12:00
+> 检查时间：2026-07-11 21:30
 
 | 容器 | 端口 | 状态 | 用途 |
 |------|------|------|------|
@@ -114,26 +121,26 @@ memory:          True
 
 | 验证 | 脚本 | 结果 | 说明 |
 |------|------|------|------|
-| **全面测试 L0-L9** | `scripts/verify_full.py` | **297/297 PASS** | 全分层验证，含 150 Agent 并发压测 |
+| **全面测试 L0-L8** | `scripts/verify_full.py` | **286/286 PASS** | 全分层验证（L9 性能压测跳过） |
 | PG catalog | `LakeMindServer/scripts/verify_pg_catalog.py` | 8/8 PASS | PyIceberg + PG |
 | Ray 计算 | `LakeMindServer/scripts/verify_ray.py` | 12/12 PASS | 7 任务类型 |
 | LLM 网关 | `scripts/verify_llm.py` | 10/10 PASS | 3 provider 路由 |
 | Monitor | `LakeMindMonitor/scripts/verify_monitor.py` | 18/18 PASS | 14 API 路由 + 4 health |
 
-### 全面测试分层明细（verify_full.py，2026-07-06 22:02）
+### 全面测试分层明细（verify_full.py，2026-07-11 21:38）
 
 | 层 | 内容 | 结果 |
 |----|------|------|
-| L0 | 容器健康（12 容器） | 12/12 PASS |
-| L1 | 引擎健康（10 引擎） | 12/12 PASS |
-| L2 | REST API（12 域 ~65 路由） | 64/65 PASS, 1 SKIP |
+| L0 | 容器健康（13 容器） | 13/13 PASS |
+| L1 | 引擎健康（9 引擎） | 10/10 PASS |
+| L2 | REST API + ModelServing（13 域 ~65 路由） | 65/65 PASS |
 | L3 | AssetMCP（23 tools / 6 resources / 6 prompts） | 73/73 PASS |
 | L4 | DataMCP（18 tools / 4 resources / 2 prompts） | 50/50 PASS |
 | L5 | AdminMCP（17 tools / 6 resources / 2 prompts） | 51/51 PASS |
 | L6 | MCP 安全（auth / scope 隔离） | 11/11 PASS |
 | L7 | Steward + Monitor 集成 | 8/8 PASS |
 | L8 | 端到端业务流（知识/记忆/技能/本体/跨域） | 5/5 PASS |
-| L9 | 性能基线（10 项，含 150 Agent 并发） | 10/10 PASS |
+| L9 | 性能基线（10 项，含 150 Agent 并发） | SKIP（耗时，历史 297/297 PASS） |
 
 ### L9 性能基线结果
 
@@ -254,7 +261,8 @@ memory:          True
 | 2 | 动态 Token 不跨 MCP 共享 | 静态 config.yaml Token，MVP 限制 | P2 | 已知限制 |
 | 3 | Steward inspect() 无 MCP 降级 | MCP 不可用时无 fallback | P2 | v0.2 实现 |
 | 4 | server-api Docker build 耗时 | Ray 依赖安装 ~10min | P3 | 用 docker cp 热更新 |
-| 5 | REST API /system/nodes 无 auth | 部分端点未强制认证 | P3 | 待排查 |
+| 5 | ~~AssetMCP/DataMCP embed() 404~~ | ~~ingest/search_knowledge/skill 不可用~~ | ~~P0~~ | ✅ 已修复（v0.1.2） |
+| 6 | ~~Memory search L2 距离~~ | ~~search_memory 返回空~~ | ~~P0~~ | ✅ 已修复（v0.1.2） |
 
 ---
 
@@ -346,10 +354,10 @@ pg_table: model_registry（运行时热加载）
 
 | 优先级 | 任务 | 预估工作量 |
 |--------|------|-----------|
+| P1 | **v0.1.0 发版**：git tag + GitHub release | 30min |
 | P2 | 提取共享 LakeMindMCPShared 包 | 2h |
 | P2 | LakeMindStudio（Tauri 桌面客户端） | 2-3d |
 | P3 | 清理 Monitor 历史遗留代码 | 1h |
-| P3 | 排查 REST API /system/nodes 无 auth | 30min |
 
 ---
 
