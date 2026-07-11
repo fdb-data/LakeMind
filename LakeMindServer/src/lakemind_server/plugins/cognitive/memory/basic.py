@@ -216,7 +216,7 @@ class BasicMemory:
             if tbl_name not in conn.table_names():
                 return []
             tbl = conn.open_table(tbl_name)
-            q = tbl.search(qvec).limit(top_k)
+            q = tbl.search(qvec).metric("cosine").limit(top_k)
             raw = q.to_list()
             for r in raw:
                 dist = r.get("_distance", 1.0)

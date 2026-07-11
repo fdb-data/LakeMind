@@ -18,6 +18,10 @@ tokens:
     agent_id: "monitor"
     tenant_id: "platform"
     scopes: ["asset"]
+  - token: "tk_9d377e74c0c14969"
+    agent_id: "opencode-agent"
+    tenant_id: "opencode"
+    scopes: ["asset"]
 
 audit:
   level: "info"
