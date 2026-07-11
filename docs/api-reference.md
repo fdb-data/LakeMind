@@ -1,6 +1,6 @@
 # REST API 参考
 
-LakeMindServer 提供 40+ OpenAPI 路径，覆盖 11 个功能域。
+LakeMindServer 提供 40+ OpenAPI 路径，覆盖 10 个功能域。
 
 ## 认证
 
@@ -17,7 +17,7 @@ X-Scopes: all
 
 ### GET /api/v1/system/health
 
-返回 11 引擎健康状态。
+返回 10 引擎健康状态。
 
 ```json
 {
@@ -29,9 +29,8 @@ X-Scopes: all
   "metadata": true,
   "sql": true,
   "distributed": true,
-  "embedding": true,
-  "memory": true,
-  "llm": true
+  "model_serving": true,
+  "memory": true
 }
 ```
 
@@ -159,96 +158,59 @@ POST /api/v1/compute/jobs/
 
 支持的 func：`map`, `parallel_map`, `sum`, `sleep_test`, `embed_batch`, `pi_monte_carlo`, `matrix_multiply`
 
-## 9. Embedding (fastembed)
+## 9. Embedding
 
-### POST /api/v1/cognitive/embedding/embed
+Embedding 端点已从 LakeMindServer 移除，现由 LakeMindModelServing 提供，见 `:10824/v1/embeddings`。
 
-```bash
-{
-  "texts": ["hello", "world"]
-}
-```
+## 10. LLM 网关
 
-响应：
+LLM 网关端点已从 LakeMindServer 移除，GatewayLLM 已由 litellm Router 替代，现由 LakeMindModelServing 提供，见 `:10824/v1/chat/completions`。
 
-```json
-{
-  "vectors": [[0.1, 0.2, ...], [0.3, 0.4, ...]],
-  "dim": 384,
-  "count": 2
-}
-```
+## 11. Memory (mem0 风格)
 
-## 10. LLM 网关 (GatewayLLM)
+Memory 采用 mem0 风格 8 方法 API：add, search, get, list, update, delete, clear, history。
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| POST | /api/v1/cognitive/llm/chat | 聊天补全 |
-| POST | /api/v1/cognitive/llm/embed | LLM embedding |
-| GET | /api/v1/cognitive/llm/models | 列出可用模型 |
-| GET | /api/v1/cognitive/llm/health | 网关健康 |
-
-### 聊天示例
-
-```bash
-POST /api/v1/cognitive/llm/chat
-{
-  "messages": [
-    {"role": "system", "content": "你是助手"},
-    {"role": "user", "content": "你好"}
-  ],
-  "model": "auto",
-  "temperature": 0.7,
-  "max_tokens": 100
-}
-```
-
-响应：
-
-```json
-{
-  "id": "chat_xxxx",
-  "model": "deepseek-v4-flash",
-  "choices": [
-    {"message": {"role": "assistant", "content": "你好！有什么可以帮你的？"}}
-  ],
-  "usage": {"prompt_tokens": 20, "completion_tokens": 15, "total_tokens": 35}
-}
-```
-
-## 11. Memory (BasicMemory)
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| POST | /api/v1/cognitive/memory/remember | 写入记忆 |
-| POST | /api/v1/cognitive/memory/recall | 召回记忆 |
-| POST | /api/v1/cognitive/memory/forget | 删除记忆 |
+| POST | /api/v1/cognitive/memory/add | 添加记忆 |
+| POST | /api/v1/cognitive/memory/search | 语义检索记忆 |
+| GET | /api/v1/cognitive/memory/get/{memory_id} | 获取单条记忆 |
+| GET | /api/v1/cognitive/memory/list | 列出记忆 |
+| PUT | /api/v1/cognitive/memory/update/{memory_id} | 更新记忆 |
+| DELETE | /api/v1/cognitive/memory/delete/{memory_id} | 删除记忆 |
+| DELETE | /api/v1/cognitive/memory/clear | 清空记忆 |
+| GET | /api/v1/cognitive/memory/history/{memory_id} | 记忆变更历史 |
 
 ### 记忆示例
 
 ```bash
-# 写入长期记忆
-POST /api/v1/cognitive/memory/remember
+# 添加记忆
+POST /api/v1/cognitive/memory/add
 {
   "content": "用户偏好深色主题",
   "kind": "general"
 }
 
-# 写入短期记忆（60秒过期）
-POST /api/v1/cognitive/memory/remember
-{
-  "content": "当前会话上下文",
-  "ttl": 60,
-  "kind": "general"
-}
-
-# 语义召回
-POST /api/v1/cognitive/memory/recall
+# 语义检索
+POST /api/v1/cognitive/memory/search
 {
   "query": "用户喜欢什么主题",
   "limit": 5
 }
 ```
+
+## LakeMindModelServing API
+
+LakeMindModelServing（`:10824`）提供统一模型服务，OpenAI 兼容接口：
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | /v1/chat/completions | OpenAI 兼容聊天补全 |
+| POST | /v1/embeddings | OpenAI 兼容嵌入 |
+| POST | /v1/audio/transcriptions | 语音识别（ASR） |
+| GET | /v1/models | 列出可用模型 |
+| POST | /v1/models/register | 注册模型 |
+| GET | /health | 健康检查 |
 
 ## 12. Metadata (PostgreSQL)
 

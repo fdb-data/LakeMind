@@ -60,7 +60,7 @@
 
 ### 2.1 LakeMindServer REST API
 
-REST API 端口 `:10823`，40+ 路径，11 引擎。认证方式：
+REST API 端口 `:10823`，40+ 路径，10 引擎。认证方式：
 
 ```
 Authorization: Bearer lakemind-internal-api-key
@@ -264,10 +264,11 @@ AdminMCP (:8403)
 Steward (:8500)
 ├── LangGraph 状态图
 │   ├── 巡检工作流：check_health → analyze → report
-│   └── 对话管理：意图识别 → 路由到 3 MCP
+│   └── 对话管理：意图识别 → MCP 工具调用 → LLM 格式化输出
+├── LLM 对话：通过 ModelServing (:10824) 驱动，model=deepseek-v4-flash
 ├── MCP Client（asset + data + admin 三面）
 ├── 端点：POST /chat, POST /inspect, GET /health
-└── MCP 不可用时降级直连 REST API
+└── MCP 不可用时降级返回原始数据
 ```
 
 ### 4.5 LakeMindMonitor（人类仪表板）

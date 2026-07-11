@@ -73,6 +73,7 @@
           <div class="stat-row"><span>用户</span><b>{{ data.platform?.userCount ?? '-' }}</b></div>
           <div class="stat-row"><span>Token</span><b>{{ data.platform?.tokenCount ?? '-' }}</b></div>
           <div class="stat-row"><span>资产类型</span><b>{{ data.platform?.assetTypeCount ?? '-' }}</b></div>
+          <div class="stat-row"><span>模型服务</span><b>{{ modelServingStatus }}</b></div>
         </div>
       </el-card>
     </el-col>
@@ -88,6 +89,7 @@ import api from '../api.js'
 const loading = ref(false)
 const data = ref({})
 const autoRefresh = ref(true)
+const modelServingStatus = ref('-')
 let timer = null
 
 const containers = computed(() => data.value.containers || [])
@@ -99,6 +101,15 @@ async function loadData() {
   try { data.value = await api.dashboard() }
   catch { data.value = {} }
   finally { loading.value = false }
+  try {
+    const ms = await api.modelServingHealth()
+    const s = ms.services || {}
+    const parts = []
+    if (s.gateway) parts.push('LLM')
+    if (s.embedding) parts.push('Embed')
+    if (s.asr) parts.push('ASR')
+    modelServingStatus.value = parts.length ? parts.join('+') : 'ERR'
+  } catch { modelServingStatus.value = 'ERR' }
 }
 
 function toggleRefresh(val) {

@@ -67,6 +67,7 @@ const CONTAINERS = [
   { name: 'asset-mcp', port: 8401, category: 'mcp' },
   { name: 'data-mcp', port: 8402, category: 'mcp' },
   { name: 'admin-mcp', port: 8403, category: 'mcp' },
+  { name: 'model-serving', port: 10824, category: 'runtime' },
   { name: 'steward', port: 8500, category: 'runtime' },
   { name: 'monitor', port: 3000, category: 'runtime' },
 ]
@@ -82,6 +83,7 @@ const CONTAINER_HEALTH_URLS = {
   'asset-mcp': 'http://lakemind-asset-mcp:8401/health',
   'data-mcp': 'http://lakemind-data-mcp:8402/health',
   'admin-mcp': 'http://lakemind-admin-mcp:8403/health',
+  'model-serving': 'http://lakemind-model-serving:10824/health',
   'steward': 'http://lakemind-steward:8500/health',
   'monitor': null,
 }
@@ -95,9 +97,8 @@ const ENGINE_INFO = [
   { key: 'metadata', label: '元数据', category: 'storage', plugin: 'PostgreSQL' },
   { key: 'sql', label: 'SQL', category: 'compute', plugin: 'DuckDB' },
   { key: 'distributed', label: '分布式', category: 'compute', plugin: 'Ray' },
-  { key: 'embedding', label: '嵌入', category: 'cognitive', plugin: 'fastembed' },
   { key: 'memory', label: '记忆', category: 'cognitive', plugin: 'mem0' },
-  { key: 'llm', label: 'LLM', category: 'cognitive', plugin: 'GatewayLLM' },
+  { key: 'model_serving', label: '模型服务', category: 'cognitive', plugin: 'litellm+fastembed+FunASR' },
 ]
 
 async function probeContainers(engineHealth) {
@@ -145,7 +146,7 @@ function countFromResult(data, ...paths) {
 
 app.get('/api/health', safe(async (req, res) => {
   const services = {}
-  for (const [name, port] of [['asset-mcp', 8401], ['data-mcp', 8402], ['admin-mcp', 8403], ['steward', 8500]]) {
+  for (const [name, port] of [['asset-mcp', 8401], ['data-mcp', 8402], ['admin-mcp', 8403], ['model-serving', 10824], ['steward', 8500]]) {
     try {
       const r = await fetch(`http://lakemind-${name}:${port}/health`, { signal: AbortSignal.timeout(3000) })
       services[name] = r.ok ? 'ok' : 'error'
@@ -172,7 +173,7 @@ app.get('/api/dashboard/overview', safe(async (req, res) => {
   ])
 
   const v = (i, fallback = null) => results[i].status === 'fulfilled' ? results[i].value : fallback
-  const engineHealth = v(0, {})
+  const rawEngineHealth = v(0, {})
   const nodes = v(1, {})
   const metrics = v(2, {})
   const knowledge = v(3, [])
@@ -185,6 +186,21 @@ app.get('/api/dashboard/overview', safe(async (req, res) => {
   const users = v(10, {})
   const tokens = v(11, {})
   const assetTypes = v(12, [])
+
+  let modelServingOk = false
+  try {
+    const msR = await fetch('http://lakemind-model-serving:10824/health', { signal: AbortSignal.timeout(3000) })
+    modelServingOk = msR.ok
+  } catch { modelServingOk = false }
+
+  const engineHealth = {}
+  for (const e of ENGINE_INFO) {
+    if (e.key === 'model_serving') {
+      engineHealth.model_serving = modelServingOk
+    } else {
+      engineHealth[e.key] = rawEngineHealth[e.key]
+    }
+  }
 
   const containers = await probeContainers(engineHealth)
 
@@ -291,7 +307,16 @@ app.get('/api/data/graph', safe(async (req, res) => {
 
 app.get('/api/admin/health', safe(async (req, res) => {
   const r = await mcpCall(ADMIN_MCP, ADMIN_TOKEN, 'get_platform_health', {})
-  res.json(parseResult(r))
+  const health = parseResult(r)
+  const filtered = {}
+  for (const k of ['object_storage','tabular','vector','kv','graph','metadata','sql','distributed','memory']) {
+    filtered[k] = health[k]
+  }
+  try {
+    const msR = await fetch('http://lakemind-model-serving:10824/health', { signal: AbortSignal.timeout(3000) })
+    filtered.model_serving = msR.ok
+  } catch { filtered.model_serving = false }
+  res.json(filtered)
 }))
 
 app.get('/api/admin/nodes', safe(async (req, res) => {
@@ -350,6 +375,24 @@ app.get('/api/steward/health', safe(async (req, res) => {
     res.json({ status: r.ok ? 'ok' : 'error', ...await r.json() })
   } catch {
     res.json({ status: 'error' })
+  }
+}))
+
+app.get('/api/model-serving/health', safe(async (req, res) => {
+  try {
+    const r = await fetch('http://lakemind-model-serving:10824/health', { signal: AbortSignal.timeout(3000) })
+    res.json({ status: r.ok ? 'ok' : 'error', ...await r.json() })
+  } catch {
+    res.json({ status: 'error' })
+  }
+}))
+
+app.get('/api/model-serving/models', safe(async (req, res) => {
+  try {
+    const r = await fetch('http://lakemind-model-serving:10824/v1/models', { signal: AbortSignal.timeout(5000) })
+    res.json(await r.json())
+  } catch {
+    res.json({ data: [] })
   }
 }))
 

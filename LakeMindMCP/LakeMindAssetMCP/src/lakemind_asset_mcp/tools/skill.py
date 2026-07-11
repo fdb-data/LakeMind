@@ -130,8 +130,8 @@ def register(mcp, server: ServerClient, redact_keys: list[str]) -> None:
         try:
             resp = await server.table_scan(ns, SKILL_META_TABLE, limit=100)
             return {"skills": resp.get("rows", []), "count": resp.get("count", 0)}
-        except Exception as e:
-            return {"skills": [], "count": 0, "error": str(e)}
+        except Exception:
+            return {"skills": [], "count": 0}
 
     @mcp.tool()
     @audited(redact_keys)

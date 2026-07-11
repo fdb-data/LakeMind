@@ -38,9 +38,8 @@ compute:
   distributed:  # 分布式计算
 
 cognitive:
-  embedding:    # Embedding
   memory:       # 记忆引擎
-  llm:          # LLM 推理网关
+    model_serving_url: "http://lakemind-model-serving:10824"
 ```
 
 ## 1. 对象存储
@@ -170,25 +169,7 @@ compute:
 
 ## 9. Embedding
 
-```yaml
-cognitive:
-  embedding:
-    plugin: fastembed
-    config:
-      model: "jinaai/jina-embeddings-v2-base-zh"
-      dim: 768
-```
-
-切换到外部 API：
-
-```yaml
-    plugin: external
-    config:
-      base_url: "https://api.openai.com/v1"
-      model: "text-embedding-3-small"
-      dim: 1536
-      api_key: "${EMBEDDING_API_KEY}"
-```
+Embedding 配置已移至 LakeMindModelServing，见 `LakeMindModelServing/config/models.yaml`。
 
 ## 10. 记忆引擎
 
@@ -203,88 +184,27 @@ cognitive:
       user: "lakemind"
       password: "lakemind_pass"
       kv_host: "lakemind-valkey"
-      embedding_model: "jinaai/jina-embeddings-v2-base-zh"
       kv_port: 6379
       lance_uri: "/data/lance"
+      embedding_model: "jinaai/jina-embeddings-v2-base-zh"
       embedding_dim: 768
+      llm_model: "deepseek-v4-flash"
+      model_serving_url: "http://lakemind-model-serving:10824"
 ```
 
 ## 11. LLM 推理网关
 
-```yaml
-cognitive:
-  llm:
-    plugin: gateway
-    config:
-      default_chat_model: "auto"
-      default_embed_model: "auto"
-      providers:
-        # OpenAI 兼容（DeepSeek / ModelArts / vLLM）
-        - name: "modelarts"
-          type: "openai_compat"
-          base_url: "https://api.modelarts-maas.com/openai/v1"
-          api_key: "${MAAS_API_KEY}"
-          models:
-            - id: "deepseek-v4-flash"
-              context: 64000
-              tags: [chat, general]
-          priority: 1
+LLM 推理网关配置已移至 LakeMindModelServing，见 `LakeMindModelServing/config/models.yaml`。配置从 `engines.yaml` 迁移至 `models.yaml`。
 
-        # OpenAI
-        - name: "openai"
-          type: "openai_compat"
-          base_url: "https://api.openai.com/v1"
-          api_key: "${OPENAI_API_KEY}"
-          models:
-            - id: "gpt-4o-mini"
-              context: 128000
-              tags: [chat, general]
-            - id: "text-embedding-3-small"
-              context: 8191
-              tags: [embed]
-              dim: 1536
-          priority: 2
+## 12. LakeMindModelServing 配置
 
-        # Anthropic
-        - name: "anthropic"
-          type: "anthropic"
-          api_key: "${ANTHROPIC_API_KEY}"
-          models:
-            - id: "claude-3-haiku-20240307"
-              context: 200000
-              tags: [chat, general]
-          priority: 3
+配置文件：`LakeMindModelServing/config/models.yaml`
 
-        # Ollama 本地
-        - name: "ollama"
-          type: "ollama"
-          base_url: "http://host.docker.internal:11434"
-          models:
-            - id: "qwen2.5:7b"
-              context: 32768
-              tags: [chat, general]
-          priority: 4
-
-      # Fallback 链
-      fallback:
-        chat: ["deepseek-v4-flash", "gpt-4o-mini", "claude-3-haiku-20240307"]
-        embed: ["text-embedding-3-small"]
-```
-
-### Provider 类型
-
-| type | 覆盖 | 认证方式 |
-|------|------|----------|
-| `openai_compat` | OpenAI / DeepSeek / vLLM / Ollama OpenAI 模式 / ModelArts | Bearer Token |
-| `anthropic` | Claude 系列 | x-api-key + anthropic-version |
-| `ollama` | Ollama 原生 API | 无需认证 |
-
-### 路由逻辑
-
-- `model: "auto"` → 按 priority 选第一个可用的模型
-- `model: "deepseek-v4-flash"` → 指定模型
-- 主模型失败 → 按 fallback 链依次尝试
-- 未设置 API key 的 provider 自动跳过（health=false）
+包含：
+- litellm provider 配置（modelarts/openai/anthropic/ollama）
+- fastembed 嵌入配置
+- FunASR 语音识别配置
+- 模型注册表（PG model_registry 表）
 
 ## .env 环境变量
 

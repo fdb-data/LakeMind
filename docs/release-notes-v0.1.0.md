@@ -37,11 +37,11 @@ Ray 2.41 集群（3 节点 12 CPU），支持 7 种分布式任务：
 
 ### 3. LLM 推理网关
 
-自建 GatewayLLM，支持多 provider 路由 + fallback 降级：
+litellm Router，支持多 provider 路由 + fallback 降级：
 - OpenAI 兼容（OpenAI / DeepSeek / vLLM / ModelArts / Ollama OpenAI 模式）
 - Anthropic（Claude 系列）
 - Ollama 本地
-- 零新依赖（httpx 直连，240 行代码）
+- 独立为 LakeMindModelServing（:10824）
 
 ### 4. Agent MCP 接口
 
@@ -94,7 +94,7 @@ python scripts/verify_full.py    # 297/297 PASS
 | KV 缓存 | Valkey | Redis |
 | 分布式计算 | Ray | Embedded（降级） |
 | Embedding | fastembed | 外部 API / TEI |
-| LLM 网关 | GatewayLLM | — |
+| LLM 网关 | litellm | — |
 | 记忆引擎 | BasicMemory | mem0（规划中） |
 
 ---

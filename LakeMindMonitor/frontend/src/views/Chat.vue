@@ -55,7 +55,7 @@
 
           <h4 style="margin-top:16px">引擎详情</h4>
           <div class="engine-health-grid">
-            <div v-for="(val, key) in (inspectResult.health || {})" :key="key" class="engine-health-item">
+            <div v-for="(val, key) in filteredEngineHealth" :key="key" class="engine-health-item">
               <span class="dot" :class="val === true || val === 'ok' ? 'dot-ok' : 'dot-err'"></span>
               {{ key }}
             </div>
@@ -69,7 +69,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import api from '../api.js'
 
 const input = ref('')
@@ -79,10 +79,26 @@ const stewardOk = ref(false)
 const inspectResult = ref(null)
 const inspecting = ref(false)
 const msgList = ref(null)
+const modelServingHealth = ref(null)
 
 const quickCmds = ['健康检查', '列出用户', '查看租户', '查看知识库', '查看技能', '查看记忆', '查看数据表']
 
 const STORAGE_KEY = 'lakemind-chat-history'
+
+const filteredEngineHealth = computed(() => {
+  const raw = inspectResult.value?.health || {}
+  const filtered = {}
+  for (const [k, v] of Object.entries(raw)) {
+    if (k === 'embedding' || k === 'llm') continue
+    filtered[k] = v
+  }
+  if (modelServingHealth.value?.status === 'ok') {
+    filtered.model_serving = true
+  } else {
+    filtered.model_serving = false
+  }
+  return filtered
+})
 
 function loadHistory() {
   try {
@@ -127,7 +143,10 @@ function sendQuick(cmd) {
 
 async function runInspect() {
   inspecting.value = true
-  try { inspectResult.value = await api.inspect() }
+  try {
+    inspectResult.value = await api.inspect()
+    try { modelServingHealth.value = await api.modelServingHealth() } catch { modelServingHealth.value = null }
+  }
   catch { inspectResult.value = { report: '巡检失败', healthy: false, issues: ['Steward 未就绪'], health: {} } }
   finally { inspecting.value = false }
 }
@@ -137,7 +156,7 @@ async function scrollToBottom() {
   if (msgList.value) msgList.value.scrollTop = msgList.value.scrollHeight
 }
 
-onMounted(() => { loadHistory(); checkSteward(); scrollToBottom() })
+onMounted(() => { loadHistory(); checkSteward(); try { api.modelServingHealth().then(r => { modelServingHealth.value = r }) } catch {}; scrollToBottom() })
 </script>
 
 <style scoped>

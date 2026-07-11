@@ -72,8 +72,8 @@ def build_mcp(config: Config, server: ServerClient) -> FastMCP:
                 except Exception:
                     out.append({"name": t})
             return out
-        except Exception as e:
-            return [{"error": str(e)}]
+        except Exception:
+            return []
 
     @mcp.resource("lake://knowledge/{id}")
     async def describe_knowledge(id: str) -> dict:
@@ -103,8 +103,8 @@ def build_mcp(config: Config, server: ServerClient) -> FastMCP:
             ns = f"{ctx.tenant_id}_skills"
             resp = await server.table_scan(ns, "skill_meta", limit=100)
             return {"skills": resp.get("rows", []), "count": resp.get("count", 0)}
-        except Exception as e:
-            return {"skills": [], "count": 0, "error": str(e)}
+        except Exception:
+            return {"skills": [], "count": 0}
 
     @mcp.resource("lake://skills/{name}")
     async def describe_skill(name: str) -> dict:
@@ -125,8 +125,8 @@ def build_mcp(config: Config, server: ServerClient) -> FastMCP:
             ctx = get_tenant()
             resp = await server.memory_list(page=1, page_size=1)
             return {"total": resp.get("count", 0)}
-        except Exception as e:
-            return {"error": str(e)}
+        except Exception:
+            return {"total": 0}
 
     @mcp.resource("lake://memory/{memory_id}")
     async def get_memory_resource(memory_id: str) -> dict:

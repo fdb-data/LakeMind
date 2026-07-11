@@ -1,33 +1,16 @@
 # 会议实时知识化 Agent — 设计方案
 
 > 位置：`examples/meeting-agent/`
-> 状态：设计阶段，待批准
-> 日期：2026-07-09
+> 状态：已实现并验证
+> 日期：2026-07-11
 
 ---
 
 ## 1. 项目定位
 
-一个带 Web 界面的会议实时知识化 Agent。浏览器实时录音，后端 Agent 编排流水线，所有处理逻辑封装为 LakeMind Skill（带 Ray jobs）。
+**LakeMind 平台能力验证 Demo**。浏览器实时录音，Agent 编排流水线，验证 LakeMind 的存储、ASR、LLM、Embedding、向量检索、记忆等核心能力。
 
-```
-浏览器录音 → Agent 编排 → Skill jobs(Ray) 处理 → 知识入库 → 浏览器实时展示
-```
-
-### 1.1 设计思路
-
-| 层 | 职责 | 技术 |
-|----|------|------|
-| **Web UI** | 录音、展示转写/纪要/知识、检索 | HTML + JS（MediaRecorder + SSE） |
-| **Agent** | Web 服务 + 流水线编排 | FastAPI（Python） |
-| **Skills** | 所有处理逻辑（ASR/摘要/萃取/入库） | Ray jobs（Skill zip 包） |
-
-**Agent 与 LakeMind 的接口只有三件事**：
-1. `s3_put` — 上传音频文件
-2. `ray_submit_job` / `ray_job_status` / `ray_job_result` — 提交和轮询 Skill jobs
-3. `search_knowledge` — 检索知识库
-
-所有业务逻辑（ASR、摘要、萃取、知识入库）都在 Skill jobs 内，Agent 不做任何计算。
+> **不是生产级应用**。省略了认证、持久化、并发控制、错误重试等生产必需能力。
 
 ---
 
@@ -41,39 +24,61 @@
 │  │ 录音按钮  │  │ 实时转写  │  │ 实时纪要  │  │ 知识库  │  │
 │  │ MediaRec │  │  (SSE)   │  │  (SSE)   │  │ 检索    │  │
 │  └────┬─────┘  └──────────┘  └──────────┘  └────────┘  │
-│       │ audio chunks (HTTP POST)                         │
+│       │ WebM chunks (HTTP POST, 10s/chunk)              │
+│       │ MediaRecorder per-chunk restart                 │
 └───────┼──────────────────────────────────────────────────┘
         │
         ▼
 ┌─────────────────────────────────────────────────────────┐
 │                  Agent (FastAPI :9100)                    │
 │                                                           │
-│  POST /api/chunk     ← 接收音频 chunk                     │
+│  POST /api/chunk     ← 接收 WebM audio chunk              │
 │  POST /api/start     ← 开始会议                           │
 │  POST /api/stop      ← 结束会议                           │
 │  GET  /api/stream    ← SSE 实时推送                       │
 │  GET  /api/search    ← 知识检索                           │
 │                                                           │
 │  MeetingAgent 编排：                                      │
-│    chunk → s3_put → ray_submit_job(asr) → 转写            │
-│    每60s → ray_submit_job(summarize) → 纪要               │
-│    每120s → ray_submit_job(extract) → 知识入库            │
+│    chunk → ffmpeg(WebM→WAV) → ASR → clean_tags → 转写    │
+│    每6chunk → LLM summarize → 纪要                       │
+│    每2纪要 → LLM extract → embedding → 向量入库          │
+│           → retrieval self-check → 知识                  │
 └──────┬──────────────────────────────────────────────────┘
-       │ MCP
+       │
+       ├──────────────────────┐
+       ▼                      ▼
+┌──────────────┐    ┌──────────────────┐
+│ ModelServing │    │ LakeMindServer   │
+│   :10824     │    │   :10823         │
+│              │    │                  │
+│ /v1/audio/   │    │ /api/v1/storage/ │
+│  transcriptions│  │  objects (S3)    │
+│ /v1/chat/    │    │ /api/v1/storage/ │
+│  completions │    │  vectors (Lance) │
+│ /v1/embeddings│   │ /api/v1/system/  │
+│              │    │  health          │
+└──────────────┘    └──────────────────┘
+       │
        ▼
-┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-│  DataMCP     │  │  AssetMCP    │  │  AdminMCP    │
-│  s3_put      │  │  search_know │  │  create_sec  │
-│  ray_submit  │  │  register_sk │  │  (setup only)│
-│  ray_status  │  │  (setup only)│  │              │
-│  ray_result  │  │              │  │              │
-└──────┬───────┘  └──────┬───────┘  └──────┬───────┘
-       │                 │                 │
-       └─────────────────┼─────────────────┘
-                         ▼
-              LakeMindServer :10823
-              REST API + 11 引擎
+┌──────────────┐
+│  AssetMCP    │
+│   :8401      │
+│              │
+│ add_memory   │
+└──────────────┘
 ```
+
+### 2.1 关键设计决策
+
+| 决策 | 原因 |
+|------|------|
+| Agent 直接调 ModelServing | Server Ray job 提交存在连接问题，改为直接调用 |
+| host ffmpeg WebM→WAV | 容器内 ffmpeg 对部分 WebM 不稳定，host ffmpeg 可靠 |
+| MediaRecorder per-chunk restart | 每个 chunk 是完整 WebM 文件，避免 EBML 头问题 |
+| 知识入库绕过 AssetMCP | Server embedding endpoint 未 mount，直接用 ModelServing embeddings + Server vector API |
+| FunASR 标签清理 | SenseVoice 输出含 `<\|zh\|> <|EMO|>` 等标签，用正则清理 |
+| 验收日志 `[OK]/[FAIL]` | 验证者看控制台即可确认每个环节状态 |
+| 检索自检 | 入库后自动 search 验证索引即时生效 |
 
 ---
 
@@ -83,28 +88,34 @@
 
 ```
 浏览器录音
-  │  每 10s 发送一个 audio chunk
+  │  MediaRecorder 每 10s 生成完整 WebM chunk
+  │  POST /api/chunk (binary body)
   ▼
 Agent 接收 chunk
-  │  s3_put 上传到 S3
-  │  ray_submit_job("asr", {chunk_uri}) → 等待结果
-  │  → transcript segment
-  │  → SSE 推送到浏览器
+  │  s3_put 上传原始 WebM 到 S3
+  │  ffmpeg WebM → WAV (16kHz mono)
+  │  POST ModelServing /v1/audio/transcriptions → ASR
+  │  clean_asr_text() 清理 FunASR 标签
+  │  → SSE 推送纯文本转写到浏览器
   │  → 累积到 transcript buffer
   ▼
-每 60s（6 个 chunk）
-  │  ray_submit_job("summarize", {transcript_uri}) → 等待结果
+每 6 个 chunk
+  │  POST ModelServing /v1/chat/completions → LLM 摘要
   │  → minutes (markdown)
+  │  → S3 存储纪要
   │  → SSE 推送到浏览器
   ▼
-每 120s（2 次摘要）
-  │  ray_submit_job("extract", {minutes_uri, meeting_id}) → 等待结果
-  │  → extract job 内部调 LLM 萃取知识 + 调 REST API 入库
-  │  → SSE 推送到浏览器（新知识点）
+每 2 次摘要
+  │  POST ModelServing /v1/chat/completions → LLM 萃取知识点 (JSON)
+  │  for each concept:
+  │    POST ModelServing /v1/embeddings → 向量化
+  │  POST Server /api/v1/storage/vectors → 批量入库
+  │  → 检索自检 (search → log hits)
+  │  → SSE 推送知识到浏览器
   ▼
 用户停止录音
   │  最终 summarize + extract + 入库
-  │  add_memory 记录会议历史
+  │  AssetMCP add_memory 记录会议历史
   ▼
 完成
 ```
@@ -112,524 +123,169 @@ Agent 接收 chunk
 ### 3.2 异步编排
 
 ```python
-# agent.py 核心逻辑
 class MeetingAgent:
-    async def on_chunk(self, chunk: bytes, meeting_id: str):
+    async def on_chunk(self, meeting_id: str, audio: bytes):
         # 1. 上传 S3
-        uri = f"s3://.../meetings/{meeting_id}/audio/chunk-{self.n}.wav"
-        await self.lake.s3_put(uri, chunk)
+        await self.client.s3_put(chunk_uri, audio)
 
-        # 2. 提交 ASR job
-        job = await self.lake.ray_submit_job(
-            skill_uri=SKILL_URI, job_name="asr",
-            params={"chunk_uri": uri},
-            task_id=meeting_id,
-        )
-        result = await self._wait_job(job["job_id"])
+        # 2. ASR (WebM → ffmpeg → WAV → ModelServing)
+        result = await self.client.asr(audio)
+        text = clean_asr_text(result["text"])
 
-        # 3. 推送转写到浏览器
-        await self.sse.broadcast("transcript", result["text"])
+        # 3. SSE 推送 + 累积
+        await self.sse.broadcast("transcript", {"text": text, ...})
 
-        # 4. 累积，触发摘要
-        self.buffer.append(result)
-        if len(self.buffer) >= 6:
+        # 4. 每 6 chunk 触发摘要
+        if chunk_num % 6 == 0:
             asyncio.create_task(self._summarize(meeting_id))
 
-    async def _summarize(self, meeting_id: str):
-        # 提交 summarize job
-        job = await self.lake.ray_submit_job(
-            skill_uri=SKILL_URI, job_name="summarize",
-            params={"transcript_uri": self._upload_transcript()},
-            task_id=meeting_id,
-        )
-        result = await self._wait_job(job["job_id"])
-        await self.sse.broadcast("minutes", result["minutes"])
+    async def _summarize(self, meeting_id):
+        minutes = await self.client.llm_chat(SUMMARIZE_PROMPT, transcript)
+        await self.client.s3_put(minutes_uri, minutes.encode())
+        await self.sse.broadcast("minutes", {"minutes": minutes})
 
-        # 触发萃取
-        asyncio.create_task(self._extract(meeting_id, result["minutes_uri"]))
+        # 每 2 次摘要触发萃取
+        if summary_num % 2 == 0:
+            asyncio.create_task(self._extract(meeting_id, minutes))
 
-    async def _extract(self, meeting_id: str, minutes_uri: str):
-        # 提交 extract job（job 内部完成知识入库）
-        job = await self.lake.ray_submit_job(
-            skill_uri=SKILL_URI, job_name="extract",
-            params={"minutes_uri": minutes_uri, "meeting_id": meeting_id},
-            task_id=meeting_id,
-        )
-        result = await self._wait_job(job["job_id"])
-        await self.sse.broadcast("knowledge", result["concepts"])
-```
+    async def _extract(self, meeting_id, minutes):
+        concepts = json.loads(await self.client.llm_chat(EXTRACT_PROMPT, minutes))
+        await self.client.ingest_knowledge("meetings", concepts)
 
-### 3.3 时序图
+        # 检索自检
+        check = await self.client.search_knowledge(concepts[0]["title"])
+        logger.info("[OK] Retrieval self-check: hits=%d", len(check["hits"]))
 
-```
-浏览器        Agent         DataMCP/S3     Ray(asr)    Ray(sum)   Ray(ext)   AssetMCP
-  │             │              │             │           │          │           │
-  │──chunk 1──→ │              │             │           │          │           │
-  │             │──s3_put──→   │             │           │          │           │
-  │             │──submit asr─────────────→ │           │          │           │
-  │             │←─result───────────────────│           │          │           │
-  │←─SSE trans─│              │             │           │          │           │
-  │             │              │             │           │          │           │
-  │──chunk 2──→ │              │             │           │          │           │
-  │             │  ...         │             │           │          │           │
-  │             │              │             │           │          │           │
-  │──chunk 6──→ │              │             │           │          │           │
-  │             │──s3_put──→   │             │           │          │           │
-  │             │──submit asr─────────────→ │           │          │           │
-  │←─SSE trans─│              │             │           │          │           │
-  │             │──submit sum──────────────────────────→│          │           │
-  │             │←─result────────────────────────────────│          │           │
-  │←─SSE minutes│              │             │           │          │           │
-  │             │──submit ext────────────────────────────────────→ │           │
-  │             │               │             │           │          │──ingest─→│
-  │             │←─result──────────────────────────────────────────│           │
-  │←─SSE know──│              │             │           │          │           │
+        await self.sse.broadcast("knowledge", {"concepts": concepts})
 ```
 
 ---
 
-## 4. Skill 包设计
+## 4. Web UI 设计
 
-**所有处理逻辑都在 Skill 内，Agent 不做任何计算。**
+### 4.1 录音机制
 
 ```
-meeting-processing/
-├── SKILL.md
-└── jobs/
-    ├── asr/                         ← job_name="asr"
-    │   ├── ray.yaml
-    │   ├── asr.py
-    │   └── requirements.txt
-    ├── summarize/                   ← job_name="summarize"
-    │   ├── ray.yaml
-    │   ├── summarize.py
-    │   └── requirements.txt
-    └── extract/                     ← job_name="extract"
-        ├── ray.yaml
-        ├── extract.py
-        └── requirements.txt
+MediaRecorder per-chunk restart:
+  1. new MediaRecorder(stream, {mimeType: 'audio/webm'})
+  2. recorder.start()
+  3. setTimeout(10s) → recorder.stop()
+  4. onstop: blob = new Blob(chunks) → pendingChunks.push(blob)
+  5. 立即 new MediaRecorder 开始下一个 chunk
+  6. setInterval(2s) 检查 pendingChunks → fetch POST /api/chunk
 ```
 
-### 4.1 asr job
+每个 chunk 是完整的 WebM 文件（有合法 EBML 头），避免分段问题。
 
-输入：`{"chunk_uri": "s3://.../chunk-001.wav"}`
-输出：`{"text": "转写文本", "segments": [...]}`
-
-```python
-# jobs/asr/asr.py
-import os, json, httpx
-
-def main():
-    params = json.loads(os.environ["RAY_JOB_PARAMS"])
-    chunk_uri = params["chunk_uri"]
-
-    # 从 S3 下载音频
-    audio = download_from_s3(chunk_uri)
-
-    # 调用 ASR API（密钥从 os.environ 读取，由 Server 注入）
-    resp = httpx.post(
-        os.environ["ASR_ENDPOINT"] + "/audio/transcriptions",
-        headers={"Authorization": f"Bearer {os.environ['ASR_API_KEY']}"},
-        files={"file": ("audio.wav", audio)},
-    )
-    result = resp.json()
-
-    # 输出结果（Server 自动捕获 stdout JSON）
-    print(json.dumps({"text": result["text"], "segments": result.get("segments", [])}))
-```
-
-```yaml
-# jobs/asr/ray.yaml
-entrypoint: "python asr.py"
-dependencies:
-  - requirements.txt
-resources:
-  num_cpus: 1
-```
-
-### 4.2 summarize job
-
-输入：`{"transcript_uri": "s3://.../transcript.json", "meeting_title": "..."}`
-输出：`{"minutes": "markdown", "minutes_uri": "s3://.../minutes.md"}`
-
-```python
-# jobs/summarize/summarize.py
-import os, json, httpx
-
-def main():
-    params = json.loads(os.environ["RAY_JOB_PARAMS"])
-    transcript = json.loads(download_from_s3(params["transcript_uri"]))
-
-    # 调用 LakeMind LLM Gateway（Ray worker 在 Docker 网络内）
-    resp = httpx.post(
-        server_url() + "/api/v1/cognitive/llm/chat",
-        headers={"Authorization": f"Bearer {server_key()}"},
-        json={
-            "messages": [
-                {"role": "system", "content": SUMMARIZE_PROMPT},
-                {"role": "user", "content": transcript["text"]},
-            ],
-        },
-    )
-    minutes = resp.json()["choices"][0]["message"]["content"]
-
-    # 写回 S3
-    minutes_uri = params["transcript_uri"].replace("transcript.json", "minutes.md")
-    upload_to_s3(minutes_uri, minutes)
-
-    print(json.dumps({"minutes": minutes, "minutes_uri": minutes_uri}))
-```
-
-### 4.3 extract job
-
-输入：`{"minutes_uri": "s3://.../minutes.md", "meeting_id": "..."}`
-输出：`{"concepts": [...]}`
-**副作用：知识入库**（job 内部调 REST API ingest_knowledge）
-
-```python
-# jobs/extract/extract.py
-import os, json, httpx
-
-def main():
-    params = json.loads(os.environ["RAY_JOB_PARAMS"])
-    minutes = download_from_s3(params["minutes_uri"])
-    meeting_id = params["meeting_id"]
-
-    # LLM 萃取知识点
-    resp = httpx.post(
-        server_url() + "/api/v1/cognitive/llm/chat",
-        headers={"Authorization": f"Bearer {server_key()}"},
-        json={
-            "messages": [
-                {"role": "system", "content": EXTRACT_PROMPT},
-                {"role": "user", "content": minutes},
-            ],
-        },
-    )
-    concepts = json.loads(resp.json()["choices"][0]["message"]["content"])
-
-    # 知识入库（调 REST API，OKF 格式）
-    for concept in concepts:
-        httpx.post(
-            server_url() + "/api/v1/cognitive/knowledge/ingest",
-            headers=server_headers(),
-            json={"kb_name": "meetings", "concepts": [concept]},
-        )
-
-    print(json.dumps({"concepts": concepts}))
-```
-
-### 4.4 SKILL.md
-
-```markdown
-# 会议录音实时知识化
-
-实时录音 → ASR 转写 → 会议纪要 → 知识萃取 → 知识库入库。
-
-## Jobs
-
-- **asr**: 音频 chunk → 转写文本（调用外部 ASR API）
-- **summarize**: 转写文本 → 结构化纪要（调用 LLM Gateway）
-- **extract**: 纪要 → 知识点 + 入库（调用 LLM Gateway + REST API）
-
-## 依赖密钥
-
-- ASR_API_KEY: ASR 服务 API Key
-- ASR_ENDPOINT: ASR 服务地址
-```
-
----
-
-## 5. Web UI 设计
-
-### 5.1 页面布局
+### 4.2 页面布局
 
 ```
 ┌─────────────────────────────────────────────────────────┐
 │  LakeMind Meeting Agent                    [知识检索]     │
 ├─────────────────────────────────────────────────────────┤
+│  会议标题: [项目评审会]  参会人: [张三,李四]              │
+│  [● 录音]  状态: 录音中  00:03:24  chunks: 20            │
 │                                                          │
-│  会议标题: [项目评审会          ]  参会人: [张三,李四   ] │
+│  ┌─ 实时转写 ─────────┐  ┌─ 实时纪要 ─────────┐         │
+│  │ [00:10] 大家好...  │  │ ## 会议摘要         │         │
+│  │ [00:20] 我们决定...│  │ ## 关键决策         │         │
+│  └────────────────────┘  └────────────────────┘         │
 │                                                          │
-│  ┌──────────┐    状态: ● 录音中  00:03:24  chunks: 20   │
-│  │  ● 录音  │                                            │
-│  └──────────┘                                            │
-│                                                          │
-│  ┌─ 实时转写 ─────────────────────────────────────────┐  │
-│  │ ...所以我们决定把 v1.0 的发布日期推迟到下周三，    │  │
-│  │ 因为认证模块还有几个 bug 需要修复...               │  │
-│  │ ▌                                                   │  │
-│  └─────────────────────────────────────────────────────┘  │
-│                                                          │
-│  ┌─ 实时纪要 ─────────────────────────────────────────┐  │
-│  │ ## 决策                                              │  │
-│  │ 1. v1.0 发布推迟到下周三                             │  │
-│  │ ## 行动项                                            │  │
-│  │ - [ ] 张三：修复认证模块 bug                         │  │
-│  └─────────────────────────────────────────────────────┘  │
-│                                                          │
-│  ┌─ 已发现知识 (8) ───────────────────────────────────┐  │
-│  │ • v1.0 发布计划变更 → 推迟至下周三                   │  │
-│  │ • 认证模块存在未修复 bug                             │  │
-│  │ • 张三负责认证模块修复                               │  │
-│  └─────────────────────────────────────────────────────┘  │
-│                                                          │
-└─────────────────────────────────────────────────────────┘
-```
-
-### 5.2 知识检索页面
-
-```
-┌─────────────────────────────────────────────────────────┐
-│  知识检索                                                │
-├─────────────────────────────────────────────────────────┤
-│  [v1.0 发布计划          ] [搜索]                        │
-│                                                          │
-│  结果 (3 条):                                            │
-│  ┌─────────────────────────────────────────────────────┐ │
-│  │ v1.0 发布推迟至下周三 (score: 0.12)                  │ │
-│  │ 会议: 2026-07-09 项目评审会                          │ │
-│  │ 决策: v1.0 发布日期从 7/10 推迟至 7/16...            │ │
+│  ┌─ 已发现知识 (8) ────────────────────────────────────┐ │
+│  │ • v1.0 发布计划变更 → 推迟至下周三                   │ │
+│  │ • 认证模块存在未修复 bug                             │ │
 │  └─────────────────────────────────────────────────────┘ │
-│  ...                                                     │
 └─────────────────────────────────────────────────────────┘
 ```
 
-### 5.3 前端技术
-
-| 技术 | 用途 |
-|------|------|
-| `MediaRecorder API` | 浏览器录音，10s 分片 |
-| `fetch` | 发送音频 chunk 到 Agent |
-| `EventSource (SSE)` | 接收实时转写/纪要/知识推送 |
-| Vanilla JS | 无框架，单文件 `app.js` |
-
 ---
 
-## 6. Agent API 设计
-
-### 6.1 REST 端点
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| POST | `/api/start` | 开始会议（title, participants） |
-| POST | `/api/chunk` | 上传音频 chunk（binary body） |
-| POST | `/api/stop` | 结束会议（触发最终处理） |
-| GET | `/api/stream` | SSE 实时推送（transcript/minutes/knowledge） |
-| GET | `/api/search` | 知识检索（query, top_k） |
-| GET | `/api/history` | 历史会议列表 |
-
-### 6.2 SSE 事件
-
-```
-event: transcript
-data: {"text": "...", "timestamp": "00:03:20"}
-
-event: minutes
-data: {"minutes": "## 决策\n1. ...", "updated_at": "00:06:00"}
-
-event: knowledge
-data: {"concepts": [{"title": "...", "body": "..."}]}
-
-event: status
-data: {"status": "recording", "duration": "00:03:24", "chunks": 20}
-```
-
----
-
-## 7. Agent 与 LakeMind 接口
-
-**Agent 只做三件事**，不包含任何业务逻辑：
+## 5. Agent 与 LakeMind 接口
 
 ```python
 class LakeMindClient:
-    # 1. 上传文件到 S3
-    async def s3_put(self, uri: str, data: bytes): ...
+    # S3 对象存储 (Server REST API)
+    async def s3_put(self, uri: str, data: bytes) -> dict
+    async def s3_get(self, uri: str) -> bytes
+    async def s3_exists(self, uri: str) -> bool
 
-    # 2. 提交和轮询 Ray jobs
-    async def ray_submit_job(self, skill_uri, job_name, params, task_id): ...
-    async def ray_job_status(self, job_id): ...
-    async def ray_job_result(self, job_id): ...
+    # ASR (ModelServing, 内含 ffmpeg WebM→WAV 转换)
+    async def asr(self, audio: bytes) -> dict
 
-    # 3. 检索知识库
-    async def search_knowledge(self, query, top_k=5): ...
+    # LLM (ModelServing litellm)
+    async def llm_chat(self, system_prompt: str, user_content: str) -> str
 
-    # setup（仅一次性配置）
-    async def register_skill(self, name, code, format, version): ...
-    async def create_secret(self, key_name, value): ...
+    # 知识向量 (ModelServing embeddings + Server vector API)
+    async def search_knowledge(self, query: str, kb_name: str, top_k: int) -> dict
+    async def ingest_knowledge(self, kb_name: str, concepts: list[dict]) -> dict
+
+    # 记忆 (AssetMCP)
+    async def add_memory(self, messages: list[dict], metadata: dict) -> dict
 ```
 
-**所有处理逻辑在 Skill jobs 内**：
+---
 
-| Job | 输入 | 输出 | 副作用 |
-|-----|------|------|--------|
-| `asr` | audio chunk URI | 转写文本 | 无 |
-| `summarize` | transcript URI | 纪要 markdown | 写回 S3 |
-| `extract` | minutes URI + meeting_id | 知识概念列表 | **知识入库**（REST API） |
+## 6. 验收日志设计
+
+每个环节输出显式 `[OK]` / `[FAIL]` 标记：
+
+| 环节 | 日志格式 |
+|------|---------|
+| ASR | `[OK] ASR chunk {n}: size={bytes}, text_len={len}, text={preview}` |
+| 摘要 | `[OK] Summarize #{n}: text_len={len}` |
+| 纪要存储 | `[OK] Minutes saved to S3: {uri}` |
+| 萃取 LLM | `[OK] Extract #{n}: LLM response_len={len}` |
+| 萃取解析 | `[OK] Extract #{n}: parsed {count} concepts` |
+| 知识入库 | `[OK] Knowledge ingest: {count} concepts -> kb_{name}` |
+| 检索自检 | `[OK] Retrieval self-check: query={q}, hits={n}` |
+| 会议结束 | `[OK] Meeting stopped: chunks={n}, summaries={n}, extracts={n}, duration={s}s` |
 
 ---
 
-## 8. 密钥设计
+## 7. 数据模型
 
-| 密钥名 | 用途 | 配置 |
-|--------|------|------|
-| `ASR_API_KEY` | ASR 服务 API Key | AdminMCP `create_secret` |
-| `ASR_ENDPOINT` | ASR 服务地址 | AdminMCP `create_secret` |
-
-Ray job 提交时 Server 自动注入，Skill 代码通过 `os.environ` 读取。
-LLM 由 LakeMind LLM Gateway 提供（Ray worker 在 Docker 网络内，直接调 REST API）。
-
----
-
-## 9. 数据模型
-
-### 9.1 S3 路径约定
+### 7.1 S3 路径约定
 
 ```
 s3://lakemind-filesets/{tenant}/meetings/{meeting_id}/
   ├── audio/
-  │   ├── chunk-001.wav
+  │   ├── chunk-001.wav    ← 原始 WebM (保留)
   │   ├── chunk-002.wav
   │   └── ...
-  ├── transcript.json          ← 累积转写
-  └── minutes.md               ← 最新纪要
+  └── minutes.md           ← 最新纪要
 ```
 
-### 9.2 OKF 知识格式（extract job 入库）
+### 7.2 向量存储
 
-```markdown
----
-title: 2026-07-09 项目评审会 — v1.0 发布推迟
-type: meeting_decision
-kb: meetings
-meeting_id: meeting-2026-07-09-001
-date: 2026-07-09
-tags: [项目评审, 发布计划]
----
-
-# v1.0 发布推迟至下周三
-
-认证模块存在未修复 bug，发布日期从 7/10 推迟至 7/16。
-张三负责 bug 修复，7/12 前完成。
+```
+DB: tenant_{tenant_id}
+Table: kb_meetings
+Schema:
+  - concept_id: str
+  - type: str (meeting_decision | meeting_action | meeting_fact)
+  - title: str
+  - description: str
+  - tags: list[str]
+  - s3_uri: str
+  - vector: list[float] (dim=768, jina-embeddings-v2-base-zh)
+  - created_at: float
 ```
 
 ---
 
-## 10. 文件结构
+## 8. Skill 包（参考）
 
-```
-examples/meeting-agent/
-├── DESIGN.md                          ← 设计方案（本文件）
-├── README.md                          ← 使用说明
-├── pyproject.toml
-├── .env.example
-│
-├── agent.py                           ← FastAPI Web 服务 + MeetingAgent 编排
-├── lakemind_client.py                 ← MCP 客户端（s3_put + ray + search）
-│
-├── static/
-│   ├── index.html                    ← Web UI
-│   ├── style.css
-│   └── app.js                        ← 录音 + SSE + UI 更新
-│
-├── skills/
-│   └── meeting-processing/           ← Skill 包源码
-│       ├── SKILL.md
-│       └── jobs/
-│           ├── asr/
-│           │   ├── ray.yaml
-│           │   ├── asr.py
-│           │   └── requirements.txt
-│           ├── summarize/
-│           │   ├── ray.yaml
-│           │   ├── summarize.py
-│           │   └── requirements.txt
-│           └── extract/
-│               ├── ray.yaml
-│               ├── extract.py
-│               └── requirements.txt
-│
-└── scripts/
-    ├── setup.py                       ← 一次性配置：注册 skill + 密钥
-    └── pack_skill.py                  ← 打包 skill zip
-```
-
-### 10.1 文件职责
-
-| 文件 | 职责 | 行数估计 |
-|------|------|----------|
-| `agent.py` | FastAPI 服务 + MeetingAgent 编排 + SSE | ~250 |
-| `lakemind_client.py` | MCP 客户端（s3 + ray + search） | ~150 |
-| `static/index.html` | Web UI 页面 | ~100 |
-| `static/style.css` | 样式 | ~100 |
-| `static/app.js` | 录音 + SSE + UI 更新 | ~200 |
-| `scripts/setup.py` | 注册 skill + 密钥 | ~60 |
-| `scripts/pack_skill.py` | 打包 skill zip | ~30 |
+Skill 包源码保留在 `skills/meeting-processing/`，包含 Ray job 定义（asr/summarize/extract）。运行时未使用（Agent 直接调 ModelServing），但展示了如何将业务逻辑封装为 LakeMind Skill。
 
 ---
 
-## 11. CLI 接口
+## 9. 已知限制
 
-```bash
-# 一次性配置（注册 skill + 密钥）
-python agent.py setup --asr-key sk-xxx --asr-endpoint https://api.openai.com/v1
-
-# 启动 Web 服务
-python agent.py serve --port 9100
-
-# 浏览器打开 http://localhost:9100
-```
-
----
-
-## 12. 依赖
-
-### 12.1 Python 依赖
-
-```toml
-[project]
-name = "meeting-agent"
-version = "0.1.0"
-requires-python = ">=3.12"
-dependencies = [
-    "fastapi>=0.110",
-    "uvicorn>=0.29",
-    "httpx>=0.27",
-]
-```
-
-### 12.2 环境变量
-
-```bash
-# .env.example
-
-# LakeMind MCP
-DATA_MCP_URL=http://localhost:8402/mcp
-ASSET_MCP_URL=http://localhost:8401/mcp
-ADMIN_MCP_URL=http://localhost:8403/mcp
-DATA_TOKEN=test-steward-token
-ASSET_TOKEN=test-business-token
-ADMIN_TOKEN=test-steward-token
-
-# Web 服务
-PORT=9100
-
-# 流水线参数
-CHUNK_DURATION=10          # 音频 chunk 时长（秒）
-SUMMARIZE_INTERVAL=6       # 每 N 个 chunk 触发摘要
-```
-
----
-
-## 13. 验证计划
-
-| 验证项 | 方法 | 预期 |
-|--------|------|------|
-| setup | `python agent.py setup ...` | skill 注册成功，密钥配置成功 |
-| Web UI | 浏览器打开 localhost:9100 | 页面正常显示 |
-| 录音 | 点击录音按钮 | 音频 chunk 发送到 Agent |
-| 实时转写 | 录音 10s 后 | 转写文本出现在页面 |
-| 实时纪要 | 录音 60s 后 | 纪要出现在页面 |
-| 实时知识 | 录音 120s 后 | 知识点出现在页面 |
-| 检索 | 知识检索页面搜索 | 返回相关知识点 |
-| 批量 | 上传音频文件 | 处理完成，知识入库 |
+| 限制 | 说明 |
+|------|------|
+| 内存存储 | 会议状态在 Agent 内存中，重启丢失 |
+| 无认证 | Web UI 和 API 无认证 |
+| 无并发控制 | 单会议串行处理 |
+| 无错误重试 | ASR/LLM 失败仅记录，不重试 |
+| 单租户 | 硬编码 `retail` 租户 |
+| Skill 未启用 | 保留供参考，实际通过 ModelServing 直接调用 |

@@ -1,8 +1,9 @@
-name: lakemind
+name: lakemind-runtime
 
 networks:
   lakemind_lakemind:
     external: true
+    name: lakemind-server_lakemind
 
 services:
   model-serving:

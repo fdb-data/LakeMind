@@ -14,4 +14,7 @@ mcp:
     token: "test-steward-token"
 
 llm:
-  provider: "simple"
+  provider: "model_serving"
+  base_url: "http://lakemind-model-serving:10824"
+  api_key: "${MODELSERVING_API_KEY}"
+  model: "deepseek-v4-flash"

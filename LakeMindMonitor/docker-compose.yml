@@ -1,24 +1,26 @@
-# LakeMind 运行平面编排 — Steward（管理 Agent）+ Monitor（人类仪表板）
-# 依赖 LakeMindServer + LakeMindMCP 已启动（网络 lakemind_lakemind 已存在）
+# LakeMind 运行时服务编排 — Steward + Monitor + ModelServing
+# 依赖 LakeMindServer + LakeMindMCP 已启动（网络 lakemind-server_lakemind 已存在）
 #
 # 用法：
 #   docker compose up -d --build
 #   docker compose down
 
-name: lakemind
+name: lakemind-runtime
 
 networks:
   lakemind:
     external: true
-    name: lakemind_lakemind
+    name: lakemind-server_lakemind
 
 services:
   # ── Steward — 管理运维 Agent（LangGraph 巡检 + 对话式管理）──
   steward:
-    build: ../LakeMindSteward
+    image: lakemind-steward
+    pull_policy: never
     container_name: lakemind-steward
     environment:
       LAKE_CONFIG: /etc/lakemind/config.yaml
+      MODELSERVING_API_KEY: "${MODELSERVING_API_KEY:-lakemind-modelserving-key}"
     ports:
       - "8500:8500"
     volumes:
@@ -32,9 +34,35 @@ services:
       retries: 10
       start_period: 10s
 
+  # ── ModelServing — 统一模型服务（litellm + fastembed + FunASR）──
+  model-serving:
+    image: lakemind/model-serving:latest
+    pull_policy: never
+    container_name: lakemind-model-serving
+    command: ["python", "-m", "lakemind_model_serving"]
+    environment:
+      LAKE_CONFIG: /etc/lakemind/models.yaml
+      MODELSERVING_API_KEY: "${MODELSERVING_API_KEY:-lakemind-modelserving-key}"
+      MAAS_API_KEY: "${MAAS_API_KEY}"
+    ports:
+      - "10824:10824"
+    volumes:
+      - ../LakeMindModelServing/config/models.yaml:/etc/lakemind/models.yaml:ro
+      - ../LakeMindModelServing/data/fastembed_cache:/data/fastembed_cache
+      - ../LakeMindModelServing/data/funasr_cache:/data/funasr_cache
+    networks: [lakemind]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:10824/health')"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
   # ── Monitor — 人类只读仪表板 + Steward 对话窗 ──
   monitor:
-    build: .
+    image: lakemind-monitor
+    pull_policy: never
     container_name: lakemind-monitor
     environment:
       ASSET_MCP_URL: "http://lakemind-asset-mcp:8401/mcp"

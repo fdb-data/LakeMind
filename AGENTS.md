@@ -14,7 +14,7 @@ Agent 通过 MCP 检索和存取知识、记忆、技能等认知资产，在自
 
 | 目录 | 平面 | 职责 | 状态 |
 |------|------|------|------|
-| `LakeMindServer/` | 数据平面 | 存储与计算底座（REST API + 11 引擎 + 12 容器） | ✅ 已完成 |
+| `LakeMindServer/` | 数据平面 | 存储与计算底座（REST API + 10 引擎 + 13 容器） | ✅ 已完成 |
 | `LakeMindModelServing/` | 模型平面 | 统一模型服务（litellm 网关 + fastembed 嵌入 + FunASR 语音识别） | ✅ 已完成 |
 | `LakeMindMCP/` | 运行平面 | 3 MCP 编排（docker-compose + --profile all） | ✅ 已完成 |
 | `LakeMindMCP/LakeMindAssetMCP/` | 运行平面 | 资产面 MCP（知识/记忆/技能/本体），23 tools | ✅ 已完成 |
@@ -34,7 +34,7 @@ Monitor ─→ 3 MCP（只读）+ Steward（chat/inspect）
 Studio  ─→ 3 MCP + Git
          │
          ▼
-LakeMindServer (:10823)  ← 统一 REST API，11 引擎
+LakeMindServer (:10823)  ← 统一 REST API，10 引擎
   SeaweedFS · PostgreSQL · Valkey · Ray
           │
           ▼
@@ -93,13 +93,13 @@ LakeMindModelServing (:10824)  ← 统一模型服务（litellm + fastembed + Fu
 - **Knowledge 采用 OKF 格式** — YAML frontmatter + markdown body，交叉链接存 PG 图。
 - **长期记忆双表设计** — Lance 向量表 + PG 元信息小表，通过 `lance_uri` 关联，不合并成单表。
 - **LLM 网关是内部能力** — litellm 网关独立为 LakeMindModelServing，不通过 MCP 暴露，Agent 使用自己的 LLM。
-- **LLM 网关独立为 LakeMindModelServing** | litellm 替代手写 GatewayLLM，新增 ASR，统一模型服务。
+- **LLM 网关独立为 LakeMindModelServing** — litellm 替代手写 GatewayLLM，新增 ASR，统一模型服务。Steward 通过 ModelServing LLM 驱动对话。
 
 ## 8. 约定
 
 - `docker-compose` 在各包目录内运行（`.env`、`config/` 为相对路径）。
-- 3 compose 组：`LakeMindServer/`（含 `--profile ray`）、`LakeMindModelServing/`、`LakeMindMCP/`（`--profile all`）、`LakeMindMonitor/`。
-- 启动顺序：LakeMindServer → LakeMindModelServing → LakeMindMCP → LakeMindMonitor。
+- 3 compose 组：`LakeMindServer/`（`lakemind-server`，含 `--profile ray`，创建网络）、`LakeMindMCP/`（`lakemind-mcp`，`--profile all`，外部网络）、`LakeMindMonitor/`（`lakemind-runtime`，外部网络，含 Steward + Monitor + ModelServing）。
+- 启动顺序：LakeMindServer → LakeMindMCP → LakeMindMonitor。
 - BuildKit 禁用：`$env:DOCKER_BUILDKIT=0`。
 - 跨包依赖只通过 MCP 协议（运行平面）或 REST API（数据平面，:10823），不直连任何底层引擎。
 - 验证脚本放 `scripts/`，主验证脚本 `scripts/verify_full.py`（L0-L9 全分层，297/297 PASS）。

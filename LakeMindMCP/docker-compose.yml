@@ -5,12 +5,12 @@
 #   docker compose --profile all up -d --build
 #   docker compose --profile all down
 
-name: lakemind
+name: lakemind-mcp
 
 networks:
   lakemind:
     external: true
-    name: lakemind_lakemind
+    name: lakemind-server_lakemind
 
 services:
   # ── AssetMCP — 认知资产面（知识/记忆/技能/本体）──

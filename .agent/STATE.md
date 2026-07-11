@@ -1,6 +1,6 @@
 # STATE.md — LakeMind 项目开发进展状态
 
-> 最后更新：2026-07-07 00:30
+> 最后更新：2026-07-10 12:00
 > 总文件：`AGENTS.md`，设计规范：`.agent/DESIGN.md`，开发规范：`.agent/SPEC.md`
 
 ---
@@ -28,6 +28,9 @@ v0.1.0 审计 ████████████████████  100%
 | LLM 网关 | GatewayLLM 路由器，3 provider，4 端点 | ✅ 完成 |
 | MCP 重设计 | mem0 记忆 + OKF 知识 + execute_skill 移除 + 三要素 | ✅ 完成 |
 | 许可证审计 | Dragonfly BSL 1.1 → Valkey BSD 3-Clause | ✅ 完成 |
+| LakeMindModelServing | 统一模型服务：litellm + fastembed + FunASR | ✅ 完成 |
+| Steward LLM 接入 | Steward 通过 ModelServing LLM 驱动对话 | ✅ 完成 |
+| Monitor 前端修复 | 移除旧引擎、添加 model_serving、暗色主题修复 | ✅ 完成 |
 | 文档刷新 | AGENTS + .agent/ + docs/ + README + reports/ | ✅ 完成 |
 | 文档一致性修复 | 5 核心文档对齐 + docs/reports 传播修复 | ✅ 完成 |
 | 全面测试 | L0-L9 全分层验证，297/297 PASS | ✅ 完成 |
@@ -38,11 +41,11 @@ v0.1.0 审计 ████████████████████  100%
 
 ## 2. 容器运行状态
 
-> 检查时间：2026-07-06 22:02
+> 检查时间：2026-07-10 12:00
 
 | 容器 | 端口 | 状态 | 用途 |
 |------|------|------|------|
-| lakemind-server-api | 10823 | ✅ Up | REST API + 11 引擎 |
+| lakemind-server-api | 10823 | ✅ Up | REST API + 10 引擎 |
 | lakemind-model-serving | 10824 | ✅ Up | 统一模型服务（litellm + fastembed + FunASR） |
 | lakemind-postgres | 5432 | ✅ Up | Metadata Hub |
 | lakemind-seaweedfs | 8333 | ✅ Up | S3 对象存储 |
@@ -56,15 +59,15 @@ v0.1.0 审计 ████████████████████  100%
 | lakemind-steward | 8500 | ✅ Up | 运维 Agent（LangGraph） |
 | lakemind-monitor | 3000 | ✅ Up | 人类仪表板（Express） |
 
-**全部 12 容器运行正常，11 引擎全部健康。**
+**全部 13 容器运行正常，10 引擎全部健康。**
 
 ### 引擎健康状态
 
 ```
-object_storage: True    tabular:      True    vector:     True
-kv:              True    graph:        True    metadata:   True
-sql:             True    distributed:  True    embedding:  True
-memory:          True    llm:          True
+object_storage: True    tabular:       True    vector:        True
+kv:              True    graph:         True    metadata:      True
+sql:             True    distributed:   True    model_serving: True
+memory:          True
 ```
 
 ---
@@ -122,7 +125,7 @@ memory:          True    llm:          True
 | 层 | 内容 | 结果 |
 |----|------|------|
 | L0 | 容器健康（12 容器） | 12/12 PASS |
-| L1 | 引擎健康（11 引擎） | 12/12 PASS |
+| L1 | 引擎健康（10 引擎） | 12/12 PASS |
 | L2 | REST API（12 域 ~65 路由） | 64/65 PASS, 1 SKIP |
 | L3 | AssetMCP（23 tools / 6 resources / 6 prompts） | 73/73 PASS |
 | L4 | DataMCP（18 tools / 4 resources / 2 prompts） | 50/50 PASS |
@@ -165,13 +168,12 @@ memory:          True    llm:          True
 ### 5.1 LakeMindServer — 100%
 
 - ✅ REST API（:10823，40+ 路径）
-- ✅ 11 引擎全部健康（object_storage, tabular, vector, kv, graph, metadata, sql, distributed, embedding, memory, llm）
+- ✅ 10 引擎全部健康（object_storage, tabular, vector, kv, graph, metadata, sql, distributed, model_serving, memory）
 - ✅ PostgreSQL 16（Iceberg catalog + 图 + 用户/租户/Token + memory_history）
 - ✅ SeaweedFS + Valkey
 - ✅ Ray 2.41.0（3 节点 12 CPU，7 任务类型，12/12 PASS）
-- ✅ LLM Gateway（GatewayLLM，3 provider，10/10 PASS）
-- ✅ fastembed（jinaai/jina-embeddings-v2-base-zh, dim=768，中英混合）
-- ✅ Memory 引擎（mem0 风格 8 方法，LLM 事实抽取 + 哈希去重）
+- ✅ Memory 引擎（mem0 风格 8 方法，LLM 事实抽取 via ModelServing + 哈希去重）
+- ✅ Embedding/LLM/ASR 移至 LakeMindModelServing（:10824）
 
 ### 5.2 LakeMindAssetMCP — 100%
 
@@ -206,16 +208,17 @@ memory:          True    llm:          True
 
 - ✅ FastAPI 服务（:8500）
 - ✅ LangGraph 巡检工作流（check_health → analyze → report）
-- ✅ 对话管理（意图识别 → 路由到 3 MCP）
+- ✅ LLM 对话管理（意图识别 → MCP 工具调用 → LLM 格式化输出）
+- ✅ LLM 通过 ModelServing（:10824）驱动，model=deepseek-v4-flash
 - ✅ MCP 客户端（asset + data + admin 三面）
-- ⚠️ LLM provider=simple（未接 GatewayLLM，关键词匹配）
+- ✅ 10 个意图关键词 + 自然对话 fallback
 
 ### 5.6 LakeMindMonitor — 100%
 
 - ✅ Express BFF（:3000）+ Vue 3 + Element Plus + Pinia 前端
 - ✅ 23 API 路由（含 `/api/dashboard/overview` 聚合端点）
 - ✅ 5 页专业仪表板：
-  - Dashboard：12 容器状态 + 11 引擎健康 + 资产/数据/平台计数 + 15s 自动刷新
+  - Dashboard：13 容器状态 + 10 引擎健康 + 资产/数据/平台计数 + 15s 自动刷新
   - Asset：4 Tab（知识库/技能/记忆/本体）结构化表格
   - Data：5 Tab（Iceberg/向量/S3/KV/图）前缀过滤
   - Admin：5 Tab（租户/用户/Token/类型/健康）全只读
@@ -247,13 +250,11 @@ memory:          True    llm:          True
 
 | # | 问题 | 影响 | 优先级 | 状态 |
 |---|------|------|--------|------|
-| 1 | Steward LLM provider=simple | 未接 GatewayLLM，关键词匹配 | P1 | v0.2 接入 |
-| 2 | 3 个 server_client.py 重复 | AssetMCP/DataMCP/AdminMCP 各有一份 | P2 | v0.2 提取共享包 |
-| 3 | 动态 Token 不跨 MCP 共享 | 静态 config.yaml Token，MVP 限制 | P2 | 已知限制 |
-| 4 | Steward inspect() 无 MCP 降级 | MCP 不可用时无 fallback | P2 | v0.2 实现 |
-| 5 | server-api Docker build 耗时 | Ray 依赖安装 ~10min | P3 | 用 docker cp 热更新 |
-| 6 | REST API /system/nodes 无 auth | 部分端点未强制认证 | P3 | 待排查 |
-| 7 | funasr 仍在后台安装 | ASR health=false，首次启动需下载模型 | P2 | 等待安装完成 |
+| 1 | 3 个 server_client.py 重复 | AssetMCP/DataMCP/AdminMCP 各有一份 | P2 | v0.2 提取共享包 |
+| 2 | 动态 Token 不跨 MCP 共享 | 静态 config.yaml Token，MVP 限制 | P2 | 已知限制 |
+| 3 | Steward inspect() 无 MCP 降级 | MCP 不可用时无 fallback | P2 | v0.2 实现 |
+| 4 | server-api Docker build 耗时 | Ray 依赖安装 ~10min | P3 | 用 docker cp 热更新 |
+| 5 | REST API /system/nodes 无 auth | 部分端点未强制认证 | P3 | 待排查 |
 
 ---
 
@@ -345,7 +346,6 @@ pg_table: model_registry（运行时热加载）
 
 | 优先级 | 任务 | 预估工作量 |
 |--------|------|-----------|
-| P1 | Steward 接入 GatewayLLM | 1h |
 | P2 | 提取共享 LakeMindMCPShared 包 | 2h |
 | P2 | LakeMindStudio（Tauri 桌面客户端） | 2-3d |
 | P3 | 清理 Monitor 历史遗留代码 | 1h |
@@ -371,8 +371,8 @@ pg_table: model_registry（运行时热加载）
 
 | 文件 | 说明 |
 |------|------|
-| `LakeMindServer/src/lakemind_server/engines.py` | 11 引擎聚合 |
-| `LakeMindServer/src/lakemind_server/plugins/protocols.py` | 11 Protocol 定义 |
+| `LakeMindServer/src/lakemind_server/engines.py` | 10 引擎聚合 |
+| `LakeMindServer/src/lakemind_server/plugins/protocols.py` | 10 Protocol 定义 |
 | `LakeMindServer/src/lakemind_server/plugins/cognitive/memory/basic.py` | mem0 风格记忆引擎 |
 | `LakeMindServer/src/lakemind_server/plugins/storage/kv/valkey.py` | Valkey KV 引擎 |
 | `LakeMindServer/src/lakemind_server/api/memory.py` | 8 mem0 风格 REST 端点 |

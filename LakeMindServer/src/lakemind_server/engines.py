@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import Any
+import httpx
 from .config import ServerConfig
 from .plugins.registry import build_engine
 
@@ -26,6 +27,14 @@ class Engines:
         self.llm = build_engine("cognitive.llm", e.llm.plugin, e.llm.config) if e.llm else None
         if self.llm and hasattr(self.memory, "set_llm"):
             self.memory.set_llm(self.llm)
+        self._model_serving_url = e.model_serving_url
+
+    def _model_serving_health(self) -> bool:
+        try:
+            r = httpx.get(f"{self._model_serving_url}/health", timeout=5.0)
+            return r.status_code == 200
+        except Exception:
+            return False
 
     def all_health(self) -> dict[str, bool]:
         return {
@@ -37,7 +46,6 @@ class Engines:
             "metadata": self.metadata.health(),
             "sql": self.sql.health(),
             "distributed": self.distributed.health(),
-            "embedding": self.embedding.health() if self.embedding else False,
+            "model_serving": self._model_serving_health(),
             "memory": self.memory.health(),
-            "llm": self.llm.health() if self.llm else False,
         }

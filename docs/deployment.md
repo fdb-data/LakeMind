@@ -17,7 +17,7 @@ docker compose --env-file .env --profile ray up -d
 cd LakeMindMCP
 docker compose --profile all up -d --build
 
-# 3. Steward + Monitor（2 容器）
+# 3. Steward + Monitor + ModelServing（3 容器）
 cd LakeMindMonitor
 docker compose up -d --build
 ```
@@ -57,6 +57,7 @@ cd LakeMindServer && docker compose --profile ray down -v
 | 容器 | 镜像 | 端口 | CPU | 内存 |
 |------|------|------|-----|------|
 | lakemind-server-api | lakemind/server-api:latest | 10823 | ~1% | 443 MB |
+| lakemind-model-serving | lakemind/model-serving:latest | 10824 | ~2% | 500 MB |
 | lakemind-postgres | postgres:16 | 5432 | ~0% | 35 MB |
 | lakemind-seaweedfs | chrislusf/seaweedfs:latest | 8333/8888/9333 | ~0.4% | 90 MB |
 | lakemind-valkey | valkey/valkey:8.0 | 6379 | ~2.5% | 23 MB |
@@ -88,22 +89,15 @@ compute:
     config: {}
 ```
 
-**fastembed → 外部 Embedding API**：
+**memory plugin 切换**：
 
 ```yaml
 cognitive:
-  embedding:
-    plugin: external
+  memory:
+    plugin: basic
     config:
-      base_url: "https://api.openai.com/v1"
-      model: "text-embedding-3-small"
-      dim: 1536
-      api_key: "${EMBEDDING_API_KEY}"
+      model_serving_url: "http://lakemind-model-serving:10824"
 ```
-
-**添加 LLM Provider**：
-
-在 `cognitive.llm.config.providers` 下添加新的 provider 块，设置 API key 环境变量即可。
 
 ## 健康检查
 
@@ -111,8 +105,8 @@ cognitive:
 # 全引擎健康
 curl http://localhost:10823/api/v1/system/health
 
-# 单引擎健康
-curl http://localhost:10823/api/v1/cognitive/llm/health
+# ModelServing 健康
+curl http://localhost:10824/health
 
 # Ray 集群状态
 docker exec lakemind-ray-head ray status
@@ -157,7 +151,7 @@ docker exec lakemind-ray-head python -c "import ray; print(ray.__version__)"
 
 ### LLM 网关 401/429
 
-- 401 → API key 未设置或错误，检查 `.env` 和 `docker exec lakemind-server-api env | grep MAAS`
+- 401 → API key 未设置或错误，检查 `.env` 和 `docker exec lakemind-model-serving env | grep MAAS`
 - 429 → API 限流，降低请求频率
 
 ### MCP 连接 server-api 失败

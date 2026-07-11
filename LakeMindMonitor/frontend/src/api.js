@@ -32,4 +32,6 @@ export default {
   chat: (message) => client.post('/chat', { message }).then(r => r.data),
   inspect: () => client.post('/inspect', {}).then(r => r.data),
   stewardHealth: () => client.get('/steward/health').then(r => r.data),
+  modelServingHealth: () => client.get('/model-serving/health').then(r => r.data),
+  modelServingModels: () => client.get('/model-serving/models').then(r => r.data),
 }

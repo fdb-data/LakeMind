@@ -2,6 +2,41 @@
 
 所有 notable 变更记录在此。日期格式 YYYY-MM-DD。
 
+## [v0.1.1] — 2026-07-10
+
+### 新增
+
+#### LakeMindModelServing（统一模型服务）
+- litellm Router 替代手写 GatewayLLM，多 provider 路由 + fallback
+- fastembed 本地嵌入（jinaai/jina-embeddings-v2-base-zh, dim=768）从 Server 移入
+- FunASR 本地 ASR（SenseVoice-Small，CPU）
+- OpenAI 兼容 API（/v1/chat/completions, /v1/embeddings, /v1/audio/transcriptions）
+- 模型注册表（PG model_registry 表，运行时热加载）
+- 端口 :10824，容器 lakemind-model-serving
+
+#### Steward LLM 对话
+- Steward 通过 ModelServing LLM 驱动对话（model=deepseek-v4-flash）
+- 意图识别 → MCP 工具调用 → LLM 格式化输出
+- 10 个意图关键词 + 自然对话 fallback
+
+### 变更
+
+- Server 引擎从 11 → 10（移除 embedding + llm，新增 model_serving 健康检查）
+- Server `all_health()` 用 `model_serving` 替代 `embedding` + `llm`
+- Server memory 引擎通过 HTTP 调用 ModelServing 获取 embedding 和 LLM
+- 容器从 12 → 13（新增 lakemind-model-serving）
+- 3 compose 组：lakemind-server（7 容器）/ lakemind-mcp（3 容器）/ lakemind-runtime（3 容器）
+- Monitor 前端：移除 embedding/llm 引擎显示，添加 model_serving，暗色主题修复
+- Asset MCP：修复 skills/knowledge/memory 资源在表不存在时的 error 泄漏
+
+### 已知限制（更新）
+
+- ~~Steward LLM provider=simple~~ → 已接入 ModelServing LLM
+- ~~funasr 仍在后台安装~~ → 已完成安装，ASR health=true
+- 动态 Token 不跨 MCP 共享（MVP 使用静态 config.yaml Token）
+- LakeMindStudio 未开发（Tauri 桌面客户端）
+- 3 份 server_client.py 重复（待提取共享包）
+
 ## [v0.1.0] — 2026-07-06
 
 ### 新增
@@ -9,7 +44,7 @@
 #### 核心服务 LakeMindServer
 - REST API 网关（40+ OpenAPI 路径，11 功能域）
 - 11 个 Protocol 接口定义（Plugin 架构）
-- 11 个引擎插件实现：
+- 9 个 Server 引擎插件 + ModelServing：
   - 数据存储：SeaweedFS / Iceberg / LanceDB / Valkey / PostgreSQL Graph / PostgreSQL Metadata
   - 数据计算：DuckDB / Ray / Embedded
   - 认知计算：fastembed / BasicMemory / GatewayLLM
@@ -78,7 +113,7 @@
 
 ### 运行容器
 
-12 个容器：server-api / postgres / seaweedfs / valkey / ray-head / ray-worker-1 / ray-worker-2 / asset-mcp / data-mcp / admin-mcp / steward / monitor
+13 个容器：server-api / postgres / seaweedfs / valkey / ray-head / ray-worker-1 / ray-worker-2 / asset-mcp / data-mcp / admin-mcp / steward / monitor / model-serving
 
 ### 技术栈
 
@@ -92,7 +127,8 @@
 | 即席计算 | DuckDB | MIT |
 | 分布式计算 | Ray 2.41 | Apache 2.0 |
 | Embedding | fastembed (jina-zh) | Apache 2.0 |
-| LLM 网关 | GatewayLLM (自建) | — |
+| LLM 网关 | litellm | MIT |
+| 语音识别 | FunASR | MIT |
 | MCP SDK | FastMCP | MIT |
 | Agent 框架 | LangGraph | MIT |
 | Monitor | Express | MIT |

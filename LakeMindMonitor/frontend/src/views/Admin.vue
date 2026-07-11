@@ -119,9 +119,8 @@ const ENGINE_LABELS = {
   metadata: { label: '元数据', category: 'storage', plugin: 'PostgreSQL' },
   sql: { label: 'SQL', category: 'compute', plugin: 'DuckDB' },
   distributed: { label: '分布式', category: 'compute', plugin: 'Ray' },
-  embedding: { label: '嵌入', category: 'cognitive', plugin: 'fastembed' },
   memory: { label: '记忆', category: 'cognitive', plugin: 'mem0' },
-  llm: { label: 'LLM', category: 'cognitive', plugin: 'GatewayLLM' },
+  model_serving: { label: '模型服务', category: 'cognitive', plugin: 'litellm+fastembed+FunASR' },
 }
 
 const engineRows = computed(() => {

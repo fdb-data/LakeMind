@@ -23,7 +23,7 @@ class ChatRequest(BaseModel):
 
 @app.post("/chat")
 async def chat_endpoint(req: ChatRequest):
-    result = await chat(req.message, mcp)
+    result = await chat(req.message, mcp, config.llm)
     return JSONResponse(result)
 
 @app.post("/inspect")

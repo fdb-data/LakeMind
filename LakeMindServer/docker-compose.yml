@@ -5,7 +5,7 @@
 #
 # 启动：docker compose --env-file .env up -d
 
-name: lakemind
+name: lakemind-server
 
 networks:
   lakemind:

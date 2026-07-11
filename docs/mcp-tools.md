@@ -228,7 +228,7 @@ LakeMind 通过 3 个 MCP 服务提供 **68 个工具**、**23 个资源**、**1
 
 | 工具 | 参数 | 说明 |
 |------|------|------|
-| `get_platform_health` | — | 11 引擎健康状态 |
+| `get_platform_health` | — | 10 引擎健康状态 |
 | `get_node_status` | — | 平台节点状态 |
 | `get_metrics` | — | 平台指标 |
 

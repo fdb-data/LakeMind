@@ -15,7 +15,7 @@ LakeMind/
 │   ├── DESIGN.md                # 架构设计规范
 │   ├── SPEC.md                  # 开发规范（本文件）
 │   └── STATE.md                 # 项目开发进展状态
-├── LakeMindServer/              # 数据平面（REST API + 11 引擎）
+├── LakeMindServer/              # 数据平面（REST API + 10 引擎）
 ├── LakeMindModelServing/         # 模型平面 - 统一模型服务（litellm + fastembed + FunASR）
 ├── LakeMindMCP/                 # 运行平面 - 3 MCP 编排（docker-compose + --profile all）
 │   ├── LakeMindAssetMCP/        #   资产面 MCP（23 tools, 11 resources, 6 prompts）
@@ -93,7 +93,7 @@ src/lakemind_asset_mcp/
 
 - 引擎在 Server 进程内运行（嵌入式），MCP 通过 REST API 调用
 - 重计算提交 Ray（已实现），轻计算走嵌入式
-- `engines.yaml` 配置 11 引擎插件，`engines.py` 聚合为 `Engines` 对象
+- `engines.yaml` 配置 10 引擎插件，`engines.py` 聚合为 `Engines` 对象
 
 ---
 
@@ -192,9 +192,10 @@ REST API 认证：`Bearer lakemind-internal-api-key` + `X-Tenant-Id` / `X-Agent-
 
 ### 4.2 docker-compose 约定
 
-- 4 compose 组：`LakeMindServer/`、`LakeMindModelServing/`、`LakeMindMCP/`、`LakeMindMonitor/`
-- `name: lakemind`（统一项目名）
-- 外部网络：`lakemind_lakemind`（由 LakeMindServer 创建）
+- 3 compose 组：`LakeMindServer/`（`lakemind-server`）、`LakeMindMCP/`（`lakemind-mcp`）、`LakeMindMonitor/`（`lakemind-runtime`）
+- `LakeMindServer/` 创建网络，其余两组使用外部网络
+- 外部网络：`lakemind-server_lakemind`（由 LakeMindServer 创建）
+- LakeMindModelServing 已合并入 `lakemind-runtime` 组（由 LakeMindMonitor/docker-compose.yml 编排）
 - 持久化：bind mount 到 `./data/`
 - `restart: unless-stopped`
 - Ray 服务用 `profiles: [ray]`
@@ -205,14 +206,11 @@ REST API 认证：`Bearer lakemind-internal-api-key` + `X-Tenant-Id` / `X-Agent-
 # 1. 数据平面（含 Ray）
 cd LakeMindServer; docker compose --env-file .env --profile ray up -d
 
-# 2. 模型服务
-cd ../LakeMindModelServing; docker compose up -d --build
+# 2. 3 MCP
+cd ../LakeMindMCP; docker compose --profile all up -d
 
-# 3. 3 MCP
-cd ../LakeMindMCP; docker compose --profile all up -d --build
-
-# 4. 监控
-cd ../LakeMindMonitor; docker compose up -d --build
+# 3. 运行时服务（Steward + Monitor + ModelServing）
+cd ../LakeMindMonitor; docker compose up -d
 ```
 
 ### 4.4 Server 更新方式

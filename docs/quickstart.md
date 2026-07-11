@@ -105,18 +105,15 @@ print(r.json())
 
 ## 6. LLM 对话
 
-通过 REST API 调用 LLM 网关：
+通过 LakeMindModelServing 调用 LLM：
 
 ```bash
-curl -X POST http://localhost:10823/api/v1/cognitive/llm/chat \
-  -H "Authorization: Bearer lakemind-internal-api-key" \
-  -H "X-Tenant-Id: default" \
-  -H "X-Agent-Id: test" \
-  -H "X-Scopes: all" \
+curl -X POST http://localhost:10824/v1/chat/completions \
+  -H "Authorization: Bearer lakemind-modelserving-key" \
   -H "Content-Type: application/json" \
   -d '{
     "messages": [{"role": "user", "content": "你好，LakeMind 是什么？"}],
-    "model": "auto",
+    "model": "deepseek-v4-flash",
     "max_tokens": 100
   }'
 ```
