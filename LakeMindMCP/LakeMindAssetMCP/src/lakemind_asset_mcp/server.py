@@ -77,11 +77,24 @@ def build_mcp(config: Config, server: ServerClient) -> FastMCP:
 
     @mcp.resource("lake://knowledge/{id}")
     async def describe_knowledge(id: str) -> dict:
-        """知识库详情（概念数、类型分布、tag 分布）。"""
+        """知识库详情（概念列表 + 元信息）。"""
         from .context import get_tenant
         ctx = get_tenant()
         db = f"tenant_{ctx.tenant_id}"
-        return await server.vector_describe(db, f"kb_{id}")
+        table = f"kb_{id}" if not id.startswith("kb_") else id
+        info = await server.vector_describe(db, table)
+        try:
+            concepts = await server.vector_scan(db, table, limit=200)
+        except Exception:
+            concepts = []
+        for c in concepts:
+            c.pop("vector", None)
+        return {
+            "name": info.get("name", table),
+            "concept_count": info.get("concept_count", info.get("row_count", 0)),
+            "schema": info.get("schema", []),
+            "concepts": concepts,
+        }
 
     @mcp.resource("lake://knowledge/{kb_name}/{concept_id}")
     async def get_knowledge_resource(kb_name: str, concept_id: str) -> dict:

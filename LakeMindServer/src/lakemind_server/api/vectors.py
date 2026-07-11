@@ -44,6 +44,12 @@ async def describe_vector_table(db: str, name: str, request: Request):
     return _eng(request).describe(db, name)
 
 
+@router.get("/{db}/{name}/scan")
+async def scan_vector_table(db: str, name: str, request: Request, limit: int = 100, offset: int = 0):
+    rows = _eng(request).scan(db, name, limit, offset)
+    return {"results": rows, "count": len(rows)}
+
+
 @router.post("/{db}/{name}/add")
 async def add_vectors(db: str, name: str, body: AddBody, request: Request):
     data = pa.Table.from_pylist(body.data)

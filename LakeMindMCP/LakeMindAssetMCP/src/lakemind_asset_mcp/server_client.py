@@ -127,6 +127,10 @@ class ServerClient:
     async def vector_describe(self, db: str, name: str) -> dict:
         return await self.get(f"/api/v1/storage/vectors/{db}/{name}")
 
+    async def vector_scan(self, db: str, name: str, limit: int = 100) -> list[dict]:
+        resp = await self.get(f"/api/v1/storage/vectors/{db}/{name}/scan", params={"limit": limit})
+        return resp.get("results", [])
+
     async def vector_add(self, db: str, name: str, data: list[dict]) -> dict:
         return await self.post(f"/api/v1/storage/vectors/{db}/{name}/add", json={"data": data})
 

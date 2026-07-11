@@ -47,11 +47,22 @@ class LanceVectorStorage:
 
     def describe(self, db: str, name: str) -> dict:
         tbl = self._conn(db).open_table(name)
+        row_count = tbl.count_rows()
         return {
             "name": name,
-            "row_count": tbl.count_rows(),
+            "row_count": row_count,
+            "concept_count": row_count,
             "schema": tbl.schema.names,
         }
+
+    def scan(self, db: str, name: str, limit: int = 100, offset: int = 0) -> list[dict]:
+        tbl = self._conn(db).open_table(name)
+        arrow_tbl = tbl.to_arrow()
+        total = arrow_tbl.num_rows
+        start = min(offset, total)
+        end = min(offset + limit, total)
+        sliced = arrow_tbl.slice(start, end - start)
+        return sliced.to_pylist()
 
     def health(self) -> bool:
         try:
