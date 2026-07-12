@@ -297,3 +297,21 @@ compute:
 |------|------|
 | [贡献指南](CONTRIBUTING.md) | 如何报告 Bug、提出新功能、提交代码 |
 | [行为准则](CODE_OF_CONDUCT.md) | 社区行为规范 |
+
+---
+
+## 反馈与社区
+
+- **Bug 报告 / 功能请求**：[GitHub Issues](https://github.com/fdb-data/LakeMind/issues)
+- **代码贡献**：请阅读 [贡献指南](CONTRIBUTING.md)
+- **发布说明**：[v0.1.0 Release](https://github.com/fdb-data/LakeMind/releases/tag/v0.1.0)
+
+---
+
+## 路线图
+
+| 版本 | 计划内容 | 状态 |
+|------|----------|------|
+| **v0.1.0** | MVP：13 容器、10 引擎、58 MCP 工具、Ray 分布式计算 | ✅ 已发布 |
+| **后续版本** | 动态 Token 跨 MCP、Steward MCP 降级、流式响应、per-tenant 模型配置、server_client.py 共享包提取 | 规划中 |
+| **v0.3** | LakeMindStudio（Tauri 桌面客户端） | 规划中 |
