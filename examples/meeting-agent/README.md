@@ -3,7 +3,7 @@
 > **这是一个用于验证 LakeMind 平台认知资产存取能力的示例程序，不是生产级应用。**
 >
 > 它演示了 LakeMind 的核心能力链路：**音频存储 → Ray job ASR → Ray job 摘要 → Ray job 知识萃取 → 向量入库 → 语义检索**。
-> 程序刻意保持轻量，省略了认证、持久化、并发控制、错误重试等生产必需能力。
+> 已通过 17 分钟实时测试：145 chunks、100+ Ray jobs、100% 成功率。
 
 ---
 
@@ -62,14 +62,20 @@ Skill (skills/meeting-processing/)
   └─ jobs/extract/main.py   Ray job: minutes → LLM → embed → 向量入库 → S3
 ```
 
-- **Web**: 浏览器录音 + SSE 显示，无业务逻辑
-- **Agent**: 编排层，只做 S3 存取 + Ray job 提交/轮询 + SSE 分发，不直接调用 ModelServing
-- **Skill**: 可复用的业务逻辑包，每个 job 是独立的 Ray 任务，通过 `ray.yaml` 声明 entrypoint
-- **Job**: 最小执行单元，调用 ModelServing/Server REST API 完成具体计算
+| 层 | 职责 | 复用性 |
+|----|------|--------|
+| **Web** | 浏览器录音 + SSE 显示，无业务逻辑 | 仅本 demo |
+| **Agent** | S3 存取 + Ray job 提交/轮询 + SSE 分发，**不直接调用 ModelServing** | demo 专属 |
+| **Skill** | 可复用业务逻辑包，`SKILL.md` + `lakemind_utils.py` + `jobs/` | 可被其他 Agent 复用 |
+| **Job** | 最小执行单元，调用 ModelServing/Server REST API 完成具体计算 | 可独立提交到任何 Ray 集群 |
 
-### 2.2 为什么用 host ffmpeg
+### 2.2 关键设计决策
 
-浏览器 `MediaRecorder` 生成 WebM 格式。Ray worker 容器内无 ffmpeg，因此在 Agent 侧用 **host ffmpeg** 将 WebM 转为标准 WAV (16kHz mono) 再上传 S3，Ray job 直接处理 WAV。
+- **Agent 不直接调用 ModelServing** — ASR/LLM/embed 全部在 Ray job 内执行，Agent 只做编排
+- **Job 代码在 `jobs/{name}/main.py`** — 不放在 skill 根目录，每个 job 自包含
+- **`RAY_JOB_PARAMS` 环境变量注入** — Server 将 `params` 序列化为环境变量，job 通过 `os.environ["RAY_JOB_PARAMS"]` 读取
+- **host ffmpeg** — Ray worker 容器内无 ffmpeg，Agent 侧将 WebM 转 WAV 后上传 S3，job 直接处理 WAV
+- **向量入库用 `/add` 端点** — 追加数据到已有表，不覆盖；首次创建时才用 `mode:overwrite`
 
 ---
 
@@ -151,6 +157,18 @@ python agent.py
 [OK] Meeting stopped: chunks=12, summaries=3, extracts=1, duration=52s
 ```
 
+### 5.2 实测数据（17 分钟实时测试）
+
+| 指标 | 值 |
+|------|-----|
+| 运行时长 | ~17 分钟 |
+| 音频 chunks | 145 |
+| Ray jobs（最近 100） | ASR=81, Summarize=13, Extract=6 |
+| Job 成功率 | **100% completed**，零失败 |
+| 知识入库 | 3 concepts（kb_meetings） |
+| 语义检索 | 5 个查询全部返回 hits |
+| Ray 集群 | 3 节点 12 CPU，job 完成后 idle |
+
 ---
 
 ## 6. API
@@ -163,6 +181,22 @@ python agent.py
 | GET | `/api/stream` | SSE 实时推送（transcript / minutes / knowledge / status） |
 | GET | `/api/search?query=xxx&top_k=5` | 知识语义检索 |
 | GET | `/api/history` | 历史会议列表 |
+
+### SSE 事件
+
+```
+event: transcript
+data: {"text": "大家好今天开会。", "chunk": 1, "timestamp": "00:10"}
+
+event: minutes
+data: {"minutes": "## 会议摘要\n...", "updated_at": "01:00"}
+
+event: knowledge
+data: {"concepts": [{"title": "...", "body": "...", "type": "meeting_decision"}]}
+
+event: status
+data: {"status": "recording", "chunks": 6, "meeting_id": "..."}
+```
 
 ---
 
@@ -204,7 +238,7 @@ examples/meeting-agent/
 │       ├── lakemind_utils.py           ← 共享工具 (S3/LLM/ASR/embed/ingest)
 │       └── jobs/                       ← Job 层
 │           ├── asr/
-│           │   ├── ray.yaml            ← Ray job 声明
+│           │   ├── ray.yaml            ← Ray job 声明 (entrypoint + dependencies)
 │           │   ├── requirements.txt
 │           │   └── main.py             ← ASR entrypoint
 │           ├── summarize/
@@ -233,6 +267,7 @@ examples/meeting-agent/
 | **无错误重试** | Ray job 失败后不重试，仅记录错误 |
 | **单租户** | 硬编码 `retail` 租户 |
 | **WebM 依赖** | 需要浏览器支持 MediaRecorder + host ffmpeg |
+| **轮询模式** | Agent 轮询 job 状态（非回调），增加 ~1-3s 延迟 |
 
 ---
 
@@ -242,7 +277,9 @@ examples/meeting-agent/
 |------|------|------|
 | Ray job 提交 500 | Ray 集群未启动 | 检查 `docker ps` 含 ray-head + 2 workers |
 | Ray job 超时 | job 执行超过 120s | 检查 ModelServing 可达性，调整 `poll_job` timeout |
-| ASR 结果为空 | WAV 格式无效 | 确认 `FFMPEG_PATH` 指向可用 ffmpeg |
-| 转写包含 `<\|zh\|>` 等标签 | FunASR 原始输出 | Agent 已自动清理 |
-| 知识检索无结果 | 向量表未创建 | 首次入库时自动创建，检查 Server 日志 |
+| Ray job FAILED: No module httpx | `ray.yaml` dependencies 缺失 | 确认 `dependencies: [httpx]` 在 `ray.yaml` 中 |
+| ASR 结果为空 | WAV 格式无效或静音 | 确认 `FFMPEG_PATH` 指向可用 ffmpeg |
+| 转写包含 `<\|zh\|>` 等标签 | FunASR 原始输出 | Agent 已自动清理 (`clean_asr_text`) |
+| 知识检索无结果 | 向量表为空 | 检查 extract job 是否成功，查看 Server 日志 |
+| 知识被覆盖 | 旧版本 `ingest_knowledge` 用 overwrite | 已修复，使用 `/add` 端点追加 |
 | setup.py 健康检查失败 | 依赖服务未启动 | 先启动 LakeMind 全栈 |

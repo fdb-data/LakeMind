@@ -1,7 +1,7 @@
 # 会议实时知识化 Agent — 设计方案
 
 > 位置：`examples/meeting-agent/`
-> 状态：已实现并验证
+> 状态：已实现并验证（17 分钟实时测试，145 chunks，100+ Ray jobs，100% 成功）
 > 日期：2026-07-12
 
 ---
@@ -41,8 +41,15 @@
 ┌─────────────────────────────────────────────────────────┐
 │              LakeMind Server (:10823)                     │
 │  /api/v1/compute/jobs/submit → Ray 集群                   │
+│    ├─ fetch skill zip from S3                             │
+│    ├─ parse ray.yaml (entrypoint + dependencies)          │
+│    ├─ inject RAY_JOB_PARAMS (from params field)           │
+│    └─ inject env_vars (os.environ + tenant secrets)       │
+│                                                           │
 │  /api/v1/storage/objects → S3 (SeaweedFS)                │
 │  /api/v1/storage/vectors → LanceDB                        │
+│    /{db}/{table}/add → 追加数据（不覆盖）                  │
+│    /{db}/{table}/search → 向量检索                         │
 └──────────────────────────┬──────────────────────────────┘
                            │
                            ▼
@@ -54,6 +61,7 @@
 │  jobs/extract/main.py: minutes → LLM → embed → 入库 → S3 │
 │                                                           │
 │  共享: lakemind_utils.py (S3/LLM/ASR/embed/ingest)       │
+│  依赖: httpx (在 ray.yaml dependencies 中声明)            │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -74,6 +82,7 @@
 - **Agent 只做编排** — 上传 S3、提交 job、轮询状态、下载结果、SSE 推送
 - **Job 是自包含的** — 每个 `main.py` 通过 `lakemind_utils.py` 调用 ModelServing/Server，不依赖 Agent
 - **Skill 可复用** — 其他 Agent 可通过 `ray_submit_job("lake://skills/meeting-processing", "asr", ...)` 提交相同的 job
+- **向量入库用 `/add`** — 追加到已有表，不覆盖；仅首次创建时用 `mode:overwrite`
 
 ---
 
@@ -104,9 +113,24 @@ Agent                          Server                    Ray Worker
   └─ SSE broadcast transcript     │                          │
 ```
 
-### 4.2 Summarize / Extract
+### 4.2 Summarize
 
-同上模式：Agent 上传输入到 S3 → submit job → poll → 下载结果 → SSE 推送。
+```
+Agent → S3 PUT transcript.json → submit job(summarize)
+  → Ray Worker: download transcript → LLM chat → S3 PUT minutes.md + result.json
+  → Agent: poll → S3 GET result → SSE broadcast minutes
+```
+
+### 4.3 Extract
+
+```
+Agent → S3 PUT minutes.md → submit job(extract)
+  → Ray Worker: download minutes → LLM extract concepts (JSON)
+    → for each concept: embed(title+body) → vector
+    → POST /vectors/{db}/{table}/add (追加，不覆盖)
+    → S3 PUT result.json
+  → Agent: poll → S3 GET result → retrieval self-check → SSE broadcast knowledge
+```
 
 ---
 
@@ -121,11 +145,11 @@ meeting-processing/
 │   ├── llm_chat()
 │   ├── asr()
 │   ├── embed()
-│   └── ingest_knowledge()
+│   └── ingest_knowledge()      ← 使用 /add 端点追加，不覆盖
 └── jobs/
     ├── asr/
-    │   ├── ray.yaml            ← entrypoint: "python jobs/asr/main.py"
-    │   ├── requirements.txt    ← httpx
+    │   ├── ray.yaml            ← entrypoint + dependencies
+    │   ├── requirements.txt
     │   └── main.py             ← ASR job entrypoint
     ├── summarize/
     │   ├── ray.yaml
@@ -141,7 +165,8 @@ meeting-processing/
 
 ```yaml
 entrypoint: "python jobs/asr/main.py"   # 相对于 skill root
-dependencies: []                         # pip 依赖（httpx 已在 requirements.txt）
+dependencies:                             # pip 依赖，Ray worker 安装
+  - httpx
 resources:
   num_cpus: 1                            # Ray 资源声明
 ```
@@ -150,33 +175,84 @@ resources:
 
 Server 将 `submit` 请求中的 `params` 字段序列化为 `RAY_JOB_PARAMS` 环境变量注入到 Ray job。Job 代码通过 `json.loads(os.environ["RAY_JOB_PARAMS"])` 读取参数。
 
+### 环境变量注入
+
+Ray job 运行时获得的环境变量来源（优先级递增）：
+
+1. Server 容器的 `os.environ`（含 `SERVER_API_KEY`、`MODEL_SERVING_URL` 等）
+2. 租户密钥（PG `tenant_secrets` 表，AES-256-GCM 解密）
+3. `env_overrides`（请求中显式指定）
+4. `RAY_JOB_PARAMS`（`params` 字段序列化）
+
+### 向量入库策略
+
+`ingest_knowledge` 函数使用两步策略：
+
+1. **先尝试 `POST /{db}/{table}/add`** — 追加数据到已有表
+2. **若 404（表不存在）** → `POST /{db}` with `mode:overwrite` — 创建表并写入初始数据
+
+这确保每次萃取的知识**追加**到向量表，而非覆盖之前的数据。
+
 ---
 
 ## 6. S3 路径约定
 
 ```
 s3://lakemind-filesets/{tenant}/meetings/{meeting_id}/
-  ├── audio/chunk-001.wav          ← Agent 上传的 WAV 音频
-  ├── audio/chunk-002.wav
+  ├── audio/
+  │   ├── chunk-001.wav          ← Agent 上传的 WAV 音频
+  │   ├── chunk-002.wav
+  │   └── ...
   ├── transcript.json              ← Agent 上传的转写文本
   ├── minutes.md                   ← Summarize job 输出的纪要
   └── results/
-      ├── asr-001.json             ← ASR job 结果
-      ├── summarize-001.json       ← Summarize job 结果
-      └── extract-001.json         ← Extract job 结果
+      ├── asr-001.json             ← ASR job 结果 {text, segments}
+      ├── asr-002.json
+      ├── summarize-001.json       ← Summarize job 结果 {minutes, minutes_uri}
+      └── extract-001.json         ← Extract job 结果 {concepts}
 ```
 
 ---
 
 ## 7. 向量 schema
 
-- DB: `tenant_{tenant_id}`
+- DB: `tenant_{tenant_id}`（如 `tenant_retail`）
 - Table: `kb_meetings`
 - Fields: `concept_id`, `type`, `title`, `description`, `tags`, `s3_uri`, `vector(dim=768)`, `created_at`
+- 入库端点: `POST /api/v1/storage/vectors/{db}/{table}/add`
+- 检索端点: `POST /api/v1/storage/vectors/{db}/{table}/search`
 
 ---
 
-## 8. 已知限制
+## 8. 验证结果
+
+### 17 分钟实时测试
+
+| 指标 | 值 |
+|------|-----|
+| 运行时长 | ~17 分钟 |
+| 音频 chunks | 145 |
+| Ray jobs（最近 100） | ASR=81, Summarize=13, Extract=6 |
+| Job 成功率 | **100% completed**，零失败 |
+| 知识入库 | 3 concepts（kb_meetings） |
+| 语义检索 | 5 个查询全部返回 hits |
+| Ray 集群 | 3 节点 12 CPU，job 完成后 idle |
+
+### 架构验证
+
+| 检查项 | 结果 |
+|--------|------|
+| Agent 不直接调用 ModelServing | ✅ ASR/LLM/embed 全在 Ray job 内 |
+| Job 代码在 `jobs/{name}/main.py` | ✅ 不在 skill 根 |
+| RAY_JOB_PARAMS 注入 | ✅ job 通过环境变量接收参数 |
+| Skill 可复用 | ✅ 其他 Agent 可通过 `ray_submit_job` 提交 |
+| 向量入库不覆盖 | ✅ 使用 `/add` 端点追加 |
+| 13 容器全绿 | ✅ |
+| Ray 3 节点 12 CPU | ✅ |
+
+---
+
+## 9. 已知限制
 
 | 限制 | 说明 |
 |------|------|
@@ -185,4 +261,4 @@ s3://lakemind-filesets/{tenant}/meetings/{meeting_id}/
 | 无并发控制 | 单会议串行处理 |
 | 无错误重试 | Ray job 失败后不重试 |
 | 单租户 | 硬编码 `retail` 租户 |
-| 轮询模式 | Agent 轮询 job 状态（非回调），增加延迟 |
+| 轮询模式 | Agent 轮询 job 状态（非回调），增加 ~1-3s 延迟 |
