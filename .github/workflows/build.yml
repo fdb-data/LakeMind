@@ -1,0 +1,284 @@
+name: Build
+
+on:
+  push:
+    branches: [main, develop]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.agent/**'
+      - 'reports/**'
+      - 'LICENSE'
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.agent/**'
+      - 'reports/**'
+      - 'LICENSE'
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  NAMESPACE: fdb-data/lakemind
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── 独立镜像（并行）──
+  postgres-age:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: LakeMindServer/docker/postgres-age
+          file: LakeMindServer/docker/postgres-age/Dockerfile
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/postgres-age:16
+          push: ${{ github.event_name != 'pull_request' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  server-api:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: LakeMindServer
+          file: LakeMindServer/Dockerfile
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/server-api:latest
+            ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/server-api:${{ github.sha }}
+          push: ${{ github.event_name != 'pull_request' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          load: true
+
+  ray:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: LakeMindServer
+          file: LakeMindServer/Dockerfile.ray
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/ray:2.41.0-py3.12
+          push: ${{ github.event_name != 'pull_request' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  asset-mcp:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: LakeMindMCP/LakeMindAssetMCP
+          file: LakeMindMCP/LakeMindAssetMCP/Dockerfile
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/asset-mcp:latest
+            ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/asset-mcp:0.1.0
+          push: ${{ github.event_name != 'pull_request' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  data-mcp:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: LakeMindMCP/LakeMindDataMCP
+          file: LakeMindMCP/LakeMindDataMCP/Dockerfile
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/data-mcp:latest
+            ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/data-mcp:0.1.0
+          push: ${{ github.event_name != 'pull_request' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  admin-mcp:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: LakeMindMCP/LakeMindAdminMCP
+          file: LakeMindMCP/LakeMindAdminMCP/Dockerfile
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/admin-mcp:latest
+            ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/admin-mcp:0.1.0
+          push: ${{ github.event_name != 'pull_request' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  monitor:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: LakeMindMonitor
+          file: LakeMindMonitor/Dockerfile
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/monitor:latest
+          push: ${{ github.event_name != 'pull_request' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  steward:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: LakeMindSteward
+          file: LakeMindSteward/Dockerfile
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/steward:latest
+          push: ${{ github.event_name != 'pull_request' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  meeting-agent:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: examples/meeting-agent
+          file: examples/meeting-agent/Dockerfile
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/meeting-agent:latest
+            ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/meeting-agent:${{ github.sha }}
+          push: ${{ github.event_name != 'pull_request' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ── 依赖 server-api 的镜像 ──
+  model-serving:
+    needs: server-api
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Pull server-api as base
+        if: github.event_name != 'pull_request'
+        run: |
+          docker pull ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/server-api:latest
+          docker tag ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/server-api:latest lakemind/server-api:latest
+      - name: Build model-serving (PR mode — build server-api first)
+        if: github.event_name == 'pull_request'
+        run: |
+          docker build -t lakemind/server-api:latest -f LakeMindServer/Dockerfile LakeMindServer
+      - uses: docker/build-push-action@v6
+        with:
+          context: LakeMindModelServing
+          file: LakeMindModelServing/Dockerfile
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/model-serving:latest
+            ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/model-serving:${{ github.sha }}
+          push: ${{ github.event_name != 'pull_request' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

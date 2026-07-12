@@ -5,7 +5,8 @@
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
       "version": "latest",
       "enableNonRootDocker": "true"
-    }
+    },
+    "ghcr.io/devcontainers/features/git:1": {}
   },
   "forwardPorts": [
     10823,
@@ -15,19 +16,27 @@
     8403,
     8500,
     3000,
-    8265
+    8265,
+    9100
   ],
-  "postCreateCommand": "pip install httpx && echo 'LakeMind devcontainer ready. Run: cd LakeMindServer && docker compose --env-file .env --profile ray up -d'",
+  "postCreateCommand": "bash .devcontainer/bootstrap.sh",
   "customizations": {
     "vscode": {
       "extensions": [
         "ms-python.python",
         "ms-python.black-formatter",
         "redhat.vscode-yaml",
-        "ms-azuretools.vscode-docker"
+        "ms-azuretools.vscode-docker",
+        "ms-azuretools.vscode-docker-compose",
+        "GitHub.copilot"
       ],
       "settings": {
-        "python.defaultInterpreterPath": "/usr/local/bin/python"
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.formatting.provider": "black",
+        "files.exclude": {
+          "**/__pycache__": true,
+          "**/.pytest_cache": true
+        }
       }
     }
   },
@@ -36,5 +45,13 @@
   },
   "mounts": [
     "source=lakemind-dev-data,target=/workspaces/LakeMind/data,type=volume"
-  ]
+  ],
+  "secrets": {
+    "MAAS_API_KEY": {
+      "description": "LLM API key for ModelServing (required for ASR/LLM features)"
+    },
+    "LAKEMIND_MASTER_KEY": {
+      "description": "Master key for LakeMind Server (required for auth)"
+    }
+  }
 }
