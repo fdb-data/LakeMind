@@ -231,10 +231,6 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Pull server-api as base
-        run: |
-          docker pull ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/server-api:latest
-          docker tag ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/server-api:latest lakemind/server-api:latest
       - uses: docker/build-push-action@v6
         with:
           context: LakeMindModelServing
@@ -245,6 +241,8 @@ jobs:
           push: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-contexts: |
+            lakemind/server-api:latest=docker-image://${{ env.REGISTRY }}/${{ env.NAMESPACE }}/server-api:latest
 
   meeting-agent:
     needs: determine-version
