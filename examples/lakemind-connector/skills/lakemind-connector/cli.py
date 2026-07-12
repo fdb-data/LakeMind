@@ -11,7 +11,10 @@ Agent 检索到本 Skill 后，在自身运行时执行此代码。
     python cli.py remember <text>        # 存入新记忆
     python cli.py verify                 # 验证入库结果
     python cli.py tools                  # 列出 MCP 工具
-    python cli.py health                 # 平台健康检查
+    python cli.py health                 # 平台健康检查 (含 Ray)
+    python cli.py jobs [status]          # 列出 Ray jobs
+    python cli.py job-status <job_id>    # 查询 job 状态
+    python cli.py asr <audio_file>       # ASR 语音识别
 """
 
 from __future__ import annotations
@@ -168,8 +171,46 @@ async def cmd_tools(conn: LakeMindConnector):
 async def cmd_health(conn: LakeMindConnector):
     _header("Platform Health")
     try:
-        r = await conn.platform_health()
+        r = await conn.check_health()
         print(f"  {json.dumps(r, indent=2, ensure_ascii=False)}")
+    except Exception as e:
+        print(f"  [FAIL] {e}")
+
+
+async def cmd_jobs(conn: LakeMindConnector, status: str = ""):
+    _header(f"Ray Jobs{f' (status={status})' if status else ''}")
+    try:
+        r = await conn.list_jobs(status=status)
+        jobs = r.get("jobs", r.get("results", []))
+        print(f"  total: {len(jobs)}")
+        for j in jobs[:20]:
+            jid = j.get("job_id", "?")
+            s = j.get("status", "?")
+            name = j.get("job_name", j.get("entrypoint", "?"))
+            print(f"    [{jid[:12]}] {s:12s} {name[:50]}")
+    except Exception as e:
+        print(f"  [FAIL] {e}")
+
+
+async def cmd_job_status(conn: LakeMindConnector, job_id: str):
+    _header(f"Job Status: {job_id}")
+    try:
+        r = await conn.get_job_status(job_id)
+        print(f"  {json.dumps(r, indent=2, ensure_ascii=False)}")
+    except Exception as e:
+        print(f"  [FAIL] {e}")
+
+
+async def cmd_asr(conn: LakeMindConnector, audio_file: str):
+    _header(f"ASR: {audio_file}")
+    try:
+        with open(audio_file, "rb") as f:
+            audio = f.read()
+        result = await conn.asr(audio)
+        raw_text = result.get("text", "")
+        clean_text = LakeMindConnector.clean_asr_text(raw_text)
+        print(f"  raw: {raw_text[:100]}")
+        print(f"  clean: {clean_text[:100]}")
     except Exception as e:
         print(f"  [FAIL] {e}")
 
@@ -184,6 +225,9 @@ COMMANDS = {
     "verify": cmd_verify,
     "tools": cmd_tools,
     "health": cmd_health,
+    "jobs": cmd_jobs,
+    "job-status": cmd_job_status,
+    "asr": cmd_asr,
 }
 
 

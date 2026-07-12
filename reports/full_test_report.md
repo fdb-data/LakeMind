@@ -240,9 +240,9 @@
 | # | 限制 | 说明 |
 |---|------|------|
 | 1 | 动态 Token 不跨 MCP 互认 | 各 MCP 目前只认 config.yaml 静态 token。未来实现 PG 共享 token 校验 |
-| 2 | Steward LLM provider=simple | 未接 GatewayLLM，关键词匹配。v0.2 接入 |
-| 3 | 3 个 server_client.py 重复 | AssetMCP/DataMCP/AdminMCP 各有一份。v0.2 提取共享包 |
-| 4 | Steward inspect() 无 MCP 降级 | MCP 不可用时无 fallback。v0.2 实现 |
+| 2 | Steward LLM provider=simple | 未接 GatewayLLM，关键词匹配。后续版本 接入 |
+| 3 | 3 个 server_client.py 重复 | AssetMCP/DataMCP/AdminMCP 各有一份。后续版本 提取共享包 |
+| 4 | Steward inspect() 无 MCP 降级 | MCP 不可用时无 fallback。后续版本 实现 |
 
 ---
 

@@ -4,22 +4,30 @@ LakeMind 连接器 — 通过 MCP (AssetMCP + AdminMCP) + ModelServing + Server 
 架构:
     AssetMCP (:8401)  → 知识/记忆/技能/本体 (23 tools, MCP protocol)
     AdminMCP (:8403)  → 租户/Token/健康 (17 tools, MCP protocol)
-    ModelServing (:10824) → Embedding / LLM (REST API)
-    Server (:10823)   → 向量存储 (REST API, 绕过 AssetMCP embedding 端点未 mount 的问题)
+    ModelServing (:10824) → Embedding / LLM / ASR (REST API)
+    Server (:10823)   → 向量存储 / S3 / Ray jobs (REST API)
 """
 
 from __future__ import annotations
 
+import asyncio
+import io
 import json
 import logging
 import os
+import re
 import time
+import zipfile
+from urllib.parse import urlparse
 
 import httpx
 from mcp.client.streamable_http import streamablehttp_client
 from mcp import ClientSession
 
 logger = logging.getLogger(__name__)
+
+_TERMINAL_STATUSES = ("SUCCEEDED", "STOPPED", "FAILED", "completed", "cancelled", "failed")
+_ASR_TAG_RE = re.compile(r"<\s*\|[^|]*\|\s*>")
 
 
 class LakeMindConnector:
@@ -63,7 +71,7 @@ class LakeMindConnector:
 
     @property
     def _server_headers(self) -> dict:
-        return {"Authorization": f"Bearer {self.server_key}"}
+        return {"Authorization": f"Bearer {self.server_key}", "X-Tenant-Id": self.tenant_id}
 
     @property
     def _ms_headers(self) -> dict:
@@ -144,7 +152,7 @@ class LakeMindConnector:
             text = f"{title}\n{body}"
             vec = await self.embed(text)
             data.append({
-                "concept_id": f"{kb_name}_{int(time.time() * 1000)}_{len(data)}",
+                "concept_id": fm.get("resource", f"{kb_name}_{int(time.time() * 1000000)}_{len(data)}"),
                 "type": fm.get("type", c.get("type", "knowledge")),
                 "title": title,
                 "description": body[:500],
@@ -154,15 +162,12 @@ class LakeMindConnector:
                 "created_at": time.time(),
             })
 
-        r = await self._http.post(
-            f"{self.server_url}/api/v1/storage/vectors/{self._db}",
-            headers=self._server_headers,
-            json={"name": table, "data": data, "mode": "append"},
-        )
-        if r.status_code == 500:
+        add_url = f"{self.server_url}/api/v1/storage/vectors/{self._db}/{table}/add"
+        create_url = f"{self.server_url}/api/v1/storage/vectors/{self._db}"
+        r = await self._http.post(add_url, headers=self._server_headers, json={"data": data})
+        if r.status_code == 404:
             r = await self._http.post(
-                f"{self.server_url}/api/v1/storage/vectors/{self._db}",
-                headers=self._server_headers,
+                create_url, headers=self._server_headers,
                 json={"name": table, "data": data, "mode": "overwrite"},
             )
         r.raise_for_status()
@@ -275,3 +280,183 @@ class LakeMindConnector:
         )
         r.raise_for_status()
         return r.json()
+
+    # ── S3 URI-based API (s3://bucket/key) ────────────────────
+
+    @staticmethod
+    def _parse_s3_uri(uri: str) -> tuple[str, str]:
+        p = urlparse(uri)
+        return p.netloc, p.path.lstrip("/")
+
+    async def s3_put_uri(self, uri: str, data: bytes) -> dict:
+        bucket, key = self._parse_s3_uri(uri)
+        return await self.s3_put(bucket, key, data)
+
+    async def s3_get_uri(self, uri: str) -> bytes:
+        bucket, key = self._parse_s3_uri(uri)
+        return await self.s3_get(bucket, key)
+
+    async def s3_exists_uri(self, uri: str) -> bool:
+        bucket, key = self._parse_s3_uri(uri)
+        r = await self._http.head(
+            f"{self.server_url}/api/v1/storage/objects/{bucket}/{key}",
+            headers=self._server_headers,
+        )
+        return r.status_code == 200
+
+    # ── ASR (ModelServing) ────────────────────────────────────
+
+    async def asr(self, audio: bytes, filename: str = "audio.wav") -> dict:
+        r = await self._http.post(
+            f"{self.ms_url}/v1/audio/transcriptions",
+            headers=self._ms_headers,
+            files={"file": (filename, audio, "audio/wav")},
+            timeout=120,
+        )
+        r.raise_for_status()
+        return r.json()
+
+    @staticmethod
+    def clean_asr_text(text: str) -> str:
+        text = _ASR_TAG_RE.sub("", text)
+        return re.sub(r"\s+", " ", text).strip()
+
+    # ── Ray Jobs (Server REST) ────────────────────────────────
+
+    async def submit_job(
+        self,
+        skill_uri: str,
+        job_name: str,
+        params: dict,
+        env_overrides: dict | None = None,
+        resources: dict | None = None,
+        task_id: str = "",
+    ) -> dict:
+        r = await self._http.post(
+            f"{self.server_url}/api/v1/compute/jobs/submit",
+            headers=self._server_headers,
+            json={
+                "skill_uri": skill_uri,
+                "job_name": job_name,
+                "params": params,
+                "env_overrides": env_overrides or {},
+                "resources": resources or {},
+                "task_id": task_id,
+            },
+            timeout=30,
+        )
+        r.raise_for_status()
+        return r.json()
+
+    async def get_job_status(self, job_id: str) -> dict:
+        r = await self._http.get(
+            f"{self.server_url}/api/v1/compute/jobs/{job_id}",
+            headers=self._server_headers,
+            timeout=10,
+        )
+        r.raise_for_status()
+        return r.json()
+
+    async def get_job_result(self, job_id: str) -> dict:
+        r = await self._http.get(
+            f"{self.server_url}/api/v1/compute/jobs/{job_id}/result",
+            headers=self._server_headers,
+            timeout=10,
+        )
+        r.raise_for_status()
+        return r.json()
+
+    async def cancel_job(self, job_id: str) -> dict:
+        r = await self._http.post(
+            f"{self.server_url}/api/v1/compute/jobs/{job_id}/cancel",
+            headers=self._server_headers,
+            timeout=10,
+        )
+        r.raise_for_status()
+        return r.json()
+
+    async def list_jobs(self, status: str = "") -> dict:
+        params = {}
+        if status:
+            params["status"] = status
+        r = await self._http.get(
+            f"{self.server_url}/api/v1/compute/jobs",
+            headers=self._server_headers,
+            params=params,
+            timeout=10,
+        )
+        r.raise_for_status()
+        return r.json()
+
+    async def poll_job(self, job_id: str, interval: float = 1.5, timeout: float = 120) -> dict:
+        deadline = asyncio.get_event_loop().time() + timeout
+        while True:
+            status = await self.get_job_status(job_id)
+            s = status.get("status", "")
+            if s in _TERMINAL_STATUSES:
+                return status
+            if asyncio.get_event_loop().time() > deadline:
+                raise TimeoutError(f"job {job_id} timed out after {timeout}s (last status: {s})")
+            await asyncio.sleep(interval)
+
+    async def submit_and_wait(
+        self,
+        skill_uri: str,
+        job_name: str,
+        params: dict,
+        interval: float = 1.5,
+        timeout: float = 120,
+    ) -> dict:
+        job = await self.submit_job(skill_uri, job_name, params)
+        return await self.poll_job(job["job_id"], interval=interval, timeout=timeout)
+
+    # ── Skill Packaging ───────────────────────────────────────
+
+    @staticmethod
+    def pack_skill(skill_dir: str) -> bytes:
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            for root, _dirs, files in os.walk(skill_dir):
+                for fname in files:
+                    fpath = os.path.join(root, fname)
+                    arcname = os.path.relpath(fpath, skill_dir).replace("\\", "/")
+                    zf.write(fpath, arcname)
+        return buf.getvalue()
+
+    async def upload_skill(self, skill_dir: str, skill_name: str, bucket: str = "lakemind-filesets") -> str:
+        zip_data = self.pack_skill(skill_dir)
+        key = f"{self.tenant_id}/skills/{skill_name}.zip"
+        await self.s3_put(bucket, key, zip_data)
+        uri = f"s3://{bucket}/{key}"
+        logger.info("[OK] skill uploaded: %s (%d bytes)", uri, len(zip_data))
+        return uri
+
+    # ── Health Check ──────────────────────────────────────────
+
+    async def check_health(self) -> dict:
+        result = {}
+        try:
+            r = await self._http.get(f"{self.ms_url}/v1/models", headers=self._ms_headers, timeout=10)
+            models = [m["id"] for m in r.json().get("data", [])] if r.status_code == 200 else []
+            result["model_serving"] = {"ok": r.status_code == 200, "models": models}
+        except Exception as e:
+            result["model_serving"] = {"ok": False, "error": str(e)}
+
+        try:
+            r = await self._http.get(
+                f"{self.server_url}/api/v1/system/health",
+                headers=self._server_headers, timeout=10,
+            )
+            health = r.json() if r.status_code == 200 else {}
+            result["server"] = {"ok": r.status_code == 200, "distributed": health.get("distributed", False)}
+        except Exception as e:
+            result["server"] = {"ok": False, "error": str(e)}
+
+        try:
+            r = await self._http.get(self.asset_mcp_url, timeout=5)
+            result["asset_mcp"] = {"ok": True}
+        except Exception as e:
+            result["asset_mcp"] = {"ok": False, "error": str(e)}
+
+        result["all_ok"] = all(v.get("ok", False) for v in result.values() if isinstance(v, dict))
+        return result

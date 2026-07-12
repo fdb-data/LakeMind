@@ -9,7 +9,6 @@
 | `meeting-agent/` | 会议实时知识化 Agent | web→agent→skill→job 全链路 | ✅ 已验证 |
 | `lakemind-connector/` | opencode Skill 接入 LakeMind | Skill 注册/检索/执行 + 认知资产存取 | ✅ 已验证 |
 
-> `retail-agent/` 已弃用，不再维护。
 
 ---
 

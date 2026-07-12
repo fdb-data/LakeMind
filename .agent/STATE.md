@@ -258,12 +258,12 @@ memory:          True
 
 | # | 问题 | 影响 | 优先级 | 状态 |
 |---|------|------|--------|------|
-| 1 | 3 个 server_client.py 重复 | AssetMCP/DataMCP/AdminMCP 各有一份 | P2 | v0.2 提取共享包 |
+| 1 | 3 个 server_client.py 重复 | AssetMCP/DataMCP/AdminMCP 各有一份 | P2 | 后续版本提取共享包 |
 | 2 | 动态 Token 不跨 MCP 共享 | 静态 config.yaml Token，MVP 限制 | P2 | 已知限制 |
-| 3 | Steward inspect() 无 MCP 降级 | MCP 不可用时无 fallback | P2 | v0.2 实现 |
+| 3 | Steward inspect() 无 MCP 降级 | MCP 不可用时无 fallback | P2 | 后续版本实现 |
 | 4 | server-api Docker build 耗时 | Ray 依赖安装 ~10min | P3 | 用 docker cp 热更新 |
-| 5 | ~~AssetMCP/DataMCP embed() 404~~ | ~~ingest/search_knowledge/skill 不可用~~ | ~~P0~~ | ✅ 已修复（v0.1.2） |
-| 6 | ~~Memory search L2 距离~~ | ~~search_memory 返回空~~ | ~~P0~~ | ✅ 已修复（v0.1.2） |
+| 5 | ~~AssetMCP/DataMCP embed() 404~~ | ~~ingest/search_knowledge/skill 不可用~~ | ~~P0~~ | ✅ 已修复（v0.1.0） |
+| 6 | ~~Memory search L2 距离~~ | ~~search_memory 返回空~~ | ~~P0~~ | ✅ 已修复（v0.1.0） |
 | 7 | ~~Ray dashboard 127.0.0.1 绑定~~ | ~~JobSubmissionClient 跨容器不可達~~ | ~~P0~~ | ✅ 已修复（--dashboard-host=0.0.0.0） |
 | 8 | ~~Skill job URI 解析 bug~~ | ~~lake:// URI 誤當 s3:// 解析~~ | ~~P0~~ | ✅ 已修复 |
 

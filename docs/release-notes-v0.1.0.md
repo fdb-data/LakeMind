@@ -1,4 +1,4 @@
-# LakeMind v0.1.0 发布说明
+﻿# LakeMind v0.1.0 发布说明
 
 **发布日期**: 2026-07-11  
 **代号**: Agent-Native Cognitive Asset Platform MVP
@@ -10,8 +10,6 @@
 LakeMind v0.1.0 是首个可用版本，实现了认知资产存取平台的完整 MVP 功能。
 
 **L0-L8 共 286 项测试全部通过，13 个容器全部运行，10 个引擎全部健康。**
-
-> v0.1.0 包含 v0.1.0 核心 + v0.1.1 ModelServing 重构 + v0.1.2 embedding 路由修复。
 
 ---
 
@@ -122,12 +120,12 @@ python scripts/verify_full.py    # 297/297 PASS
 
 | 限制 | 影响 | 计划 |
 |------|------|------|
-| 动态 Token 不跨 MCP | MVP 使用静态 Token | v0.2 |
-| Steward 无 MCP 降级 | MCP 不可用时无 fallback | v0.2 |
+| 动态 Token 不跨 MCP | MVP 使用静态 Token | 后续版本 |
+| Steward 无 MCP 降级 | MCP 不可用时无 fallback | 后续版本 |
 | LakeMindStudio 未开发 | 无桌面客户端 | v0.3 |
-| 流式响应未支持 | LLM chat 同步 | v0.2 |
-| per-tenant 模型配置 | 全局模型 | v0.2 |
-| 3 份 server_client.py 重复 | 待提取共享包 | v0.2 |
+| 流式响应未支持 | LLM chat 同步 | 后续版本 |
+| per-tenant 模型配置 | 全局模型 | 后续版本 |
+| 3 份 server_client.py 重复 | 待提取共享包 | 后续版本 |
 
 ---
 

@@ -52,7 +52,7 @@ skills/lakemind-connector/
 
 | 方法 | 来源 | 说明 |
 |------|------|------|
-| `store_knowledge(kb, concepts)` | ModelServing + Server | 向量化 + 向量入库 |
+| `store_knowledge(kb, concepts)` | ModelServing + Server | 向量化 + 向量入库（`/add` 追加） |
 | `search_knowledge(query, kb)` | ModelServing + Server | 语义检索 |
 | `scan_knowledge(kb)` | Server REST | 浏览全部概念 |
 | `add_memory(messages)` | AssetMCP MCP | 存入记忆 |
@@ -60,9 +60,19 @@ skills/lakemind-connector/
 | `list_memory()` | AssetMCP MCP | 列出记忆 |
 | `embed(text)` | ModelServing | 文本向量化 |
 | `llm_chat(sys, user)` | ModelServing | LLM 对话 |
+| `asr(audio)` | ModelServing | FunASR 语音识别 |
+| `clean_asr_text(text)` | — | 清理 FunASR 输出标签 (static) |
+| `s3_put/get/list()` | Server REST | S3 对象存储 (bucket+key) |
+| `s3_put_uri/get_uri/exists_uri()` | Server REST | S3 URI-based (`s3://bucket/key`) |
+| `submit_job(skill_uri, job_name, params)` | Server REST | 提交 Ray job |
+| `poll_job(job_id, interval, timeout)` | Server REST | 轮询 job 直到终态 |
+| `submit_and_wait(skill_uri, job_name, params)` | Server REST | 一步提交+等待 |
+| `get_job_status/get_job_result/cancel_job/list_jobs()` | Server REST | Ray job 管理 |
+| `pack_skill(skill_dir)` | — | 打包 Skill zip (static) |
+| `upload_skill(skill_dir, name)` | Server REST | 打包+上传 Skill 到 S3 |
+| `check_health()` | Server + MS + MCP | 统一健康检查（含 Ray distributed） |
 | `create_tenant()` | AdminMCP MCP | 创建租户 |
 | `issue_token()` | AdminMCP MCP | 签发 Token |
-| `s3_put/get/list()` | Server REST | S3 对象存储 |
 
 ---
 
@@ -121,7 +131,11 @@ python cli.py remember "今天修复了bug" # 存入新记忆
 python cli.py search-memory "验证"    # 语义搜索记忆
 python cli.py verify                  # 验证入库结果
 python cli.py tools                   # 列出 MCP 工具
-python cli.py health                  # 平台健康检查
+python cli.py health                  # 平台健康检查 (含 Ray distributed)
+python cli.py jobs                    # 列出 Ray jobs
+python cli.py jobs running            # 筛选 running 状态
+python cli.py job-status <job_id>     # 查询 job 状态
+python cli.py asr <audio.wav>         # ASR 语音识别
 ```
 
 ---
@@ -148,6 +162,15 @@ conn = LakeMindConnector()
 await conn.store_knowledge(KNOWLEDGE_BASE, concepts)   # 存知识
 hits = await conn.search_knowledge("query", KNOWLEDGE_BASE)  # 检索知识
 await conn.add_memory([{"role": "user", "content": "新记忆"}])  # 存记忆
+
+# ⑤ 提交 Ray job（分布式计算）
+job = await conn.submit_job(
+    skill_uri="lake://skills/my-skill",
+    job_name="process",
+    params={"input_uri": "s3://bucket/data/input.json", "result_uri": "s3://bucket/data/result.json"},
+)
+status = await conn.poll_job(job["job_id"])  # 等待完成
+result = await conn.s3_get_uri("s3://bucket/data/result.json")  # 下载结果
 ```
 
 ---
