@@ -27,10 +27,32 @@ def clean_asr_text(text: str) -> str:
     return text
 
 
-TENANT_ID = os.environ.get("TENANT_ID", "retail")
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+TENANT_ID = os.environ.get("TENANT_ID", "examples-meeting-agent")
 S3_BUCKET = "lakemind-filesets"
 CHUNK_DURATION = int(os.environ.get("CHUNK_DURATION", "10"))
 SUMMARIZE_INTERVAL = int(os.environ.get("SUMMARIZE_INTERVAL", "6"))
+
+TASK_TABLE_SCHEMA = {
+    "id": "string",
+    "title": "string",
+    "participants": "string",
+    "status": "string",
+    "chunk_count": "int64",
+    "summary_count": "int64",
+    "extract_count": "int64",
+    "started_at": "string",
+    "stopped_at": "string",
+    "transcript_uri": "string",
+    "minutes_uri": "string",
+    "kb_name": "string",
+    "duration": "int64",
+    "created_at": "string",
+    "updated_at": "string",
+}
 
 
 class SSEBroker:
@@ -52,18 +74,82 @@ class SSEBroker:
             await q.put(msg)
 
 
-class MeetingAgent:
-    def __init__(self, client: LakeMindClient):
+class TaskManager:
+    def __init__(self, client: LakeMindClient, tenant_id: str):
         self.client = client
+        self.tenant_id = tenant_id
+        self.namespace = f"{tenant_id}_data"
+        self.table = "meeting_tasks"
+
+    async def init(self):
+        await self.client.ensure_tenant(self.tenant_id, "Meeting Agent Example")
+        if not await self.client.table_exists(self.namespace, self.table):
+            await self.client.create_table(self.namespace, self.table, TASK_TABLE_SCHEMA)
+            logger.info("created task table: %s.%s", self.namespace, self.table)
+        else:
+            logger.info("task table exists: %s.%s", self.namespace, self.table)
+
+    async def create_task(self, id: str, title: str, participants: str) -> dict:
+        now = _now_iso()
+        row = {
+            "id": id,
+            "title": title,
+            "participants": participants,
+            "status": "recording",
+            "chunk_count": 0,
+            "summary_count": 0,
+            "extract_count": 0,
+            "started_at": now,
+            "stopped_at": "",
+            "transcript_uri": "",
+            "minutes_uri": "",
+            "kb_name": "meetings",
+            "duration": 0,
+            "created_at": now,
+            "updated_at": now,
+        }
+        await self.client.append_rows(self.namespace, self.table, [row])
+        return row
+
+    async def update_task(self, id: str, **fields) -> dict | None:
+        current = await self.get_task(id)
+        if not current:
+            return None
+        row = {**current, **fields, "updated_at": _now_iso()}
+        await self.client.append_rows(self.namespace, self.table, [row])
+        return row
+
+    async def list_tasks(self) -> list[dict]:
+        rows = await self.client.scan_table(self.namespace, self.table)
+        latest: dict[str, dict] = {}
+        for r in rows:
+            rid = r.get("id")
+            if not rid:
+                continue
+            if rid not in latest or str(r.get("updated_at", "")) > str(latest[rid].get("updated_at", "")):
+                latest[rid] = r
+        return sorted(latest.values(), key=lambda x: str(x.get("started_at", "")), reverse=True)
+
+    async def get_task(self, id: str) -> dict | None:
+        for t in await self.list_tasks():
+            if t.get("id") == id:
+                return t
+        return None
+
+
+class MeetingAgent:
+    def __init__(self, client: LakeMindClient, task_manager: TaskManager):
+        self.client = client
+        self.tasks = task_manager
         self.sse = SSEBroker()
-        self.meetings: dict[str, dict] = {}
+        self._active: dict[str, dict] = {}
 
     def _s3_path(self, meeting_id: str, *parts: str) -> str:
         return f"s3://{S3_BUCKET}/{TENANT_ID}/meetings/{meeting_id}/" + "/".join(parts)
 
     async def start_meeting(self, title: str, participants: str) -> str:
         meeting_id = f"meeting-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}"
-        self.meetings[meeting_id] = {
+        self._active[meeting_id] = {
             "title": title,
             "participants": participants,
             "chunks": 0,
@@ -71,13 +157,16 @@ class MeetingAgent:
             "extracts": 0,
             "transcript_buffer": [],
             "started_at": time.time(),
-            "status": "recording",
         }
+        try:
+            await self.tasks.create_task(meeting_id, title, participants)
+        except Exception as e:
+            logger.warning("create_task failed (non-fatal): %s", e)
         logger.info("meeting started: %s (%s)", meeting_id, title)
         return meeting_id
 
     async def on_chunk(self, meeting_id: str, audio: bytes) -> dict:
-        state = self.meetings.get(meeting_id)
+        state = self._active.get(meeting_id)
         if not state:
             return {"text": "[meeting not found]", "segments": []}
         chunk_num = state["chunks"] + 1
@@ -90,7 +179,7 @@ class MeetingAgent:
         await self.client.s3_put(chunk_uri, wav_audio)
 
         await self.sse.broadcast("status", {
-            "status": state["status"],
+            "status": "recording",
             "chunks": chunk_num,
             "meeting_id": meeting_id,
         })
@@ -142,7 +231,9 @@ class MeetingAgent:
         return result
 
     async def _summarize(self, meeting_id: str) -> dict | None:
-        state = self.meetings[meeting_id]
+        state = self._active.get(meeting_id)
+        if not state:
+            return None
         summary_num = state["summaries"] + 1
         state["summaries"] = summary_num
 
@@ -177,6 +268,17 @@ class MeetingAgent:
             logger.error("[FAIL] Summarize #%d: %s", summary_num, e)
             return None
 
+        try:
+            await self.tasks.update_task(
+                meeting_id,
+                chunk_count=state["chunks"],
+                summary_count=summary_num,
+                transcript_uri=transcript_uri,
+                minutes_uri=minutes_uri,
+            )
+        except Exception as e:
+            logger.warning("update_task (summarize) failed: %s", e)
+
         elapsed = int(time.time() - state["started_at"])
         await self.sse.broadcast("minutes", {
             "minutes": minutes,
@@ -189,7 +291,9 @@ class MeetingAgent:
         return {"minutes": minutes, "minutes_uri": minutes_uri}
 
     async def _extract(self, meeting_id: str, minutes: str, minutes_uri: str) -> dict | None:
-        state = self.meetings[meeting_id]
+        state = self._active.get(meeting_id)
+        if not state:
+            return None
         extract_num = state["extracts"] + 1
         state["extracts"] = extract_num
 
@@ -226,6 +330,15 @@ class MeetingAgent:
             return None
 
         try:
+            await self.tasks.update_task(
+                meeting_id,
+                extract_count=extract_num,
+                minutes_uri=minutes_uri,
+            )
+        except Exception as e:
+            logger.warning("update_task (extract) failed: %s", e)
+
+        try:
             check_query = concepts[0]["title"] if concepts else state["title"]
             check_result = await self.client.search_knowledge(
                 query=check_query, kb_name="meetings", top_k=3,
@@ -243,16 +356,32 @@ class MeetingAgent:
         return {"concepts": concepts}
 
     async def stop_meeting(self, meeting_id: str) -> dict:
-        state = self.meetings.get(meeting_id)
+        state = self._active.get(meeting_id)
         if not state:
             return {"error": "meeting not found"}
-
-        state["status"] = "stopped"
 
         if state["transcript_buffer"]:
             await self._summarize(meeting_id)
 
         elapsed = int(time.time() - state["started_at"])
+        transcript_uri = self._s3_path(meeting_id, "transcript.json")
+        minutes_uri = self._s3_path(meeting_id, "minutes.md")
+
+        try:
+            await self.tasks.update_task(
+                meeting_id,
+                status="stopped",
+                stopped_at=_now_iso(),
+                duration=elapsed,
+                chunk_count=state["chunks"],
+                summary_count=state["summaries"],
+                extract_count=state["extracts"],
+                transcript_uri=transcript_uri,
+                minutes_uri=minutes_uri,
+            )
+        except Exception as e:
+            logger.warning("update_task (stop) failed: %s", e)
+
         try:
             await self.client.add_memory(
                 messages=[{
@@ -279,18 +408,45 @@ class MeetingAgent:
     async def search(self, query: str, top_k: int = 5) -> dict:
         return await self.client.search_knowledge(query=query, kb_name="meetings", top_k=top_k)
 
-    def list_meetings(self) -> list[dict]:
-        result = []
-        for mid, s in self.meetings.items():
-            result.append({
-                "meeting_id": mid,
-                "title": s["title"],
-                "participants": s["participants"],
-                "chunks": s["chunks"],
-                "status": s["status"],
-                "started_at": s["started_at"],
-            })
-        return result
+    async def list_tasks(self) -> list[dict]:
+        return await self.tasks.list_tasks()
+
+    async def get_task_detail(self, task_id: str) -> dict | None:
+        task = await self.tasks.get_task(task_id)
+        if not task:
+            return None
+
+        detail = {**task}
+
+        transcript_uri = task.get("transcript_uri", "")
+        if transcript_uri:
+            try:
+                data = await self.client.s3_get(transcript_uri)
+                detail["transcript"] = json.loads(data).get("text", "")
+            except Exception:
+                detail["transcript"] = ""
+        else:
+            detail["transcript"] = ""
+
+        minutes_uri = task.get("minutes_uri", "")
+        if minutes_uri:
+            try:
+                data = await self.client.s3_get(minutes_uri)
+                detail["minutes"] = data.decode("utf-8")
+            except Exception:
+                detail["minutes"] = ""
+        else:
+            detail["minutes"] = ""
+
+        try:
+            result = await self.client.search_knowledge(
+                query=task.get("title", ""), kb_name="meetings", top_k=20,
+            )
+            detail["knowledge"] = result.get("hits", [])
+        except Exception:
+            detail["knowledge"] = []
+
+        return detail
 
 
 agent: MeetingAgent | None = None
@@ -301,7 +457,12 @@ client: LakeMindClient | None = None
 async def lifespan(app: FastAPI):
     global agent, client
     client = LakeMindClient()
-    agent = MeetingAgent(client)
+    task_mgr = TaskManager(client, TENANT_ID)
+    try:
+        await task_mgr.init()
+    except Exception as e:
+        logger.error("TaskManager init failed: %s", e)
+    agent = MeetingAgent(client, task_mgr)
     logger.info("MeetingAgent ready (skill_uri=%s, tenant=%s)", client.skill_uri, client.tenant_id)
     yield
     await client.close()
@@ -369,9 +530,24 @@ async def api_search(query: str, top_k: int = 5):
     return await agent.search(query, top_k)
 
 
+@app.get("/api/tasks")
+async def api_tasks():
+    tasks = await agent.list_tasks()
+    return {"tasks": tasks, "count": len(tasks)}
+
+
+@app.get("/api/tasks/{task_id}")
+async def api_task_detail(task_id: str):
+    detail = await agent.get_task_detail(task_id)
+    if not detail:
+        return JSONResponse({"error": "task not found"}, status_code=404)
+    return detail
+
+
 @app.get("/api/history")
 async def api_history():
-    return {"meetings": agent.list_meetings()}
+    tasks = await agent.list_tasks()
+    return {"meetings": tasks, "count": len(tasks)}
 
 
 def main():

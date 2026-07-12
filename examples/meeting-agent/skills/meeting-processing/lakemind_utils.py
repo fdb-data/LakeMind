@@ -96,10 +96,18 @@ def ingest_knowledge(kb_name: str, concepts: list[dict], tenant_id: str = "defau
 
     add_url = f"{SERVER_URL}/api/v1/storage/vectors/{db}/{table}/add"
     create_url = f"{SERVER_URL}/api/v1/storage/vectors/{db}"
+    list_url = f"{SERVER_URL}/api/v1/storage/vectors/{db}"
     headers = {"Authorization": f"Bearer {SERVER_KEY}"}
 
-    resp = httpx.post(add_url, headers=headers, json={"data": data}, timeout=30)
-    if resp.status_code == 404:
+    try:
+        list_resp = httpx.get(list_url, headers=headers, timeout=10)
+        existing = list_resp.json().get("tables", []) if list_resp.status_code == 200 else []
+    except Exception:
+        existing = []
+
+    if table not in existing:
         resp = httpx.post(create_url, headers=headers, json={"name": table, "data": data, "mode": "overwrite"}, timeout=30)
+    else:
+        resp = httpx.post(add_url, headers=headers, json={"data": data}, timeout=30)
     resp.raise_for_status()
     return {"kb_name": kb_name, "ingested": len(data)}

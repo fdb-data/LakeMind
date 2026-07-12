@@ -24,7 +24,7 @@ class LakeMindClient:
         self.ms_key = model_serving_key or os.environ.get("MODELSERVING_API_KEY", "lakemind-modelserving-key")
         self.asset_mcp_url = asset_mcp_url or os.environ.get("ASSET_MCP_URL", "http://localhost:8401/mcp")
         self.asset_token = asset_token or os.environ.get("ASSET_TOKEN", "test-business-token")
-        self.tenant_id = tenant_id or os.environ.get("TENANT_ID", "retail")
+        self.tenant_id = tenant_id or os.environ.get("TENANT_ID", "examples-meeting-agent")
         self.skill_uri = os.environ.get("SKILL_URI", "lake://skills/meeting-processing")
         self._http = httpx.AsyncClient(timeout=120)
 
@@ -165,6 +165,60 @@ class LakeMindClient:
         if metadata:
             args["metadata"] = metadata
         return await self._call_mcp("add_memory", args)
+
+    # ── Tenant & Iceberg table management ───────────────────────
+
+    async def ensure_tenant(self, tenant_id: str, name: str) -> dict:
+        resp = await self._http.post(
+            f"{self.server_url}/api/v1/metadata/tenants",
+            headers=self._headers,
+            json={"tenant_id": tenant_id, "name": name},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    async def create_table(self, namespace: str, table: str, schema: dict[str, str]) -> dict:
+        resp = await self._http.post(
+            f"{self.server_url}/api/v1/storage/tables/",
+            headers=self._headers,
+            json={"namespace": namespace, "table": table, "schema": schema},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    async def table_exists(self, namespace: str, table: str) -> bool:
+        resp = await self._http.get(
+            f"{self.server_url}/api/v1/storage/tables/{namespace}",
+            headers=self._headers,
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            return False
+        tables = resp.json().get("tables", [])
+        return table in tables
+
+    async def append_rows(self, namespace: str, table: str, rows: list[dict]) -> dict:
+        resp = await self._http.post(
+            f"{self.server_url}/api/v1/storage/tables/{namespace}/{table}/append",
+            headers=self._headers,
+            json={"rows": rows},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    async def scan_table(self, namespace: str, table: str, limit: int = 1000) -> list[dict]:
+        resp = await self._http.get(
+            f"{self.server_url}/api/v1/storage/tables/{namespace}/{table}/scan",
+            headers=self._headers,
+            params={"limit": limit},
+            timeout=30,
+        )
+        if resp.status_code != 200:
+            return []
+        return resp.json().get("rows", [])
 
     # ── Audio conversion (agent responsibility) ─────────────────
 

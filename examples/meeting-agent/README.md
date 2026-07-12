@@ -26,12 +26,17 @@
 
 ```
 浏览器 (Web UI)
+  │  首页: 任务展廊（卡片网格）— 新建 / 查看
   │  MediaRecorder 每 10s 生成 WebM chunk
   │  POST /api/chunk (binary body)
   ▼
 Agent (FastAPI :9100)
-  │  职责：输入归一化 + job 编排 + 结果分发
+  │  职责：输入归一化 + job 编排 + 结果分发 + 任务持久化
   │
+  ├─ TaskManager: Iceberg 表 meeting_tasks 管理任务生命周期
+  │    ├─ 启动时自动创建租户 + 表
+  │    ├─ append-only 写入，读时去重（无行级 UPDATE）
+  │    └─ 任务重启不丢失
   ├─ ffmpeg WebM → WAV (host ffmpeg, 16kHz mono)
   ├─ S3 上传 WAV
   ├─ Server /api/v1/compute/jobs/submit (skill=meeting-processing, job=asr)
@@ -41,7 +46,7 @@ Agent (FastAPI :9100)
   │
   ├─ 每 2 次纪要: S3 上传 minutes → submit job=extract → 轮询 → SSE 推送知识
   │
-  └─ 停止: 最终纪要 + AssetMCP add_memory
+  └─ 停止: 最终纪要 + AssetMCP add_memory + Iceberg 更新状态
 ```
 
 ### 2.1 层次划分
@@ -100,7 +105,7 @@ export MODEL_SERVING_URL=http://localhost:10824
 export MODELSERVING_API_KEY=lakemind-modelserving-key
 export ASSET_MCP_URL=http://localhost:8401/mcp
 export ASSET_TOKEN=test-business-token
-export TENANT_ID=retail
+export TENANT_ID=examples-meeting-agent
 export SKILL_URI=lake://skills/meeting-processing
 export FFMPEG_PATH=ffmpeg
 export PORT=9100
@@ -175,12 +180,14 @@ python agent.py
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
+| GET | `/api/tasks` | 任务展廊列表（从 Iceberg 持久化读取） |
+| GET | `/api/tasks/{task_id}` | 任务详情（含转写全文 + 纪要 + 知识条目） |
 | POST | `/api/start` | 开始会议 `{title, participants}` → `{meeting_id}` |
 | POST | `/api/chunk?meeting_id=xxx` | 上传音频 chunk（WebM binary body） → `{text, segments}` |
 | POST | `/api/stop` | 结束会议 `{meeting_id}` → `{duration, chunks, summaries}` |
 | GET | `/api/stream` | SSE 实时推送（transcript / minutes / knowledge / status） |
 | GET | `/api/search?query=xxx&top_k=5` | 知识语义检索 |
-| GET | `/api/history` | 历史会议列表 |
+| GET | `/api/history` | 历史会议列表（deprecated，转发到 `/api/tasks`） |
 
 ### SSE 事件
 
@@ -210,7 +217,7 @@ data: {"status": "recording", "chunks": 6, "meeting_id": "..."}
 | `MODELSERVING_API_KEY` | `lakemind-modelserving-key` | ModelServing 认证密钥 |
 | `ASSET_MCP_URL` | `http://localhost:8401/mcp` | AssetMCP 端点 |
 | `ASSET_TOKEN` | `test-business-token` | AssetMCP 认证 Token |
-| `TENANT_ID` | `retail` | 租户 ID |
+| `TENANT_ID` | `examples-meeting-agent` | 租户 ID |
 | `SKILL_URI` | `lake://skills/meeting-processing` | Skill URI（Ray job 提交用） |
 | `FFMPEG_PATH` | `ffmpeg` | host ffmpeg 路径 |
 | `PORT` | `9100` | Agent Web 服务端口 |
@@ -261,11 +268,9 @@ examples/meeting-agent/
 
 | 限制 | 说明 |
 |------|------|
-| **内存存储** | 会议状态在 Agent 内存中，重启丢失 |
 | **无认证** | Web UI 和 API 无任何认证 |
 | **无并发控制** | 单会议串行处理，多会议并发未测试 |
 | **无错误重试** | Ray job 失败后不重试，仅记录错误 |
-| **单租户** | 硬编码 `retail` 租户 |
 | **WebM 依赖** | 需要浏览器支持 MediaRecorder + host ffmpeg |
 | **轮询模式** | Agent 轮询 job 状态（非回调），增加 ~1-3s 延迟 |
 
