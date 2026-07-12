@@ -202,6 +202,19 @@ compute:
 
 ---
 
+## 示例
+
+| 示例 | 目录 | 验证内容 | 状态 |
+|------|------|----------|------|
+| **meeting-agent** | `examples/meeting-agent/` | web→agent→skill→job 全链路：浏览器录音 → Ray job ASR → Ray job 摘要 → Ray job 知识萃取 → 向量入库 → 语义检索 | ✅ 17 分钟实时测试，145 chunks，100+ Ray jobs，100% 成功 |
+| **lakemind-connector** | `examples/lakemind-connector/` | Agent 通过 Skill 接入 LakeMind：register_skill → search_skill → 下载执行 → MCP 存取认知资产 | ✅ 已验证 |
+
+> `retail-agent/` 已弃用，不再维护。
+
+详见 `examples/README.md`。
+
+---
+
 ## 租户隔离
 
 | 层 | 隔离方式 |
