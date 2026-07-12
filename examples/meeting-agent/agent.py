@@ -26,30 +26,11 @@ def clean_asr_text(text: str) -> str:
     text = re.sub(r"\s+", " ", text).strip()
     return text
 
+
 TENANT_ID = os.environ.get("TENANT_ID", "retail")
 S3_BUCKET = "lakemind-filesets"
 CHUNK_DURATION = int(os.environ.get("CHUNK_DURATION", "10"))
 SUMMARIZE_INTERVAL = int(os.environ.get("SUMMARIZE_INTERVAL", "6"))
-
-SUMMARIZE_PROMPT = """你是会议纪要助手。根据转写文本生成结构化会议纪要（Markdown）。
-格式：
-## 会议摘要
-（一句话概括）
-
-## 关键决策
-1. ...
-
-## 行动项
-- [ ] 负责人：任务
-
-## 讨论要点
-- ...
-
-只输出纪要内容，不要加额外说明。"""
-
-EXTRACT_PROMPT = """你是知识萃取助手。从会议纪要中提取知识点，输出 JSON 数组。
-每个知识点格式：{"title": "...", "body": "...", "type": "meeting_decision|meeting_action|meeting_fact", "tags": ["..."]}
-只输出 JSON 数组，不要加 markdown 代码块标记或其他说明。"""
 
 
 class SSEBroker:
@@ -102,8 +83,11 @@ class MeetingAgent:
         chunk_num = state["chunks"] + 1
         state["chunks"] = chunk_num
 
+        wav_audio = LakeMindClient.convert_to_wav(audio)
+
         chunk_uri = self._s3_path(meeting_id, "audio", f"chunk-{chunk_num:03d}.wav")
-        await self.client.s3_put(chunk_uri, audio)
+        result_uri = self._s3_path(meeting_id, "results", f"asr-{chunk_num:03d}.json")
+        await self.client.s3_put(chunk_uri, wav_audio)
 
         await self.sse.broadcast("status", {
             "status": state["status"],
@@ -111,21 +95,36 @@ class MeetingAgent:
             "meeting_id": meeting_id,
         })
 
-        try:
-            if len(audio) < 100:
-                result = {"text": "[chunk too small]", "segments": []}
-                logger.warning("chunk %d too small: %d bytes", chunk_num, len(audio))
-            else:
-                result = await self.client.asr(audio)
-                raw_text = result.get("text", "")
-                clean_text = clean_asr_text(raw_text)
-                result["text"] = clean_text
-                logger.info("[OK] ASR chunk %d: size=%d, text_len=%d, text=%s",
-                            chunk_num, len(audio), len(clean_text),
-                            clean_text[:60] if clean_text else "(empty)")
-        except Exception as e:
-            logger.error("[FAIL] ASR chunk %d: size=%d, error=%s", chunk_num, len(audio), e)
-            result = {"text": f"[ASR error: {e}]", "segments": []}
+        if len(wav_audio) < 100:
+            result = {"text": "[chunk too small]", "segments": []}
+            logger.warning("chunk %d too small: %d bytes", chunk_num, len(wav_audio))
+        else:
+            try:
+                job = await self.client.submit_job("asr", {
+                    "chunk_uri": chunk_uri,
+                    "result_uri": result_uri,
+                })
+                job_id = job["job_id"]
+                logger.info("[SUBMIT] ASR chunk %d -> job %s", chunk_num, job_id)
+
+                status = await self.client.poll_job(job_id, interval=1.0, timeout=120)
+                ray_status = status.get("status", "")
+
+                if ray_status in ("SUCCEEDED", "Completed", "completed"):
+                    result_bytes = await self.client.s3_get(result_uri)
+                    result = json.loads(result_bytes)
+                    raw_text = result.get("text", "")
+                    clean_text = clean_asr_text(raw_text)
+                    result["text"] = clean_text
+                    logger.info("[OK] ASR chunk %d: text_len=%d, text=%s",
+                                chunk_num, len(clean_text),
+                                clean_text[:60] if clean_text else "(empty)")
+                else:
+                    result = {"text": f"[ASR job {ray_status}]", "segments": []}
+                    logger.error("[FAIL] ASR chunk %d: job status=%s", chunk_num, ray_status)
+            except Exception as e:
+                logger.error("[FAIL] ASR chunk %d: %s", chunk_num, e)
+                result = {"text": f"[ASR error: {e}]", "segments": []}
 
         text = result.get("text", "")
         state["transcript_buffer"].append({"chunk": chunk_num, "text": text})
@@ -149,19 +148,34 @@ class MeetingAgent:
 
         transcript_text = " ".join(s["text"] for s in state["transcript_buffer"])
 
+        transcript_uri = self._s3_path(meeting_id, "transcript.json")
+        result_uri = self._s3_path(meeting_id, "results", f"summarize-{summary_num:03d}.json")
+        await self.client.s3_put(transcript_uri, json.dumps({"text": transcript_text}).encode())
+
         try:
-            minutes = await self.client.llm_chat(
-                SUMMARIZE_PROMPT,
-                f"会议标题：{state['title']}\n\n转写文本：\n{transcript_text}",
-            )
-            logger.info("[OK] Summarize #%d: text_len=%d", summary_num, len(minutes))
+            job = await self.client.submit_job("summarize", {
+                "transcript_uri": transcript_uri,
+                "result_uri": result_uri,
+                "meeting_title": state["title"],
+            })
+            job_id = job["job_id"]
+            logger.info("[SUBMIT] Summarize #%d -> job %s", summary_num, job_id)
+
+            status = await self.client.poll_job(job_id, interval=1.5, timeout=120)
+            ray_status = status.get("status", "")
+
+            if ray_status in ("SUCCEEDED", "Completed", "completed"):
+                result_bytes = await self.client.s3_get(result_uri)
+                result = json.loads(result_bytes)
+                minutes = result.get("minutes", "")
+                minutes_uri = result.get("minutes_uri", "")
+                logger.info("[OK] Summarize #%d: text_len=%d", summary_num, len(minutes))
+            else:
+                logger.error("[FAIL] Summarize #%d: job status=%s", summary_num, ray_status)
+                return None
         except Exception as e:
             logger.error("[FAIL] Summarize #%d: %s", summary_num, e)
             return None
-
-        minutes_uri = self._s3_path(meeting_id, "minutes.md")
-        await self.client.s3_put(minutes_uri, minutes.encode())
-        logger.info("[OK] Minutes saved to S3: %s", minutes_uri)
 
         elapsed = int(time.time() - state["started_at"])
         await self.sse.broadcast("minutes", {
@@ -170,52 +184,46 @@ class MeetingAgent:
         })
 
         if summary_num % 2 == 0:
-            asyncio.create_task(self._extract(meeting_id, minutes))
+            asyncio.create_task(self._extract(meeting_id, minutes, minutes_uri))
 
         return {"minutes": minutes, "minutes_uri": minutes_uri}
 
-    async def _extract(self, meeting_id: str, minutes: str) -> dict | None:
+    async def _extract(self, meeting_id: str, minutes: str, minutes_uri: str) -> dict | None:
         state = self.meetings[meeting_id]
         extract_num = state["extracts"] + 1
         state["extracts"] = extract_num
 
-        try:
-            raw = await self.client.llm_chat(EXTRACT_PROMPT, minutes)
-            logger.info("[OK] Extract #%d: LLM response_len=%d", extract_num, len(raw))
-        except Exception as e:
-            logger.error("[FAIL] Extract #%d LLM: %s", extract_num, e)
-            return None
+        if not minutes_uri:
+            minutes_uri = self._s3_path(meeting_id, "minutes.md")
+            await self.client.s3_put(minutes_uri, minutes.encode())
 
-        raw = raw.strip()
-        if raw.startswith("```"):
-            raw = raw.split("\n", 1)[1] if "\n" in raw else raw
-            if raw.endswith("```"):
-                raw = raw[:-3]
-            raw = raw.strip()
+        result_uri = self._s3_path(meeting_id, "results", f"extract-{extract_num:03d}.json")
 
         try:
-            concepts = json.loads(raw)
-            logger.info("[OK] Extract #%d: parsed %d concepts", extract_num, len(concepts))
-        except json.JSONDecodeError as e:
-            logger.error("[FAIL] Extract #%d JSON parse: %s, raw=%s", extract_num, e, raw[:200])
-            return None
-
-        for concept in concepts:
-            concept.setdefault("type", "meeting_fact")
-            concept.setdefault("tags", [])
-            concept["frontmatter"] = {
-                "type": concept["type"],
-                "title": concept["title"],
-                "tags": concept["tags"],
+            job = await self.client.submit_job("extract", {
+                "minutes_uri": minutes_uri,
                 "meeting_id": meeting_id,
                 "meeting_title": state["title"],
-            }
+                "result_uri": result_uri,
+                "tenant_id": TENANT_ID,
+            })
+            job_id = job["job_id"]
+            logger.info("[SUBMIT] Extract #%d -> job %s", extract_num, job_id)
 
-        try:
-            await self.client.ingest_knowledge("meetings", concepts)
-            logger.info("[OK] Knowledge ingest: %d concepts -> kb_meetings", len(concepts))
+            status = await self.client.poll_job(job_id, interval=1.5, timeout=120)
+            ray_status = status.get("status", "")
+
+            if ray_status in ("SUCCEEDED", "Completed", "completed"):
+                result_bytes = await self.client.s3_get(result_uri)
+                result = json.loads(result_bytes)
+                concepts = result.get("concepts", [])
+                logger.info("[OK] Extract #%d: %d concepts", extract_num, len(concepts))
+            else:
+                logger.error("[FAIL] Extract #%d: job status=%s", extract_num, ray_status)
+                return None
         except Exception as e:
-            logger.warning("[FAIL] Knowledge ingest: %s", e)
+            logger.error("[FAIL] Extract #%d: %s", extract_num, e)
+            return None
 
         try:
             check_query = concepts[0]["title"] if concepts else state["title"]
@@ -294,7 +302,7 @@ async def lifespan(app: FastAPI):
     global agent, client
     client = LakeMindClient()
     agent = MeetingAgent(client)
-    logger.info("MeetingAgent ready")
+    logger.info("MeetingAgent ready (skill_uri=%s, tenant=%s)", client.skill_uri, client.tenant_id)
     yield
     await client.close()
 

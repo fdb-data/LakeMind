@@ -1,1 +1,5 @@
-entrypoint: "python -m extract"
+entrypoint: "python jobs/extract/main.py"
+dependencies:
+  - httpx
+resources:
+  num_cpus: 1

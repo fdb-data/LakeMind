@@ -23,7 +23,7 @@ def pack_skill() -> bytes:
         for root, _dirs, files in os.walk(skills_dir):
             for fname in files:
                 fpath = os.path.join(root, fname)
-                arcname = os.path.relpath(fpath, skills_dir)
+                arcname = os.path.relpath(fpath, skills_dir).replace("\\", "/")
                 zf.write(fpath, arcname)
                 print(f"  + {arcname}")
     return buf.getvalue()
@@ -56,9 +56,13 @@ async def health_checks(client: LakeMindClient):
             timeout=10,
         )
         if resp.status_code == 200:
-            print(f"  [OK] LakeMindServer /api/v1/system/health: healthy")
+            health = resp.json()
+            dist_ok = health.get("distributed", False)
+            print(f"  [OK] LakeMindServer health: distributed={dist_ok}")
+            if not dist_ok:
+                print("  [WARN] Ray distributed engine not available — jobs will fail")
         else:
-            print(f"  [FAIL] LakeMindServer /api/v1/system/health: HTTP {resp.status_code}")
+            print(f"  [FAIL] LakeMindServer health: HTTP {resp.status_code}")
             ok = False
     except Exception as e:
         print(f"  [FAIL] LakeMindServer unreachable: {e}")
@@ -85,7 +89,8 @@ async def main():
         exists = await client.s3_exists(SKILL_S3_URI)
         print(f"verified exists: {exists}")
 
-        print(f"\nskill_uri for ray_submit_job: {SKILL_S3_URI}")
+        print(f"\nskill_uri for ray_submit_job: lake://skills/{SKILL_NAME}")
+        print(f"  (resolved to s3://{S3_BUCKET}/{TENANT_ID}/skills/{SKILL_NAME}.zip)")
     finally:
         await client.close()
 

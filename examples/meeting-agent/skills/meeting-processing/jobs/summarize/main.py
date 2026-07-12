@@ -1,4 +1,8 @@
+import sys
 import os
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
 import json
 from lakemind_utils import download_from_s3, upload_to_s3, llm_chat
 

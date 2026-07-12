@@ -1,1 +1,5 @@
-entrypoint: "python -m asr"
+entrypoint: "python jobs/asr/main.py"
+dependencies:
+  - httpx
+resources:
+  num_cpus: 1

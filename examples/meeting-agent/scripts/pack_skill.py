@@ -2,7 +2,6 @@ import io
 import os
 import zipfile
 import base64
-import sys
 
 SKILL_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "skills", "meeting-processing")
 OUTPUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "meeting-processing.zip")
@@ -14,7 +13,7 @@ def main():
         for root, _dirs, files in os.walk(SKILL_DIR):
             for fname in files:
                 fpath = os.path.join(root, fname)
-                arcname = os.path.relpath(fpath, SKILL_DIR)
+                arcname = os.path.relpath(fpath, SKILL_DIR).replace("\\", "/")
                 zf.write(fpath, arcname)
                 print(f"  + {arcname}")
 

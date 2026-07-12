@@ -1,7 +1,10 @@
+import sys
 import os
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
 import json
-import httpx
-from lakemind_utils import download_from_s3, upload_to_s3, MS_URL, MS_KEY
+from lakemind_utils import download_from_s3, upload_to_s3, asr
 
 
 def main():
@@ -10,15 +13,7 @@ def main():
     result_uri = params["result_uri"]
 
     audio = download_from_s3(chunk_uri)
-
-    resp = httpx.post(
-        f"{MS_URL}/v1/audio/transcriptions",
-        headers={"Authorization": f"Bearer {MS_KEY}"},
-        files={"file": ("audio.wav", audio, "audio/wav")},
-        timeout=120,
-    )
-    resp.raise_for_status()
-    result = resp.json()
+    result = asr(audio)
 
     output = {"text": result.get("text", ""), "segments": result.get("segments", [])}
     upload_to_s3(result_uri, json.dumps(output, ensure_ascii=False))

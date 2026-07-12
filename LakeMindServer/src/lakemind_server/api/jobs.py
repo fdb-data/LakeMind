@@ -1,4 +1,5 @@
 from __future__ import annotations
+import json
 import os
 import uuid
 from fastapi import APIRouter, Request, HTTPException
@@ -140,6 +141,8 @@ async def submit_skill_job(body: SubmitSkillBody, request: Request):
         env_vars[k] = v
     env_vars.update(tenant_secrets)
     env_vars.update(body.env_overrides)
+    if body.params:
+        env_vars["RAY_JOB_PARAMS"] = json.dumps(body.params, ensure_ascii=False)
 
     job_id = f"job_{uuid.uuid4().hex[:8]}"
 

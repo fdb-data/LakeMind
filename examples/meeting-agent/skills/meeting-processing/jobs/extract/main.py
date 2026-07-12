@@ -1,7 +1,10 @@
+import sys
 import os
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
 import json
-import httpx
-from lakemind_utils import download_from_s3, upload_to_s3, llm_chat, SERVER_URL, SERVER_KEY
+from lakemind_utils import download_from_s3, upload_to_s3, llm_chat, ingest_knowledge
 
 EXTRACT_PROMPT = """你是知识萃取助手。从会议纪要中提取知识点，输出 JSON 数组。
 每个知识点格式：{"title": "...", "body": "...", "type": "meeting_decision|meeting_action|meeting_fact", "tags": ["..."]}
@@ -14,6 +17,7 @@ def main():
     meeting_id = params["meeting_id"]
     meeting_title = params.get("meeting_title", "会议")
     result_uri = params["result_uri"]
+    tenant_id = params.get("tenant_id", "default")
 
     minutes = download_from_s3(minutes_uri).decode()
 
@@ -37,17 +41,7 @@ def main():
             "meeting_title": meeting_title,
         }
 
-    try:
-        httpx.post(
-            f"{SERVER_URL}/api/v1/cognitive/knowledge/ingest",
-            headers={"Authorization": f"Bearer {SERVER_KEY}", "Content-Type": "application/json"},
-            json={"kb_name": "meetings", "concepts": concepts},
-            timeout=60,
-        )
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        print(f"knowledge ingest warning: {e}")
+    ingest_knowledge("meetings", concepts, tenant_id)
 
     output = {"concepts": concepts}
     upload_to_s3(result_uri, json.dumps(output, ensure_ascii=False))
