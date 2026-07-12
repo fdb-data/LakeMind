@@ -84,7 +84,7 @@ def ingest_knowledge(kb_name: str, concepts: list[dict], tenant_id: str = "defau
         text = f"{title}\n{body}"
         vec = embed(text)
         data.append({
-            "concept_id": fm.get("resource", f"{kb_name}_{int(time.time()*1000)}"),
+            "concept_id": fm.get("resource", f"{kb_name}_{int(time.time()*1000000)}"),
             "type": fm.get("type", "Concept"),
             "title": title,
             "description": body[:500],
@@ -94,18 +94,12 @@ def ingest_knowledge(kb_name: str, concepts: list[dict], tenant_id: str = "defau
             "created_at": time.time(),
         })
 
-    resp = httpx.post(
-        f"{SERVER_URL}/api/v1/storage/vectors/{db}",
-        headers={"Authorization": f"Bearer {SERVER_KEY}"},
-        json={"name": table, "data": data, "mode": "append"},
-        timeout=30,
-    )
-    if resp.status_code == 500:
-        resp = httpx.post(
-            f"{SERVER_URL}/api/v1/storage/vectors/{db}",
-            headers={"Authorization": f"Bearer {SERVER_KEY}"},
-            json={"name": table, "data": data, "mode": "overwrite"},
-            timeout=30,
-        )
+    add_url = f"{SERVER_URL}/api/v1/storage/vectors/{db}/{table}/add"
+    create_url = f"{SERVER_URL}/api/v1/storage/vectors/{db}"
+    headers = {"Authorization": f"Bearer {SERVER_KEY}"}
+
+    resp = httpx.post(add_url, headers=headers, json={"data": data}, timeout=30)
+    if resp.status_code == 404:
+        resp = httpx.post(create_url, headers=headers, json={"name": table, "data": data, "mode": "overwrite"}, timeout=30)
     resp.raise_for_status()
     return {"kb_name": kb_name, "ingested": len(data)}
