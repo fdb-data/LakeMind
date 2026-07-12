@@ -2,12 +2,28 @@
 
 本文帮助你从零启动 LakeMind v0.1.0，完成全部验证。
 
+> **预计耗时**：首次约 15-25 分钟（含镜像构建），后续启动约 2 分钟。
+>
+> 如果你对项目概念不熟悉，建议先阅读 [核心概念与术语表](glossary.md)（5 分钟）。
+
 ## 前置要求
 
-- Docker + Docker Compose
-- Python 3.12+（运行验证脚本）
-- 可用内存 ≥ 8GB（含 Ray 集群）
-- 磁盘空间 ≥ 20GB（镜像 + 数据）
+| 要求 | 最低版本 | 用途 |
+|------|----------|------|
+| Docker + Docker Compose | Docker 24+ | 运行 13 个容器 |
+| Python | 3.12+ | 运行验证脚本 |
+| 可用内存 | ≥ 8GB | 含 Ray 集群 |
+| 磁盘空间 | ≥ 20GB | 镜像 + 数据 |
+
+### 验证前置条件
+
+```bash
+docker --version          # Docker version 24+
+docker compose version    # Docker Compose v2+
+python --version          # Python 3.12+
+```
+
+如果 Docker 未安装，参考 [Docker 官方安装指南](https://docs.docker.com/get-docker/)。
 
 ## 1. 启动数据平面
 

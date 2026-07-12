@@ -164,6 +164,71 @@ curl http://localhost:10823/api/v1/system/health
 docker logs lakemind-asset-mcp 2>&1 | tail -20
 ```
 
+### 端口冲突
+
+LakeMind 使用以下端口，确保未被占用：
+
+| 端口 | 容器 | 检查命令 |
+|------|------|----------|
+| 10823 | server-api | `netstat -tlnp \| grep 10823` |
+| 10824 | model-serving | `netstat -tlnp \| grep 10824` |
+| 8401 | asset-mcp | `netstat -tlnp \| grep 8401` |
+| 8402 | data-mcp | `netstat -tlnp \| grep 8402` |
+| 8403 | admin-mcp | `netstat -tlnp \| grep 8403` |
+| 8500 | steward | `netstat -tlnp \| grep 8500` |
+| 3000 | monitor | `netstat -tlnp \| grep 3000` |
+| 5432 | postgres | `netstat -tlnp \| grep 5432` |
+| 8333 | seaweedfs | `netstat -tlnp \| grep 8333` |
+| 6379 | valkey | `netstat -tlnp \| grep 6379` |
+| 8265 | ray dashboard | `netstat -tlnp \| grep 8265` |
+
+如果端口被占用，修改对应 `docker-compose.yml` 中的端口映射。
+
+### Docker 镜像拉取失败
+
+```bash
+# 检查 Docker 网络和 DNS
+docker pull python:3.12-slim
+
+# 配置国内镜像加速（如需要）
+# /etc/docker/daemon.json
+{
+  "registry-mirrors": ["https://mirror.ccs.tencentyun.com"]
+}
+```
+
+### 内存不足
+
+```bash
+# 检查可用内存
+free -h    # Linux
+# 或
+docker stats --no-stream
+
+# 如果内存不足，可以不启动 Ray
+cd LakeMindServer
+docker compose --env-file .env up -d    # 不加 --profile ray
+```
+
+### Docker 网络不存在
+
+```bash
+# 错误：network lakemind-server_lakemind not found
+# 原因：LakeMindServer 未先启动
+# 解决：按顺序启动
+cd LakeMindServer && docker compose --env-file .env --profile ray up -d
+cd LakeMindMCP && docker compose --profile all up -d --build
+cd LakeMindMonitor && docker compose up -d --build
+```
+
+### BuildKit 兼容问题
+
+```bash
+# 如果 build 报 BuildKit 相关错误，禁用 BuildKit
+export DOCKER_BUILDKIT=0    # Linux/macOS
+$env:DOCKER_BUILDKIT=0      # PowerShell
+```
+
 ## 验证脚本
 
 ```bash
@@ -210,4 +275,88 @@ storage:
 # 启动多个 AssetMCP 副本
 cd LakeMindMCP
 docker compose --profile asset up -d --scale asset-mcp=3 --build
+```
+
+## 运维操作
+
+### 扩容服务
+
+**增加 Ray worker**：
+
+```yaml
+# LakeMindServer/docker-compose.yml
+ray-worker:
+  deploy:
+    replicas: 4        # 从 2 改为 4
+```
+
+```bash
+cd LakeMindServer
+docker compose --env-file .env --profile ray up -d
+```
+
+**增加 MCP 副本**：
+
+```bash
+cd LakeMindMCP
+docker compose --profile asset up -d --scale asset-mcp=3 --build
+```
+
+### 查看日志
+
+```bash
+# 实时跟踪
+docker logs -f lakemind-server-api
+docker logs -f lakemind-asset-mcp
+docker logs -f lakemind-ray-head
+
+# 查看最近 100 行
+docker logs --tail 100 lakemind-server-api
+
+# 查看指定时间后的日志
+docker logs --since 2026-07-12T10:00:00 lakemind-server-api
+```
+
+### 数据备份
+
+**PostgreSQL 备份**：
+
+```bash
+docker exec lakemind-postgres pg_dump -U lakemind lakemind > backup_$(date +%Y%m%d).sql
+```
+
+**SeaweedFS 备份**：
+
+```bash
+# SeaweedFS 数据存储在 volume 中
+docker run --rm -v lakemind-server_seaweedfs_data:/data -v $(pwd):/backup alpine tar czf /backup/seaweedfs_$(date +%Y%m%d).tar.gz /data
+```
+
+**全量备份**：
+
+```bash
+# 备份所有 LakeMind 数据卷
+docker run --rm -v lakemind-server_postgres_data:/pg -v lakemind-server_seaweedfs_data:/sw -v lakemind-server_lance_data:/lance -v $(pwd):/backup alpine tar czf /backup/lakemind_full_$(date +%Y%m%d).tar.gz /pg /sw /lance
+```
+
+### 数据恢复
+
+```bash
+# PostgreSQL 恢复
+docker exec -i lakemind-postgres psql -U lakemind lakemind < backup_20260712.sql
+```
+
+### 清理
+
+```bash
+# 停止全部容器
+cd LakeMindMonitor && docker compose down
+cd LakeMindMCP && docker compose --profile all down
+cd LakeMindServer && docker compose --profile ray down
+
+# 清理数据卷（谨慎！不可恢复）
+cd LakeMindServer && docker compose --profile ray down -v
+
+# 清理镜像
+docker image prune -a --filter "name=lakemind"
 ```

@@ -1,0 +1,40 @@
+{
+  "name": "LakeMind",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "version": "latest",
+      "enableNonRootDocker": "true"
+    }
+  },
+  "forwardPorts": [
+    10823,
+    10824,
+    8401,
+    8402,
+    8403,
+    8500,
+    3000,
+    8265
+  ],
+  "postCreateCommand": "pip install httpx && echo 'LakeMind devcontainer ready. Run: cd LakeMindServer && docker compose --env-file .env --profile ray up -d'",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.black-formatter",
+        "redhat.vscode-yaml",
+        "ms-azuretools.vscode-docker"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python"
+      }
+    }
+  },
+  "remoteEnv": {
+    "DOCKER_BUILDKIT": "0"
+  },
+  "mounts": [
+    "source=lakemind-dev-data,target=/workspaces/LakeMind/data,type=volume"
+  ]
+}

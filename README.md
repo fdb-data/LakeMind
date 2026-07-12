@@ -265,14 +265,35 @@ compute:
 
 ## 文档索引
 
+### 快速上手
+
 | 文档 | 内容 | 适合谁 |
 |------|------|--------|
-| [快速入门](docs/quickstart.md) | 从零启动 LakeMind，完成全部验证 | 初次使用者 |
+| [快速入门](docs/quickstart.md) | 从零启动 LakeMind，15 分钟完成全部验证 | 初次使用者 |
+| [核心概念与术语表](docs/glossary.md) | Agent 原生、认知资产、MCP 等概念解释 | 新人 |
+| [v0.1.0 发布说明](docs/release-notes-v0.1.0.md) | 首个可用版本发布摘要 | 所有人 |
+
+### 开发与架构
+
+| 文档 | 内容 | 适合谁 |
+|------|------|--------|
 | [开发指南](docs/develop-guide.md) | 编写 Skill、管理密钥、提交 Ray 作业、构建数据处理流水线 | 业务开发者 |
 | [架构设计](docs/architecture.md) | 三平面分层、MCP 职责、数据流、设计决策 | 架构师 |
-| [MCP 工具参考](docs/mcp-tools.md) | 68 个工具 + 23 个资源 + 10 个 prompts 完整清单 | Agent 开发者 |
+| [MCP 工具参考](docs/mcp-tools.md) | 58 个工具 + 23 个资源 + 10 个 prompts 完整清单 | Agent 开发者 |
 | [REST API 参考](docs/api-reference.md) | 40+ OpenAPI 路径，11 个功能域 | 后端开发者 |
+| [Agent 接入指南](README_agent.md) | Agent 面向的接入指南、代码模板、踩坑清单 | Agent 开发者 |
+
+### 运维与配置
+
+| 文档 | 内容 | 适合谁 |
+|------|------|--------|
 | [配置参考](docs/configuration.md) | engines.yaml 引擎配置、环境变量、引擎切换 | 运维 |
-| [部署运维](docs/deployment.md) | docker-compose 部署、容器管理、健康检查 | 运维 |
+| [部署运维](docs/deployment.md) | docker-compose 部署、容器管理、健康检查、故障排查、扩容、备份 | 运维 |
 | [变更日志](docs/changelog.md) | 版本变更记录 | 所有人 |
-| [v0.1.0 发布说明](docs/release-notes-v0.1.0.md) | 首个可用版本发布摘要 | 所有人 |
+
+### 社区
+
+| 文档 | 内容 |
+|------|------|
+| [贡献指南](CONTRIBUTING.md) | 如何报告 Bug、提出新功能、提交代码 |
+| [行为准则](CODE_OF_CONDUCT.md) | 社区行为规范 |
