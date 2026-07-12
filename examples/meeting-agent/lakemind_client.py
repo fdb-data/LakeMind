@@ -86,7 +86,7 @@ class LakeMindClient:
         resp = await self._http.get(
             f"{self.server_url}/api/v1/compute/jobs/{job_id}",
             headers=self._headers,
-            timeout=10,
+            timeout=30,
         )
         resp.raise_for_status()
         return resp.json()
@@ -107,8 +107,21 @@ class LakeMindClient:
     async def poll_job(self, job_id: str, interval: float = 1.5, timeout: float = 120) -> dict:
         import asyncio
         deadline = asyncio.get_event_loop().time() + timeout
+        max_retries = 3
         while True:
-            status = await self.get_job_status(job_id)
+            retry = 0
+            while retry < max_retries:
+                try:
+                    status = await self.get_job_status(job_id)
+                    break
+                except (httpx.TimeoutException, httpx.TransportError) as e:
+                    retry += 1
+                    if retry >= max_retries:
+                        raise
+                    logger.warning("poll_job %s: transient error (retry %d/%d): %r", job_id, retry, max_retries, e)
+                    await asyncio.sleep(interval * retry)
+            else:
+                raise RuntimeError(f"poll_job {job_id}: exhausted retries")
             s = status.get("status", "")
             if s in ("SUCCEEDED", "STOPPED", "FAILED", "completed", "cancelled", "failed"):
                 return status
