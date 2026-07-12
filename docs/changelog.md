@@ -2,6 +2,40 @@
 
 所有 notable 变更记录在此。日期格式 YYYY-MM-DD。
 
+## [v0.1.3] — 2026-07-12
+
+### 修复 — Ray jobs（一等公民）
+
+#### Ray dashboard 跨容器不可達
+- 根因：Ray dashboard 默认绑定 `127.0.0.1`，`JobSubmissionClient` 从 server-api 容器无法访问 `lakemind-ray-head:8265`
+- 修复：docker-compose.yml 添加 `--dashboard-host=0.0.0.0`
+- 修复：`ray_compute.py` 使用 dashboard 地址 `http://lakemind-ray-head:8265` 而非 Ray client 地址 `ray://lakemind-ray-head:10001`
+
+#### JobSubmissionClient 导入
+- `ray.job_submission` 属性不可用，改为 `from ray.job_submission import JobSubmissionClient` 显式导入
+
+#### runtime_env py_modules → working_dir
+- Ray 不接受 `.zip` 作为 `py_modules`，改用 `working_dir`
+
+#### Skill job 状态轮询
+- 新增 `RayCompute.get_job_status(ray_job_id)` 方法
+- `jobs.py` 的 `job_status`/`job_result` 端点支持 skill job：查 PG 获取 `ray_job_id`，轮询 Ray 获取实时状态
+- `DistributedComputePlugin` 协议新增 `get_job_status` 方法
+
+#### Skill URI 解析
+- `lake://skills/test-skill` 被误当 `s3://` 格式解析，`lake:` 成 bucket 名
+- 修复：先判断 URI 前缀，`s3://` 走 S3 路径，`lake://` 走 tenant 路径
+
+#### 清理
+- 移除死代码 `_remote_eval`（module-level `@staticmethod`）
+- temp file 在 `finally` block 中清理
+
+### 验证
+- Ray built-in func: sum/parallel_map/pi_monte_carlo/sleep_test/matrix_multiply 全 PASS
+- Skill-based Ray job: submit → status(SUCCEEDED) → result(completed) → cancel(STOPPED) 全 PASS
+- DataMCP → Server → Ray 完整链路 PASS
+- Ray cluster: 3 nodes, 12 CPU
+
 ## [v0.1.2] — 2026-07-11
 
 ### 修复

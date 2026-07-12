@@ -1,6 +1,6 @@
 # STATE.md — LakeMind 项目开发进展状态
 
-> 最后更新：2026-07-11 21:40
+> 最后更新：2026-07-12 01:50
 > 总文件：`AGENTS.md`，设计规范：`.agent/DESIGN.md`，开发规范：`.agent/SPEC.md`
 
 ---
@@ -42,6 +42,7 @@ v0.1.0 审计 ████████████████████  100%
 | examples/meeting-agent | 浏览器实时会议 Agent Demo | ✅ 完成 |
 | examples/lakemind-connector | opencode Skill + 全局安装 | ✅ 完成 |
 | README_agent.md | Agent 面向接入指南 | ✅ 完成 |
+| Ray job 修复 | dashboard --dashboard-host=0.0.0.0 + JobSubmissionClient 地址 + skill job status/result + URI 解析 | ✅ 完成 |
 | LakeMindStudio | Tauri 桌面客户端 | ❌ 未开始 |
 
 ---
@@ -263,6 +264,8 @@ memory:          True
 | 4 | server-api Docker build 耗时 | Ray 依赖安装 ~10min | P3 | 用 docker cp 热更新 |
 | 5 | ~~AssetMCP/DataMCP embed() 404~~ | ~~ingest/search_knowledge/skill 不可用~~ | ~~P0~~ | ✅ 已修复（v0.1.2） |
 | 6 | ~~Memory search L2 距离~~ | ~~search_memory 返回空~~ | ~~P0~~ | ✅ 已修复（v0.1.2） |
+| 7 | ~~Ray dashboard 127.0.0.1 绑定~~ | ~~JobSubmissionClient 跨容器不可達~~ | ~~P0~~ | ✅ 已修复（--dashboard-host=0.0.0.0） |
+| 8 | ~~Skill job URI 解析 bug~~ | ~~lake:// URI 誤當 s3:// 解析~~ | ~~P0~~ | ✅ 已修复 |
 
 ---
 

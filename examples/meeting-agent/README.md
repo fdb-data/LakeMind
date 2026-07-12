@@ -45,9 +45,11 @@ Agent (FastAPI :9100)
   └─ SSE 推送知识到浏览器
 ```
 
-### 2.1 为什么不用 Ray jobs
+### 2.1 Ray jobs（一等公民）
 
-原始设计通过 DataMCP 提交 Ray jobs 执行 ASR/摘要/萃取。实际验证发现 Server 的 Ray job 提交存在连接问题（"Ray Client is already connected"），因此改为 **Agent 直接调用 ModelServing + Server REST API**。Skill 包源码保留在 `skills/` 目录供参考，但运行时不使用。
+Ray jobs 是 LakeMind 的一等公民。Agent 通过 DataMCP `ray_submit_job` 提交 Skill-based Ray jobs 执行 ASR/摘要/萃取等计算任务。Skill 包含 `jobs/{job_name}/ray.yaml` 定义 entrypoint 和依赖，Server 自动从 S3 拉取 Skill zip、解析 ray.yaml、注入租户密钥作为环境变量、提交到 Ray 集群。
+
+当前 meeting-agent example 为简化演示，直接调用 ModelServing + Server REST API。Skill 包中的 `jobs/` 目录定义了 ASR/summarize/extract 三个 Ray job，可通过 DataMCP `ray_submit_job` 提交执行。
 
 ### 2.2 为什么用 host ffmpeg 转换
 

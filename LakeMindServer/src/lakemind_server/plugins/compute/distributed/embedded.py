@@ -32,5 +32,8 @@ class EmbeddedCompute:
                          job_id: str) -> str:
         raise NotImplementedError("submit_skill_job requires Ray compute engine")
 
-    def cancel_job(self, job_id: str) -> dict:
-        return {"job_id": job_id, "status": "cancelled"}
+    def get_job_status(self, ray_job_id: str) -> dict:
+        return {"ray_job_id": ray_job_id, "status": "not_supported"}
+
+    def cancel_job(self, ray_job_id: str) -> dict:
+        return {"ray_job_id": ray_job_id, "status": "cancelled"}

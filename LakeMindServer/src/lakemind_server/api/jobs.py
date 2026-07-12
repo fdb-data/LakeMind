@@ -48,12 +48,58 @@ async def submit_job(body: SubmitBody, request: Request):
 
 @router.get("/{job_id}")
 async def job_status(job_id: str, request: Request):
-    return _eng(request).status(job_id)
+    meta = _meta(request)
+    dist = _eng(request)
+
+    pg_job = meta.get_ray_job(job_id)
+    if pg_job:
+        ray_job_id = pg_job.get("ray_job_id", "")
+        if ray_job_id:
+            try:
+                ray_info = dist.get_job_status(ray_job_id)
+                status = ray_info.get("status", "unknown")
+                if status in ("SUCCEEDED", "STOPPED", "FAILED"):
+                    pg_status = {
+                        "SUCCEEDED": "completed",
+                        "STOPPED": "cancelled",
+                        "FAILED": "failed",
+                    }.get(status, status.lower())
+                    meta.update_ray_job_status(job_id, pg_status)
+                return {"job_id": job_id, "ray_job_id": ray_job_id, "status": status,
+                        "entrypoint": ray_info.get("entrypoint"),
+                        "start_time": ray_info.get("start_time"),
+                        "end_time": ray_info.get("end_time")}
+            except Exception as e:
+                return {"job_id": job_id, "status": pg_job.get("status", "unknown"),
+                        "ray_job_id": ray_job_id, "error": str(e)}
+        return {"job_id": job_id, "status": pg_job.get("status", "unknown")}
+
+    return dist.status(job_id)
 
 
 @router.get("/{job_id}/result")
 async def job_result(job_id: str, request: Request):
-    return {"result": _eng(request).result(job_id)}
+    meta = _meta(request)
+    dist = _eng(request)
+
+    pg_job = meta.get_ray_job(job_id)
+    if pg_job:
+        ray_job_id = pg_job.get("ray_job_id", "")
+        if ray_job_id:
+            try:
+                ray_info = dist.get_job_status(ray_job_id)
+                status = str(ray_info.get("status", ""))
+                if status == "SUCCEEDED":
+                    return {"job_id": job_id, "status": "completed",
+                            "ray_job_id": ray_job_id,
+                            "entrypoint": ray_info.get("entrypoint")}
+                return {"job_id": job_id, "status": status.lower(),
+                        "ray_job_id": ray_job_id}
+            except Exception as e:
+                return {"job_id": job_id, "status": "error", "error": str(e)}
+        return {"job_id": job_id, "status": pg_job.get("status", "unknown")}
+
+    return {"result": dist.result(job_id)}
 
 
 @router.post("/submit")
@@ -64,10 +110,14 @@ async def submit_skill_job(body: SubmitSkillBody, request: Request):
     obj = _obj(request)
 
     bucket = "lakemind-filesets"
-    parts = body.skill_uri.replace("s3://", "").split("/", 1)
-    if len(parts) == 2:
-        sk_bucket, sk_key = parts[0], parts[1]
+    if body.skill_uri.startswith("s3://"):
+        parts = body.skill_uri[len("s3://"):].split("/", 1)
+        if len(parts) == 2:
+            sk_bucket, sk_key = parts[0], parts[1]
+        else:
+            sk_bucket, sk_key = bucket, parts[0]
     else:
+        sk_bucket = bucket
         tenant_id = ctx["tenant_id"]
         name_ver = body.skill_uri.replace("lake://skills/", "")
         if "@" in name_ver:

@@ -33,27 +33,41 @@ def _disconnect():
         _CLUSTER = None
 
 
-@staticmethod
-def _remote_eval(fn_src: str):
-    fn = eval(fn_src)
-    return fn
+def _dashboard_address(address: str, dashboard_address: str = "") -> str:
+    if dashboard_address:
+        return dashboard_address
+    if address.startswith("ray://"):
+        host = address[len("ray://"):].split(":")[0]
+        return f"http://{host}:8265"
+    if address.startswith("http://"):
+        return address
+    return "http://localhost:8265"
 
 
 class RayCompute:
-    def __init__(self, address: str = "", **kwargs):
+    def __init__(self, address: str = "", dashboard_address: str = "", **kwargs):
         self._address = address
+        self._dashboard_address = _dashboard_address(address, dashboard_address)
         self._refs: dict[str, Any] = {}
         self._funcs: dict[str, str] = {}
         self._cluster = None
+        self._job_client = None
         try:
             self._ensure()
-            logger.info("RayCompute initialized: %s", address)
+            logger.info("RayCompute initialized: %s (dashboard: %s)", address, self._dashboard_address)
         except Exception as e:
             logger.warning("RayCompute init failed (will retry lazily): %s", e)
 
     def _ensure(self):
         if self._cluster is None:
             self._cluster = _connect(self._address)
+
+    def _job_submission_client(self):
+        if self._job_client is None:
+            from ray.job_submission import JobSubmissionClient
+            self._job_client = JobSubmissionClient(self._dashboard_address)
+            logger.info("JobSubmissionClient connected: %s", self._dashboard_address)
+        return self._job_client
 
     def submit(self, func: str, args: dict) -> str:
         self._ensure()
@@ -228,37 +242,52 @@ class RayCompute:
                          env_vars: dict[str, str], resources_override: dict,
                          job_id: str) -> str:
         self._ensure()
-        import ray
 
         ray_cfg = parse_ray_yaml(skill_zip, job_name)
 
-        with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as f:
-            f.write(skill_zip)
-            code_path = f.name
-
-        resources = {**ray_cfg["resources"], **resources_override}
-
-        runtime_env: dict[str, Any] = {
-            "env_vars": env_vars,
-            "py_modules": [code_path],
-        }
-        if ray_cfg["dependencies"]:
-            runtime_env["pip"] = ray_cfg["dependencies"]
-
-        submission_client = ray.job_submission.JobSubmissionClient(self._address)
-        ray_job_id = submission_client.submit_job(
-            entrypoint=ray_cfg["entrypoint"],
-            runtime_env=runtime_env,
-        )
-        logger.info("Submitted skill job %s -> ray job %s (job_name=%s)", job_id, ray_job_id, job_name)
-        return ray_job_id
-
-    def cancel_job(self, job_id: str) -> dict:
-        self._ensure()
-        import ray
-        submission_client = ray.job_submission.JobSubmissionClient(self._address)
+        code_path = None
         try:
-            submission_client.stop_job(job_id)
-            return {"job_id": job_id, "status": "cancelled"}
+            with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as f:
+                f.write(skill_zip)
+                code_path = f.name
+
+            runtime_env: dict[str, Any] = {
+                "env_vars": env_vars,
+                "working_dir": code_path,
+            }
+            if ray_cfg["dependencies"]:
+                runtime_env["pip"] = ray_cfg["dependencies"]
+
+            client = self._job_submission_client()
+            ray_job_id = client.submit_job(
+                entrypoint=ray_cfg["entrypoint"],
+                runtime_env=runtime_env,
+            )
+            logger.info("Submitted skill job %s -> ray job %s (job_name=%s)", job_id, ray_job_id, job_name)
+            return ray_job_id
+        finally:
+            if code_path and os.path.exists(code_path):
+                try:
+                    os.unlink(code_path)
+                except Exception:
+                    pass
+
+    def get_job_status(self, ray_job_id: str) -> dict:
+        client = self._job_submission_client()
+        info = client.get_job_info(ray_job_id)
+        return {
+            "ray_job_id": ray_job_id,
+            "status": str(info.status),
+            "entrypoint": info.entrypoint,
+            "start_time": str(info.start_time) if info.start_time else None,
+            "end_time": str(info.end_time) if info.end_time else None,
+            "metadata": dict(info.metadata) if info.metadata else {},
+        }
+
+    def cancel_job(self, ray_job_id: str) -> dict:
+        client = self._job_submission_client()
+        try:
+            client.stop_job(ray_job_id)
+            return {"ray_job_id": ray_job_id, "status": "cancelled"}
         except Exception as e:
-            return {"job_id": job_id, "status": "error", "error": str(e)}
+            return {"ray_job_id": ray_job_id, "status": "error", "error": str(e)}

@@ -2,6 +2,28 @@
 
 > 完整变更日志见 [docs/changelog.md](docs/changelog.md)。
 
+## v0.1.3 (2026-07-12)
+
+### Fixes — Ray jobs（一等公民）
+- Ray dashboard `--dashboard-host=0.0.0.0`：dashboard 默认绑定 127.0.0.1，JobSubmissionClient 跨容器不可達
+- `ray_compute.py`：JobSubmissionClient 使用 dashboard 地址（`http://lakemind-ray-head:8265`）而非 Ray client 地址
+- `ray_compute.py`：`from ray.job_submission import JobSubmissionClient` 显式导入（`ray.job_submission` 属性不可用）
+- `ray_compute.py`：`working_dir` 替代 `py_modules`（Ray 不接受 .zip 作为 py_modules）
+- `ray_compute.py`：新增 `get_job_status(ray_job_id)` 方法，支持 skill job 状态轮询
+- `ray_compute.py`：temp file 清理（finally block）
+- `ray_compute.py`：移除死代码 `_remote_eval`
+- `jobs.py`：`job_status`/`job_result` 端点支持 skill job（查 PG + 轮询 Ray）
+- `jobs.py`：`lake://` URI 解析修复（原先 `lake://` 被误当 `s3://` 格式解析）
+- `protocols.py`：`DistributedComputePlugin` 新增 `get_job_status` 方法
+- `embedded.py`：新增 `get_job_status` stub
+- `engines.yaml`：新增 `dashboard_address` 配置项
+
+### Verification
+- Ray built-in func: sum/parallel_map/pi_monte_carlo/sleep_test/matrix_multiply 全 PASS
+- Skill-based Ray job: submit → status(SUCCEEDED) → result(completed) → cancel(STOPPED) 全 PASS
+- DataMCP → Server → Ray 完整链路 PASS
+- Ray cluster: 3 nodes, 12 CPU, 11/12 verify_ray.py PASS (1 FAIL: 容器内无 docker 命令)
+
 ## v0.1.2 (2026-07-11)
 
 ### Fixes

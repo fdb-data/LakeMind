@@ -147,7 +147,7 @@ services:
     image: ${RAY_IMAGE:-lakemind/ray:2.41.0-py3.12}
     container_name: lakemind-ray-head
     command: >
-      ray start --head --port=6379 --dashboard-port=8265
+      ray start --head --port=6379 --dashboard-port=8265 --dashboard-host=0.0.0.0
       --num-cpus=${RAY_HEAD_CPUS:-4} --block
     ports:
       - "${RAY_DASHBOARD_PORT:-8265}:8265"

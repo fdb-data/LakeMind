@@ -103,6 +103,7 @@ compute:
     plugin: ray              # embedded | ray
     config:
       address: "ray://lakemind-ray-head:10001"
+      dashboard_address: "http://lakemind-ray-head:8265"
     # 切换回 embedded：
     # plugin: embedded
     # config: {}
