@@ -1,15 +1,18 @@
-# LakeMind MVP — 单机 docker-compose（v3 改造后）
+# LakeMind v0.2.0 — 数据平面 docker-compose
 #   PostgreSQL 16 + AGE 作为统一 Metadata Hub（替代 Gravitino + SQLite）
-#   Ray 集群用于分布式计算（MVP 即引入）
-#   Gravitino / Trino 已移除，Ranger 下一阶段
+#   Ray 集群用于分布式计算
+#   v0.2.0 新增：Alembic migration + V2 Auth + Control Plane 表
 #
-# 启动：docker compose --env-file .env up -d
+# 启动：docker compose --env-file .env --profile ray up -d
 
 name: lakemind-server
 
 networks:
   lakemind:
     driver: bridge
+  internal:
+    driver: bridge
+    internal: true
 
 # 数据卷采用 bind mount，统一挂到 ./data/ 下：
 #   ./data/seaweedfs   SeaweedFS 数据
@@ -105,7 +108,36 @@ services:
       start_period: 5s
 
   # ------------------------------------------------------------------
+  # v0.2.0 Alembic Migration init（one-shot）
+  #   PG 启动后运行 alembic upgrade head，创建 v0.2.0 Control Plane + Asset + Job + Model 表
+  # ------------------------------------------------------------------
+  migrate:
+    build: .
+    image: lakemind/server-api:latest
+    container_name: lakemind-migrate
+    command: >
+      bash -c "cd /app && alembic upgrade head"
+    environment:
+      LAKE_CONFIG: /etc/lakemind/engines.yaml
+      PG_HOST: lakemind-postgres
+      PG_PORT: 5432
+      PG_DB: ${PG_DB:-lakemind}
+      PG_USER: ${PG_USER:-lakemind}
+      PG_PASSWORD: ${PG_PASSWORD:-lakemind_pass}
+      LAKEMIND_MASTER_KEY: "${LAKEMIND_MASTER_KEY}"
+    volumes:
+      - ./config/engines.yaml:/etc/lakemind/engines.yaml:ro
+      - ./alembic.ini:/app/alembic.ini:ro
+      - ./migrations:/app/migrations:ro
+    networks: [lakemind]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  # ------------------------------------------------------------------
   # REST API 网关：统一引擎入口，MCP 通过此 API 访问全部数据能力
+  #   v0.2.0：LAKEMIND_V2_AUTH=1 启用 RBAC 中间件
   # ------------------------------------------------------------------
   server-api:
     build: .
@@ -115,8 +147,14 @@ services:
       LAKE_CONFIG: /etc/lakemind/engines.yaml
       API_KEY: "${SERVER_API_KEY:-lakemind-internal-api-key}"
       LAKEMIND_MASTER_KEY: "${LAKEMIND_MASTER_KEY}"
+      LAKEMIND_V2_AUTH: "${LAKEMIND_V2_AUTH:-1}"
       S3_ENDPOINT: "http://lakemind-seaweedfs:8333"
       MODEL_SERVING_URL: "http://lakemind-model-serving:10824"
+      PG_HOST: lakemind-postgres
+      PG_PORT: 5432
+      PG_DB: ${PG_DB:-lakemind}
+      PG_USER: ${PG_USER:-lakemind}
+      PG_PASSWORD: ${PG_PASSWORD:-lakemind_pass}
     ports:
       - "10823:10823"
     volumes:
@@ -132,6 +170,8 @@ services:
         condition: service_healthy
       valkey:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:10823/api/v1/system/health')"]
       interval: 15s

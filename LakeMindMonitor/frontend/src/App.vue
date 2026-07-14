@@ -90,6 +90,8 @@ body { margin: 0; }
 .el-table td.el-table__cell { color: var(--text-primary) !important; }
 .el-table td.el-table__cell .cell { color: var(--text-primary) !important; }
 .el-table--enable-row-hover .el-table__body tr:hover > td { background: var(--bg-tertiary) !important; }
+.el-table__body tr.current-row > td.el-table__cell { background: var(--bg-tertiary) !important; }
+.el-table__body tr.current-row > td.el-table__cell .cell { color: var(--text-primary) !important; }
 .el-table td.el-table__cell, .el-table th.el-table__cell { border-bottom-color: var(--border-color) !important; }
 .el-table__empty-text { color: var(--text-secondary) !important; }
 .el-table__inner-wrapper { background: var(--bg-secondary) !important; }
@@ -121,7 +123,7 @@ body { margin: 0; }
 .el-alert__title { color: var(--text-primary) !important; }
 .el-alert__description { color: var(--text-secondary) !important; }
 .el-empty__description p { color: var(--text-secondary) !important; }
-.el-button--primary:not(.is-link):not(.is-text) { background-color: var(--accent) !important; border-color: var(--accent) !important; }
+.el-button--primary:not(.is-link):not(.is-text) { background-color: var(--accent) !important; border-color: var(--accent) !important; color: #fff !important; }
 .el-button--default { background-color: var(--bg-tertiary) !important; border-color: var(--border-color) !important; color: var(--text-primary) !important; }
 .el-button--default:hover { color: var(--accent) !important; border-color: var(--accent) !important; }
 .el-button.is-link { color: var(--accent) !important; }

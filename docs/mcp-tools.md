@@ -189,12 +189,11 @@ LakeMind 通过 3 个 MCP 服务提供 **68 个工具**、**23 个资源**、**1
 
 ### 工具
 
-#### 用户管理（5 tools）
+#### 用户管理（4 tools）
 
 | 工具 | 参数 | 说明 |
 |------|------|------|
 | `create_user` | username, tenant_id, role="user" | 创建用户 |
-| `get_user` | user_id | 获取用户 |
 | `list_users` | tenant_id? | 列出用户 |
 | `update_user` | user_id, role?, status? | 更新用户 |
 | `delete_user` | user_id | 删除用户 |

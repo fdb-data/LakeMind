@@ -1,43 +1,82 @@
 # Changelog
 
-> 完整变更日志见 [docs/changelog.md](docs/changelog.md)。
+## v0.2.0 (2025-07-14)
 
-## v0.1.0 (2026-07-12)
+### Breaking Changes
+- Auth: `LAKEMIND_V2_AUTH=1` enables new RBAC middleware (v0.1.0 API Key still works when unset)
+- DataMCP: 5 Ray tools replaced by JobService (`/api/v1/jobs/*`)
+- `execute_skill` removed — replaced by JobService.submit(skill_ref, inputs)
 
-### 核心
-- Initial release: 13 containers, 10 engines, 58 MCP tools
-- LakeMindModelServing: litellm + fastembed + FunASR (:10824)
-- Steward LLM dialog via ModelServing
-- 3 compose 组：lakemind-server / lakemind-mcp / lakemind-runtime
+### New Features
 
-### Fixes — Ray jobs（一等公民）
-- Ray dashboard `--dashboard-host=0.0.0.0`：dashboard 默认绑定 127.0.0.1，JobSubmissionClient 跨容器不可達
-- `ray_compute.py`：JobSubmissionClient 使用 dashboard 地址（`http://lakemind-ray-head:8265`）而非 Ray client 地址
-- `ray_compute.py`：`from ray.job_submission import JobSubmissionClient` 显式导入（`ray.job_submission` 属性不可用）
-- `ray_compute.py`：`working_dir` 替代 `py_modules`（Ray 不接受 .zip 作为 py_modules）
-- `ray_compute.py`：新增 `get_job_status(ray_job_id)` 方法，支持 skill job 状态轮询
-- `ray_compute.py`：temp file 清理（finally block）
-- `ray_compute.py`：移除死代码 `_remote_eval`
-- `jobs.py`：`job_status`/`job_result` 端点支持 skill job（查 PG + 轮询 Ray）
-- `jobs.py`：`lake://` URI 解析修复（原先 `lake://` 被误当 `s3://` 格式解析）
-- `protocols.py`：`DistributedComputePlugin` 新增 `get_job_status` 方法
-- `embedded.py`：新增 `get_job_status` stub
-- `engines.yaml`：新增 `dashboard_address` 配置项
+#### WP2: Control Plane & Security
+- RBAC: 5 builtin roles, 26 actions, SecurityContext + middleware
+- Token management: SHA-256 hashed tokens, issue/revoke/list
+- Tenant isolation: S3/Lance/Iceberg/Valkey key resolution
+- Protected namespace: `lake://` scheme guard
+- Configuration service: schema-validated, revision-based, rollback
+- Instance registry: heartbeat + Desired/Active revision tracking
+- Secret management: AES-256-GCM encryption, rotation, minimal injection
+- Audit service: queryable audit log with export
+- Operation service: state machine (DRAFT→APPROVAL_REQUIRED→APPROVED→RUNNING→SUCCEEDED/FAILED)
+- Outbox: SKIP LOCKED + exponential backoff event processing
+- Docker network isolation: `internal` network
 
-### Fixes — Embedding & Memory
-- AssetMCP/DataMCP `embed()` → ModelServing `/v1/embeddings` (was 404 on Server)
-- Memory search: L2 → cosine metric (score was always 0 with L2)
-- `verify_full.py`: adapted for ModelServing architecture (286/286 L0-L8 PASS)
+#### WP3: Asset Runtime
+- Asset state machine: CREATED→INITIALIZING→READY→DEGRADED→DELETING→DELETED
+- AssetService: CRUD + bindings + lineage + reindex
+- KnowledgeService: ingest/search/reindex (OKF format)
+- SkillService: register/validate/publish/revoke (PUBLISHED-only execution)
+- MemoryService: mem0-style 8 methods (add/search/get/list/update/delete/clear/history)
+- ReconciliationService: scan assets/jobs/config for drift
 
-### Added — Examples
-- `examples/meeting-agent/` — browser real-time meeting agent demo (17min live test, 145 chunks, 100+ Ray jobs, 100% success)
-- `examples/lakemind-connector/` — opencode Skill for LakeMind cognitive backend (v0.1.0: Ray jobs + ASR + S3 URI API)
-- `README_agent.md` — agent-facing onboarding guide (§4 Ray jobs development guide, §9 gotchas)
+#### WP4: Job Runtime
+- Job schema: job_runs + job_attempts + job_artifacts
+- Job state machine: SUBMITTED→QUEUED→RUNNING→SUCCEEDED/FAILED/TIMED_OUT/CANCELLED/LOST
+- JobService: submit/cancel/retry/get_result/get_attempts
+- ExecutionBackend Protocol + RayExecutionBackend
+- JobSyncService: status sync + startup recovery + timeout detection
+- JobArtifactService: create/list/assetize (Artifact → Knowledge/Memory)
+- Resource quota: Skill default + tenant limit + job override
+- Idempotency key support
 
-### Verification
-- verify_full.py: 286/286 L0-L8 PASS
-- Ray built-in func: sum/parallel_map/pi_monte_carlo/sleep_test/matrix_multiply 全 PASS
-- Skill-based Ray job: submit → status(SUCCEEDED) → result(completed) → cancel(STOPPED) 全 PASS
-- DataMCP → Server → Ray 完整链路 PASS
-- Ray cluster: 3 nodes, 12 CPU, 11/12 verify_ray.py PASS (1 FAIL: 容器内无 docker 命令)
-- See [docs/release-notes-v0.1.0.md](docs/release-notes-v0.1.0.md) for full notes
+#### WP5: ModelServing Management
+- 5 model tables: definitions, deployments, profiles, routes, embedding_spaces
+- ModelManagementService: CRUD + resolve_profile + enable/disable + YAML import
+- Secret Ref replacement (no plaintext API keys)
+- Config revision tracking for model changes
+
+#### WP6: Control Center
+- LakeMindControlCenter/ directory (frontend + BFF + steward)
+- BFF: FastAPI, session-based admin auth, Control Plane API proxy
+- 10 pages: Overview, Assets, Jobs, ModelServing, Services, Configuration, Security, Operations, Audit, Steward
+- WebSocket for real-time updates
+
+#### WP7: Steward Governance
+- Independent Service Identity (non-superadmin)
+- 3-level action model: observe / low_risk auto / high_risk approval
+- 6 inspection categories: service health, degraded assets, lost jobs, outbox, binding drift, config drift
+- Policy-driven auto-action level
+
+#### WP8: Meeting Agent Golden Path
+- 3 Meeting Skills: meeting-asr, meeting-summary, knowledge-extract
+- E2E tests: golden path (14 steps), security (6), consistency (7), recovery (6)
+
+#### WP9: Engineering & Release
+- Alembic migrations: 001-006 (baseline + control plane + assets + job runtime + models)
+- Bootstrap script: admin principal + token + master key
+- v0.1→v0.2 migration tool
+- L0-L9 verification script
+
+### Database Migrations
+- 001_initial_schema: v0.1.0 baseline (10 tables)
+- 002_control_plane: 12 CP tables + seed roles/tenant
+- 003_asset_core: assets/bindings/lineage/reconciler
+- 004_asset_types: knowledge_meta/skill_meta/memory_meta
+- 005_job_runtime: job_runs/job_attempts/job_artifacts
+- 006_model_management: model_definitions/deployments/profiles/routes/embedding_spaces
+
+### Dependencies Added
+- alembic>=1.13
+- sqlalchemy>=2.0
+- ulid-py>=2.0

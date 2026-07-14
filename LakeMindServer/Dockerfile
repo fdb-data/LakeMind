@@ -3,6 +3,8 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*
 COPY pyproject.toml ./
 COPY src ./src
+COPY alembic.ini ./
+COPY migrations ./migrations
 RUN pip install --upgrade pip && pip install .
 ENV LAKE_CONFIG=/etc/lakemind/engines.yaml
 EXPOSE 10823

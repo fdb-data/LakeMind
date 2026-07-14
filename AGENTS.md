@@ -7,8 +7,8 @@
 
 ## 1. 项目定位
 
-LakeMind 是**认知资产存取平台**（store/retrieve），不是 Agent 执行平台。
-Agent 通过 MCP 检索和存取知识、记忆、技能等认知资产，在自身运行时执行。
+LakeMind 是**认知资产存取平台 + 受控 Job Runtime**。LakeMind 不是通用 Agent Runtime，不负责运行 Agent 的完整推理循环、业务决策和自主行为；但提供受控 Job Runtime，用于执行 Agent 触发的、以 Skill 为定义的确定性或可复现任务。
+Agent 通过 MCP 检索和存取知识、记忆、技能等认知资产，通过 JobService 提交受控 Job。
 
 ## 2. 仓库包结构
 
@@ -18,10 +18,11 @@ Agent 通过 MCP 检索和存取知识、记忆、技能等认知资产，在自
 | `LakeMindModelServing/` | 模型平面 | 统一模型服务（litellm 网关 + fastembed 嵌入 + FunASR 语音识别） | ✅ 已完成 |
 | `LakeMindMCP/` | 运行平面 | 3 MCP 编排（docker-compose + --profile all） | ✅ 已完成 |
 | `LakeMindMCP/LakeMindAssetMCP/` | 运行平面 | 资产面 MCP（知识/记忆/技能/本体），23 tools | ✅ 已完成 |
-| `LakeMindMCP/LakeMindDataMCP/` | 运行平面 | 数据面 MCP（通过 REST API 透传，不做语义包装），18 tools | ✅ 已完成 |
-| `LakeMindMCP/LakeMindAdminMCP/` | 运行平面 | 管理面 MCP（用户/租户/Token/健康），17 tools | ✅ 已完成 |
-| `LakeMindSteward/` | 运行平面 | 管理运维 Agent（LangGraph 巡检 + 对话） | ✅ 已完成 |
-| `LakeMindMonitor/` | 运行平面 | 人类只读仪表板 + Steward 对话窗（Express） | ✅ 已完成 |
+| `LakeMindMCP/LakeMindDataMCP/` | 运行平面 | 数据面 MCP（通过 REST API 透传，不做语义包装），24 tools | ✅ 已完成 |
+| `LakeMindMCP/LakeMindAdminMCP/` | 运行平面 | 管理面 MCP（用户/租户/Token/健康），21 tools | ✅ 已完成 |
+| `LakeMindSteward/` | 运行平面 | 管理运维 Agent（LangGraph 巡检 + 对话） | ✅ v0.1.0（v0.2.0 迁至 ControlCenter） |
+| `LakeMindMonitor/` | 运行平面 | 人类只读仪表板 + Steward 对话窗（Express） | ✅ v0.1.0（v0.2.0 迁至 ControlCenter） |
+| `LakeMindControlCenter/` | 运行平面 | 统一管理入口（前端 + BFF + Steward，10 页面） | ✅ v0.2.0 新增 |
 | `LakeMindStudio/` | 开发平面 | 资产设计、MCP 调试、Skill 脚手架（Tauri） | ❌ 未开始（P2） |
 
 ## 3. 访问拓扑
@@ -88,7 +89,7 @@ LakeMindModelServing (:10824)  ← 统一模型服务（litellm + fastembed + Fu
 
 ## 7. 关键设计决策
 
-- **`execute_skill` 已移除** — 平台只存取不执行，Agent 自行检索技能代码并在自身运行时执行。
+- **`execute_skill` 已移除** — 改为 JobService 受控执行，Agent 通过 JobService.submit(skill_ref, inputs) 提交以 Skill 为定义的确定性或可复现任务。
 - **Memory 采用 mem0 风格** — 8 方法（add/search/get/list/update/delete/clear/history），LLM 事实抽取 + 哈希去重。
 - **Knowledge 采用 OKF 格式** — YAML frontmatter + markdown body，交叉链接存 PG 图。
 - **长期记忆双表设计** — Lance 向量表 + PG 元信息小表，通过 `lance_uri` 关联，不合并成单表。

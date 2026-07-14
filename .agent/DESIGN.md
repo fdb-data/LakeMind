@@ -48,8 +48,8 @@
 | MCP | 端口 | Scope | 面向 | 职责 | Tools | Prompts | Resources |
 |-----|------|-------|------|------|-------|---------|-----------|
 | AssetMCP | 8401 | `asset` | 业务 Agent | 知识/记忆/技能/本体 | 23 | 6 | 11 |
-| DataMCP | 8402 | `data` | Steward / 高级 Agent | Data 层 REST API 透传 | 18 | 2 | 6 |
-| AdminMCP | 8403 | `admin` | Steward | 用户/租户/Token/健康 | 17 | 2 | 6 |
+| DataMCP | 8402 | `data` | Steward / 高级 Agent | Data 层 REST API 透传 | 24 | 2 | 6 |
+| AdminMCP | 8403 | `admin` | Steward | 用户/租户/Token/健康 | 21 | 2 | 6 |
 
 > **MCP 三要素**：每个 MCP 都有 Tools（操作）+ Resources（只读浏览）+ Prompts（使用指南）。
 > 合计：58 tools, 10 prompts, 23 resources。
@@ -127,7 +127,7 @@ X-Scopes: asset,data,admin
 | 知识/多模态 RAG | Lance + LanceDB（OKF 格式） | `lake://knowledge` | AssetMCP |
 | 短期/工作记忆 | Valkey (TTL KV) | `lake://memory` | AssetMCP |
 | 长期/语义记忆 | Lance 向量 + PG 元信息（mem0 风格） | `lake://memory` | AssetMCP |
-| Skills | S3 + PG + LanceDB（不执行） | `lake://skills` | AssetMCP |
+| Skills | S3 + PG + LanceDB（受控 Job Runtime 执行） | `lake://skills` | AssetMCP |
 | 本体/图 | PG graph_nodes/edges | `lake://ontology` | AssetMCP |
 
 > **长期记忆双表设计**：Lance 向量表 + PG 元信息小表，通过 `lance_uri` 字段关联，不合并成单表。
@@ -220,7 +220,7 @@ AssetMCP (:8401)
 └── 无 lake://system/health（健康属于 AdminMCP/DataMCP）
 ```
 
-- `execute_skill` 已移除——平台只存取不执行。
+- `execute_skill` 已移除——改为 JobService 受控执行，Agent 通过 JobService.submit(skill_ref, inputs) 提交。
 - 无状态，可多副本。
 
 ### 4.2 LakeMindDataMCP（数据面）
@@ -228,7 +228,7 @@ AssetMCP (:8401)
 ```
 DataMCP (:8402)
 ├── 认证：Bearer Token, scope=data
-├── 18 tools:
+├── 24 tools:
 │   ├── 表操作: query_table, write_table, sql_query, list_tables, describe_table,
 │   │          create_table, drop_table (7)
 │   ├── 向量: vector_search (1)
@@ -246,7 +246,7 @@ DataMCP (:8402)
 ```
 AdminMCP (:8403)
 ├── 认证：Bearer Token, scope=admin
-├── 17 tools:
+├── 21 tools:
 │   ├── 用户: create_user, get_user, list_users, update_user, delete_user (5)
 │   ├── 租户: create_tenant, get_tenant, list_tenants (3)
 │   ├── Token: issue_token, revoke_token, list_tokens (3)
@@ -350,7 +350,7 @@ Studio (Tauri 2.0)
 | fastembed 替代 SHA256 | 真实语义检索，ONNX CPU ~2ms |
 | Express 替代 Nuxt 3 | npm install 超时，Express 构建秒级 |
 | PG 原生表替代 AGE | AGE 编译超时，原生表功能等价 |
-| `execute_skill` 移除 | 平台只存取不执行，Agent 自行执行 |
+| `execute_skill` 移除 | 改为 JobService 受控执行，Agent 通过 JobService.submit 提交 |
 | Memory 采用 mem0 风格 | LLM 事实抽取 + 哈希去重，智能存储 |
 | Knowledge 采用 OKF 格式 | YAML frontmatter + markdown body，交叉链接存 PG 图 |
 | LLM 网关为内部能力 | 不通过 MCP 暴露，Agent 用自己的 LLM |

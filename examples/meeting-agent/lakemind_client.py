@@ -16,7 +16,7 @@ class LakeMindClient:
         model_serving_key: str | None = None,
         asset_mcp_url: str | None = None,
         asset_token: str | None = None,
-        tenant_id: str = "retail",
+        tenant_id: str | None = None,
     ):
         self.server_url = (server_url or os.environ.get("SERVER_API_URL", "http://localhost:10823")).rstrip("/")
         self.server_key = server_key or os.environ.get("SERVER_API_KEY", "lakemind-internal-api-key")

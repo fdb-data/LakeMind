@@ -1,0 +1,300 @@
+# LakeMind v0.2.0 — 全系统统一 docker-compose
+# 
+# 3 组编排，按依赖顺序启动：
+#   1. 数据平面   — PG + SeaweedFS + Valkey + Ray + Server API
+#   2. 运行平面   — 3 MCP + ModelServing
+#   3. 管理平面   — ControlCenter（前端 + BFF + Steward，单镜像）
+#
+# 用法：
+#   docker compose --env-file LakeMindServer/.env --profile ray --profile all up -d --build
+#   docker compose --env-file LakeMindServer/.env --profile ray --profile all down
+#
+# 注意：BuildKit 禁用（Windows 兼容）：$env:DOCKER_BUILDKIT=0
+
+name: lakemind
+
+networks:
+  lakemind:
+    driver: bridge
+  internal:
+    driver: bridge
+    internal: true
+
+services:
+  # ══════════════════════════════════════════════════════════════
+  # 1. 数据平面（LakeMindServer）
+  # ══════════════════════════════════════════════════════════════
+
+  # ── 统一存储底座：SeaweedFS（S3 兼容）──
+  seaweedfs:
+    image: chrislusf/seaweedfs:3.101
+    container_name: lakemind-seaweedfs
+    command: >-
+      server
+      -dir=/data
+      -volume.max=100
+      -s3
+      -s3.config=/etc/seaweedfs/s3.json
+    ports:
+      - "${SEAWEEFS_S3_PORT:-8333}:8333"
+    volumes:
+      - ./LakeMindServer/data/seaweedfs:/data
+      - ./LakeMindServer/config/seaweedfs:/etc/seaweedfs:ro
+    networks: [lakemind]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8333/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  # ── 统一 Metadata Hub：PostgreSQL 16 + AGE ──
+  postgres:
+    build:
+      context: ./LakeMindServer/docker/postgres-age
+    image: lakemind/postgres-age:16.4
+    container_name: lakemind-postgres
+    environment:
+      POSTGRES_DB: ${PG_DB:-lakemind}
+      POSTGRES_USER: ${PG_USER:-lakemind}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-lakemind_pass}
+    command: >
+      postgres
+      -c max_connections=200
+    volumes:
+      - ./LakeMindServer/data/postgres:/var/lib/postgresql/data
+      - ./LakeMindServer/docker/postgres-age/init:/docker-entrypoint-initdb.d:ro
+    networks: [lakemind, internal]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_USER:-lakemind} -d ${PG_DB:-lakemind}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # ── Valkey 8.0（TTL KV，Redis 兼容，BSD 3-Clause）──
+  valkey:
+    image: valkey/valkey:8.0.9
+    container_name: lakemind-valkey
+    command: >-
+      valkey-server
+      --save 60 1
+      --loglevel notice
+    volumes:
+      - ./LakeMindServer/data/valkey:/data
+    networks: [lakemind, internal]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  # ── REST API 网关 ──
+  server-api:
+    image: lakemind/server-api:v2
+    container_name: lakemind-server-api
+    environment:
+      LAKE_CONFIG: /etc/lakemind/engines.yaml
+      API_KEY: "${SERVER_API_KEY:-lakemind-internal-api-key}"
+      LAKEMIND_MASTER_KEY: "${LAKEMIND_MASTER_KEY}"
+      LAKEMIND_V2_AUTH: "${LAKEMIND_V2_AUTH:-1}"
+      S3_ENDPOINT: "http://lakemind-seaweedfs:8333"
+      MODEL_SERVING_URL: "http://lakemind-model-serving:10824"
+      PG_HOST: lakemind-postgres
+      PG_PORT: 5432
+      PG_DB: ${PG_DB:-lakemind}
+      PG_USER: ${PG_USER:-lakemind}
+      PG_PASSWORD: ${PG_PASSWORD:-lakemind_pass}
+      DATABASE_URL: "postgresql+psycopg2://${PG_USER:-lakemind}:${PG_PASSWORD:-lakemind_pass}@lakemind-postgres:5432/${PG_DB:-lakemind}"
+    ports:
+      - "10823:10823"
+    volumes:
+      - ./LakeMindServer/config/engines.yaml:/etc/lakemind/engines.yaml:ro
+      - ./LakeMindServer/data/lance:/data/lance
+      - ./LakeMindServer/data/fastembed_cache:/tmp/fastembed_cache
+    networks: [lakemind]
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      seaweedfs:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:10823/api/v1/system/health')"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # ── Ray 2.41.0 集群（head + 2 worker）──
+  ray-head:
+    image: lakemind/ray:2.41.0-py3.12
+    container_name: lakemind-ray-head
+    command: >
+      ray start --head --port=6379 --dashboard-port=8265 --dashboard-host=0.0.0.0
+      --num-cpus=${RAY_HEAD_CPUS:-4} --block
+    volumes:
+      - ./LakeMindServer/data/lance:/data/lance
+    networks: [lakemind]
+    profiles: [ray]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8265')\""]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+  ray-worker:
+    image: lakemind/ray:2.41.0-py3.12
+    command: >
+      ray start --address=lakemind-ray-head:6379
+      --num-cpus=${RAY_WORKER_CPUS:-4} --block
+    volumes:
+      - ./LakeMindServer/data/lance:/data/lance
+    depends_on:
+      - ray-head
+    networks: [lakemind]
+    deploy:
+      replicas: 2
+    profiles: [ray]
+    restart: unless-stopped
+
+  # ══════════════════════════════════════════════════════════════
+  # 2. 运行平面 — 3 MCP
+  # ══════════════════════════════════════════════════════════════
+
+  asset-mcp:
+    profiles: [all]
+    image: lakemind/asset-mcp:0.1.0
+    container_name: lakemind-asset-mcp
+    environment:
+      LAKE_CONFIG: /etc/lakemind/config.yaml
+      SERVER_API_URL: "http://lakemind-server-api:10823"
+      SERVER_API_KEY: "${SERVER_API_KEY:-lakemind-internal-api-key}"
+    ports:
+      - "8401:8401"
+    volumes:
+      - ./LakeMindMCP/LakeMindAssetMCP/config:/etc/lakemind:ro
+    networks: [lakemind]
+    restart: unless-stopped
+    depends_on:
+      server-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8401/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  data-mcp:
+    profiles: [all]
+    image: lakemind/data-mcp:0.1.0
+    container_name: lakemind-data-mcp
+    environment:
+      LAKE_CONFIG: /etc/lakemind/config.yaml
+      SERVER_API_URL: "http://lakemind-server-api:10823"
+      SERVER_API_KEY: "${SERVER_API_KEY:-lakemind-internal-api-key}"
+    ports:
+      - "8402:8402"
+    volumes:
+      - ./LakeMindMCP/LakeMindDataMCP/config:/etc/lakemind:ro
+    networks: [lakemind]
+    restart: unless-stopped
+    depends_on:
+      server-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8402/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  admin-mcp:
+    profiles: [all]
+    image: lakemind/admin-mcp:0.1.0
+    container_name: lakemind-admin-mcp
+    environment:
+      LAKE_CONFIG: /etc/lakemind/config.yaml
+      SERVER_API_URL: "http://lakemind-server-api:10823"
+      SERVER_API_KEY: "${SERVER_API_KEY:-lakemind-internal-api-key}"
+    ports:
+      - "8403:8403"
+    volumes:
+      - ./LakeMindMCP/LakeMindAdminMCP/config:/etc/lakemind:ro
+    networks: [lakemind]
+    restart: unless-stopped
+    depends_on:
+      server-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8403/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # ══════════════════════════════════════════════════════════════
+  # 3. 模型平面 — ModelServing
+  # ══════════════════════════════════════════════════════════════
+
+  model-serving:
+    image: lakemind/model-serving:v2
+    pull_policy: never
+    container_name: lakemind-model-serving
+    command: ["python", "-m", "lakemind_model_serving"]
+    environment:
+      LAKE_CONFIG: /etc/lakemind/models.yaml
+      MODELSERVING_API_KEY: "${MODELSERVING_API_KEY:-lakemind-modelserving-key}"
+      MAAS_API_KEY: "${MAAS_API_KEY}"
+      LITELLM_LOCAL_MODEL_COST_MAP: "True"
+      LITELLM_MODEL_COST_MAP_URL: ""
+    ports:
+      - "10824:10824"
+    volumes:
+      - ./LakeMindModelServing/config/models.yaml:/etc/lakemind/models.yaml:ro
+      - ./LakeMindModelServing/data/fastembed_cache:/data/fastembed_cache
+      - ./LakeMindModelServing/data/funasr_cache:/data/funasr_cache
+    networks: [lakemind]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:10824/health')"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 300s
+
+  # ══════════════════════════════════════════════════════════════
+  # 4. 管理平面 — ControlCenter（单镜像：前端 + BFF + Steward）
+  # ══════════════════════════════════════════════════════════════
+
+  control-center:
+    build: ./LakeMindControlCenter
+    image: lakemind/control-center:v2
+    container_name: lakemind-control-center
+    environment:
+      LAKEMIND_CONTROL_PLANE: "http://lakemind-server-api:10823"
+      LAKEMIND_MODEL_SERVING: "http://lakemind-model-serving:10824"
+      LAKEMIND_BFF_TOKEN: "${SERVER_API_KEY:-lakemind-internal-api-key}"
+      LAKEMIND_STEWARD_TOKEN: "${SERVER_API_KEY:-lakemind-internal-api-key}"
+    ports:
+      - "3000:3000"
+    networks: [lakemind]
+    restart: unless-stopped
+    depends_on:
+      server-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:3000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s

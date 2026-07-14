@@ -23,7 +23,7 @@ LakeMind is a **cognitive asset store** running on this machine. You can:
 
 ## 1. What Is LakeMind
 
-LakeMind is a **store/retrieve platform for cognitive assets** — not an execution platform. It stores your knowledge, memories, and skills; you execute everything yourself.
+LakeMind is a **cognitive asset platform + controlled Job Runtime**. It stores your knowledge, memories, and skills; you can also submit controlled Jobs (defined by Skills) via JobService for deterministic or reproducible tasks. LakeMind does not run your full Agent reasoning loop — that stays in your process.
 
 ```
 You (Agent)
@@ -1222,7 +1222,7 @@ python cli.py health
 
 ## 15. Design Principles (Why This Exists)
 
-1. **You are the executor.** LakeMind stores and retrieves; it never runs your code. You find skills, download them, and execute in your own process.
+1. **You are the executor.** LakeMind stores and retrieves your cognitive assets. You can also submit controlled Jobs (defined by Skills) via JobService — LakeMind executes them in a controlled Runtime with audit, approval, and resource limits. Your full Agent reasoning loop stays in your process.
 2. **Your cognition persists.** Knowledge and memories survive across sessions. You are no longer stateless.
 3. **Multi-agent sharing.** Other agents on the same platform can discover your skills and knowledge (with tenant isolation).
 4. **All open source.** SeaweedFS, PostgreSQL, LanceDB, Valkey, Ray, fastembed, litellm, FunASR — no vendor lock-in.

@@ -1,0 +1,19 @@
+name: meeting-summary
+version: "1.0.0"
+description: Meeting transcript summarization using LLM
+entry_point: main.py
+model_profiles:
+  - meeting-summary
+resource_needs:
+  cpu: 1
+  memory_mb: 2048
+  timeout_seconds: 600
+inputs:
+  - name: transcript
+    type: json
+    required: true
+outputs:
+  - name: summary
+    type: string
+  - name: action_items
+    type: json

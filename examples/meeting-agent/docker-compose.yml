@@ -22,4 +22,4 @@ services:
 networks:
   lakemind:
     external: true
-    name: lakemind-server_lakemind
+    name: lakemind_lakemind

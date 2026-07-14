@@ -1,0 +1,21 @@
+name: meeting-asr
+version: "1.0.0"
+description: Meeting audio transcription using FunASR SenseVoice-Small
+entry_point: main.py
+model_profiles:
+  - meeting-asr
+resource_needs:
+  cpu: 2
+  memory_mb: 4096
+  timeout_seconds: 1800
+secret_refs:
+  - secret://platform/funasr-model-path
+inputs:
+  - name: audio_uri
+    type: string
+    required: true
+outputs:
+  - name: transcript
+    type: json
+  - name: segments
+    type: json

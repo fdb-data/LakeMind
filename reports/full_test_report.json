@@ -1,24 +1,24 @@
 {
-  "timestamp": "2026-07-06T22:02:19",
+  "timestamp": "2026-07-14T21:52:06",
   "summary": {
-    "total": 297,
-    "pass": 297,
-    "fail": 0,
+    "total": 332,
+    "pass": 329,
+    "fail": 3,
     "skip": 0
   },
   "layers": {
     "L0": {
-      "pass": 12,
+      "pass": 16,
       "fail": 0,
       "skip": 0
     },
     "L1": {
-      "pass": 12,
+      "pass": 10,
       "fail": 0,
       "skip": 0
     },
     "L2": {
-      "pass": 64,
+      "pass": 96,
       "fail": 0,
       "skip": 1
     },
@@ -43,7 +43,7 @@
       "skip": 0
     },
     "L7": {
-      "pass": 8,
+      "pass": 9,
       "fail": 0,
       "skip": 0
     },
@@ -53,8 +53,8 @@
       "skip": 0
     },
     "L9": {
-      "pass": 10,
-      "fail": 0,
+      "pass": 7,
+      "fail": 3,
       "skip": 0
     }
   },
@@ -64,7 +64,7 @@
       "category": "container",
       "name": "lakemind-server-api",
       "passed": true,
-      "detail": "status=Up 5 minutes",
+      "detail": "status=Up 46 minutes (healthy)",
       "duration_ms": 0
     },
     {
@@ -72,7 +72,7 @@
       "category": "container",
       "name": "lakemind-postgres",
       "passed": true,
-      "detail": "status=Up 5 minutes",
+      "detail": "status=Up 48 minutes (healthy)",
       "duration_ms": 0
     },
     {
@@ -80,7 +80,7 @@
       "category": "container",
       "name": "lakemind-seaweedfs",
       "passed": true,
-      "detail": "status=Up 5 minutes",
+      "detail": "status=Up 48 minutes (healthy)",
       "duration_ms": 0
     },
     {
@@ -88,7 +88,7 @@
       "category": "container",
       "name": "lakemind-valkey",
       "passed": true,
-      "detail": "status=Up 5 minutes",
+      "detail": "status=Up 48 minutes (healthy)",
       "duration_ms": 0
     },
     {
@@ -96,7 +96,7 @@
       "category": "container",
       "name": "lakemind-ray-head",
       "passed": true,
-      "detail": "status=Up 5 minutes",
+      "detail": "status=Up 48 minutes (healthy)",
       "duration_ms": 0
     },
     {
@@ -104,7 +104,7 @@
       "category": "container",
       "name": "lakemind-ray-worker-1",
       "passed": true,
-      "detail": "status=Up 5 minutes",
+      "detail": "status=Up 48 minutes",
       "duration_ms": 0
     },
     {
@@ -112,7 +112,15 @@
       "category": "container",
       "name": "lakemind-ray-worker-2",
       "passed": true,
-      "detail": "status=Up 5 minutes",
+      "detail": "status=Up 48 minutes",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L0",
+      "category": "container",
+      "name": "lakemind-model-serving",
+      "passed": true,
+      "detail": "status=Up About a minute (healthy)",
       "duration_ms": 0
     },
     {
@@ -120,7 +128,7 @@
       "category": "container",
       "name": "lakemind-asset-mcp",
       "passed": true,
-      "detail": "status=Up About a minute (healthy)",
+      "detail": "status=Up 40 minutes (healthy)",
       "duration_ms": 0
     },
     {
@@ -128,7 +136,7 @@
       "category": "container",
       "name": "lakemind-data-mcp",
       "passed": true,
-      "detail": "status=Up About a minute (healthy)",
+      "detail": "status=Up 45 minutes (healthy)",
       "duration_ms": 0
     },
     {
@@ -136,7 +144,7 @@
       "category": "container",
       "name": "lakemind-admin-mcp",
       "passed": true,
-      "detail": "status=Up About a minute (healthy)",
+      "detail": "status=Up 45 minutes (healthy)",
       "duration_ms": 0
     },
     {
@@ -144,7 +152,7 @@
       "category": "container",
       "name": "lakemind-steward",
       "passed": true,
-      "detail": "status=Up 5 minutes (healthy)",
+      "detail": "status=Up 47 minutes (healthy)",
       "duration_ms": 0
     },
     {
@@ -152,7 +160,31 @@
       "category": "container",
       "name": "lakemind-monitor",
       "passed": true,
-      "detail": "status=Up 5 minutes (healthy)",
+      "detail": "status=Up 47 minutes (healthy)",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L0",
+      "category": "container",
+      "name": "lakemind-cc-bff",
+      "passed": true,
+      "detail": "status=Up 45 minutes (healthy)",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L0",
+      "category": "container",
+      "name": "lakemind-cc-steward",
+      "passed": true,
+      "detail": "status=Up 45 minutes (healthy)",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L0",
+      "category": "container",
+      "name": "lakemind-cc-frontend",
+      "passed": true,
+      "detail": "status=Up 45 minutes (unhealthy)",
       "duration_ms": 0
     },
     {
@@ -230,23 +262,7 @@
     {
       "layer": "L1",
       "category": "engine",
-      "name": "embedding",
-      "passed": true,
-      "detail": "value=True",
-      "duration_ms": 0
-    },
-    {
-      "layer": "L1",
-      "category": "engine",
       "name": "memory",
-      "passed": true,
-      "detail": "value=True",
-      "duration_ms": 0
-    },
-    {
-      "layer": "L1",
-      "category": "engine",
-      "name": "llm",
       "passed": true,
       "detail": "value=True",
       "duration_ms": 0
@@ -527,7 +543,7 @@
       "layer": "L2",
       "category": "jobs",
       "name": "submit",
-      "passed": "job_9907a9ef",
+      "passed": "job_5470aecc",
       "detail": "got 200",
       "duration_ms": 0
     },
@@ -536,7 +552,7 @@
       "category": "jobs",
       "name": "status",
       "passed": true,
-      "detail": "got 200: {'job_id': 'job_9907a9ef', 'status': 'completed', 'num_tasks': 1}",
+      "detail": "got 200: {'job_id': 'job_5470aecc', 'status': 'completed', 'num_tasks': 1}",
       "duration_ms": 0
     },
     {
@@ -576,7 +592,7 @@
       "category": "memory",
       "name": "add",
       "passed": true,
-      "detail": "got 200: {'results': [{'id': '0ba6efcd-2649-4eaf-be24-b100122d50d4', 'memory': 'I like Python', 'event': 'ADD'}]}",
+      "detail": "got 200: {'results': [{'id': '24de4a0a-fa63-4d11-8afb-ff4609ccecd3', 'memory': 'I like Python', 'event': 'ADD'}]}",
       "duration_ms": 0
     },
     {
@@ -648,7 +664,7 @@
       "category": "llm",
       "name": "models",
       "passed": true,
-      "detail": "got 200",
+      "detail": "got 200, models=5",
       "duration_ms": 0
     },
     {
@@ -664,7 +680,7 @@
       "category": "llm",
       "name": "embed",
       "passed": true,
-      "detail": "got 502",
+      "detail": "got 200",
       "duration_ms": 0
     },
     {
@@ -769,6 +785,262 @@
       "name": "delete_tenant",
       "passed": true,
       "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "v2_assets",
+      "name": "list",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "v2_knowledge",
+      "name": "list_concepts",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "v2_skills",
+      "name": "list",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "v2_memories",
+      "name": "list",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "v2_jobs",
+      "name": "list",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "v2_models",
+      "name": "list_definitions",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "v2_models",
+      "name": "list_deployments",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "v2_security",
+      "name": "list_principals",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "v2_config",
+      "name": "get",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "v2_audit",
+      "name": "list",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "v2_operations",
+      "name": "list",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "v2_instances",
+      "name": "list",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "v2_cc_bff",
+      "name": "health",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "v2_cc_steward",
+      "name": "health",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "v2_bff",
+      "name": "login",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "v2_bff",
+      "name": "overview",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "v2_bff",
+      "name": "models",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "v2_bff",
+      "name": "operations",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "v2_bff",
+      "name": "audit",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "v2_bff",
+      "name": "logout",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "v2_secrets",
+      "name": "create",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "v2_secrets",
+      "name": "list",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "v2_secrets",
+      "name": "rotate",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "v2_secrets",
+      "name": "delete",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "v2_reconciler",
+      "name": "scan_all",
+      "passed": true,
+      "detail": "got 200: 0 drifts",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "v2_reconciler",
+      "name": "get_drifts",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "v2_models",
+      "name": "bootstrap_count",
+      "passed": true,
+      "detail": "got 3 models",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "v2_models",
+      "name": "bootstrap_types",
+      "passed": true,
+      "detail": "types: {'chat', 'asr', 'embedding'}",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "v2_models",
+      "name": "bootstrap_deployments",
+      "passed": true,
+      "detail": "got 3 deployments",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "v2_deprecation",
+      "name": "metadata_secrets",
+      "passed": true,
+      "detail": "X-Deprecated=true",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "v2_deprecation",
+      "name": "storage_objects",
+      "passed": true,
+      "detail": "X-Deprecated=true",
+      "duration_ms": 0
+    },
+    {
+      "layer": "L2",
+      "category": "v2_deprecation",
+      "name": "v2_no_deprec",
+      "passed": true,
+      "detail": "X-Deprecated=None",
       "duration_ms": 0
     },
     {
@@ -1056,7 +1328,7 @@
       "category": "tool",
       "name": "list_knowledge",
       "passed": true,
-      "detail": "{'knowledge_bases': [{'name': 'e2e_cross', 'row_count': 0, 'schema': []}, {'name",
+      "detail": "{'knowledge_bases': [{'name': 'e2e_cross', 'row_count': 0, 'concept_count': 0, '",
       "duration_ms": 0
     },
     {
@@ -1088,7 +1360,7 @@
       "category": "tool",
       "name": "add_memory",
       "passed": true,
-      "detail": "{'results': [{'id': '85b7e3b4-4672-40ee-b366-60428633a6be', 'memory': 'I prefer ",
+      "detail": "{'results': [{'id': 'b7e95534-b5d1-4a04-aef0-d482e5adcbec', 'memory': 'I prefer ",
       "duration_ms": 0
     },
     {
@@ -1096,7 +1368,7 @@
       "category": "tool",
       "name": "search_memory",
       "passed": true,
-      "detail": "{'query': 'editor preference', 'results': [], 'count': 0}",
+      "detail": "{'query': 'editor preference', 'results': [{'id': 'b7e95534-b5d1-4a04-aef0-d482e",
       "duration_ms": 0
     },
     {
@@ -1104,7 +1376,7 @@
       "category": "tool",
       "name": "get_memory",
       "passed": true,
-      "detail": "{'id': '85b7e3b4-4672-40ee-b366-60428633a6be', 'memory': 'I prefer dark mode', '",
+      "detail": "{'id': 'b7e95534-b5d1-4a04-aef0-d482e5adcbec', 'memory': 'I prefer dark mode', '",
       "duration_ms": 0
     },
     {
@@ -1112,7 +1384,7 @@
       "category": "tool",
       "name": "list_memory",
       "passed": true,
-      "detail": "{'count': 3, 'page': 1, 'page_size': 10, 'results': [{'id': '85b7e3b4-4672-40ee-",
+      "detail": "{'count': 1, 'page': 1, 'page_size': 10, 'results': [{'id': 'b7e95534-b5d1-4a04-",
       "duration_ms": 0
     },
     {
@@ -1120,7 +1392,7 @@
       "category": "tool",
       "name": "update_memory",
       "passed": true,
-      "detail": "{'status': 'ok', 'id': '85b7e3b4-4672-40ee-b366-60428633a6be', 'memory': 'I pref",
+      "detail": "{'status': 'ok', 'id': 'b7e95534-b5d1-4a04-aef0-d482e5adcbec', 'memory': 'I pref",
       "duration_ms": 0
     },
     {
@@ -1128,7 +1400,7 @@
       "category": "tool",
       "name": "memory_history",
       "passed": true,
-      "detail": "{'results': [{'memory_id': '85b7e3b4-4672-40ee-b366-60428633a6be', 'old_memory':",
+      "detail": "{'results': [{'memory_id': 'b7e95534-b5d1-4a04-aef0-d482e5adcbec', 'old_memory':",
       "duration_ms": 0
     },
     {
@@ -1136,7 +1408,7 @@
       "category": "tool",
       "name": "delete_memory",
       "passed": true,
-      "detail": "{'status': 'ok', 'deleted': '85b7e3b4-4672-40ee-b366-60428633a6be'}",
+      "detail": "{'status': 'ok', 'deleted': 'b7e95534-b5d1-4a04-aef0-d482e5adcbec'}",
       "duration_ms": 0
     },
     {
@@ -1144,7 +1416,7 @@
       "category": "tool",
       "name": "clear_memory",
       "passed": true,
-      "detail": "{'status': 'ok', 'deleted': 2}",
+      "detail": "{'status': 'ok', 'deleted': 0}",
       "duration_ms": 0
     },
     {
@@ -1152,7 +1424,7 @@
       "category": "tool",
       "name": "register_skill",
       "passed": true,
-      "detail": "{'skill_id': 'skill-f6a76129', 'name': 'vf_skill', 's3_uri': 's3://lakemind-file",
+      "detail": "{'skill_id': 'skill-6f64fe69', 'name': 'vf_skill', 's3_uri': 's3://lakemind-file",
       "duration_ms": 0
     },
     {
@@ -1168,7 +1440,7 @@
       "category": "tool",
       "name": "list_skills",
       "passed": true,
-      "detail": "{'skills': [{'skill_id': 'skill-f6a76129', 'name': 'vf_skill', 'description': 't",
+      "detail": "{'skills': [{'skill_id': 'skill-6f64fe69', 'name': 'vf_skill', 'description': 't",
       "duration_ms": 0
     },
     {
@@ -1192,7 +1464,7 @@
       "category": "tool",
       "name": "update_ontology",
       "passed": true,
-      "detail": "{'concept': 'Cat', 'relation': 'is_a', 'target': 'Animal', 'edge_id': 'e_00c5716",
+      "detail": "{'concept': 'Cat', 'relation': 'is_a', 'target': 'Animal', 'edge_id': 'e_2bc3fdd",
       "duration_ms": 0
     },
     {
@@ -1200,7 +1472,7 @@
       "category": "tool",
       "name": "query_ontology",
       "passed": true,
-      "detail": "{'concept': 'Cat', 'nodes': [{'node_id': 'risk_control', 'label': 'Concept', 'pr",
+      "detail": "{'concept': 'Cat', 'nodes': [{'node_id': 'Animal', 'label': 'Concept', 'properti",
       "duration_ms": 0
     },
     {
@@ -1560,7 +1832,7 @@
       "category": "tool",
       "name": "list_tables",
       "passed": true,
-      "detail": "{'namespace': 'data', 'tables': ['test_data_table', 'vf_dt']}",
+      "detail": "{'namespace': 'data', 'tables': ['vf_dt']}",
       "duration_ms": 0
     },
     {
@@ -1936,7 +2208,7 @@
       "category": "tool",
       "name": "list_tenants",
       "passed": true,
-      "detail": "{'tenants': [{'tenant_id': 'test_tenant', 'name': 'Test Tenant', 'status': 'acti",
+      "detail": "{'tenants': [{'tenant_id': 'ten_default', 'name': 'default', 'status': 'active'}",
       "duration_ms": 0
     },
     {
@@ -1968,7 +2240,7 @@
       "category": "tool",
       "name": "list_users",
       "passed": true,
-      "detail": "{'users': [{'user_id': 'user_640333b8', 'username': 'vfuser', 'tenant_id': 'vf_t",
+      "detail": "{'users': [{'user_id': 'user_42b6f7dc', 'username': 'vfuser', 'tenant_id': 'vf_t",
       "duration_ms": 0
     },
     {
@@ -1976,7 +2248,7 @@
       "category": "tool",
       "name": "update_user",
       "passed": true,
-      "detail": "{'user_id': 'user_640333b8', 'updated': True}",
+      "detail": "{'user_id': 'user_42b6f7dc', 'updated': True}",
       "duration_ms": 0
     },
     {
@@ -1984,7 +2256,7 @@
       "category": "tool",
       "name": "delete_user",
       "passed": true,
-      "detail": "{'user_id': 'user_640333b8', 'status': 'deleted'}",
+      "detail": "{'user_id': 'user_42b6f7dc', 'status': 'deleted'}",
       "duration_ms": 0
     },
     {
@@ -1992,7 +2264,7 @@
       "category": "tool",
       "name": "issue_token",
       "passed": true,
-      "detail": "{'token': 'tk_de9d78f0c1a74298', 'agent_id': 'vfagent', 'tenant_id': 'retail', '",
+      "detail": "{'token': 'tk_4a2453edf6434195', 'agent_id': 'vfagent', 'tenant_id': 'retail', '",
       "duration_ms": 0
     },
     {
@@ -2000,7 +2272,7 @@
       "category": "tool",
       "name": "list_tokens",
       "passed": true,
-      "detail": "{'tokens': [{'token': 'tk_992c9496c9ee4a27', 'agent_id': 'test_agent', 'tenant_i",
+      "detail": "{'tokens': [{'token': 'tk_d0fceab019bd4211', 'agent_id': 'vfagent', 'tenant_id':",
       "duration_ms": 0
     },
     {
@@ -2016,7 +2288,7 @@
       "category": "tool",
       "name": "list_asset_types",
       "passed": true,
-      "detail": "{'asset_types': [{'type': 'custom_rag', 'yaml': 'type: custom_rag\\ndescription: ",
+      "detail": "{'asset_types': [{'type': 'vfast', 'yaml': 'type: vfast\\ndescription: test'}], '",
       "duration_ms": 0
     },
     {
@@ -2316,11 +2588,19 @@
       "duration_ms": 0
     },
     {
+      "layer": "L7",
+      "category": "cc_frontend",
+      "name": "index",
+      "passed": true,
+      "detail": "got 200",
+      "duration_ms": 0
+    },
+    {
       "layer": "L8",
       "category": "E2E",
       "name": "knowledge_loop",
       "passed": true,
-      "detail": "search=2 hits, concepts=0",
+      "detail": "search=0 hits, concepts=0",
       "duration_ms": 0
     },
     {
@@ -2328,7 +2608,7 @@
       "category": "E2E",
       "name": "memory_loop",
       "passed": true,
-      "detail": "{'query': '张三的技术栈', 'results': [{'id': 'f6fc2de2-917b-41bd-9ce0-3d5dcff323cd', '",
+      "detail": "{'query': '张三的技术栈', 'results': [{'id': 'b04dfc04-d94c-4110-b254-7a811ce0bfc7', '",
       "duration_ms": 0
     },
     {
@@ -2344,7 +2624,7 @@
       "category": "E2E",
       "name": "ontology_loop",
       "passed": true,
-      "detail": "{'concept': 'DataEngineer', 'nodes': [{'node_id': 'risk_control', 'label': 'Conc",
+      "detail": "{'concept': 'DataEngineer', 'nodes': [{'node_id': 'Animal', 'label': 'Concept', ",
       "duration_ms": 0
     },
     {
@@ -2352,7 +2632,7 @@
       "category": "E2E",
       "name": "cross_domain",
       "passed": true,
-      "detail": "kb=0 ont=19 mem=1",
+      "detail": "kb=0 ont=9 mem=1",
       "duration_ms": 0
     },
     {
@@ -2360,31 +2640,31 @@
       "category": "latency",
       "name": "mcp_single_tool",
       "passed": true,
-      "detail": "mean=0.46ms p99=0.63ms (n=30)",
+      "detail": "mean=0.63ms p99=1.09ms (n=30)",
       "duration_ms": 0
     },
     {
       "layer": "L9",
       "category": "latency",
       "name": "rest_single_api",
-      "passed": true,
-      "detail": "mean=0.09s p99=0.15s (n=50)",
+      "passed": false,
+      "detail": "mean=0.24s p99=0.45s (n=50)",
       "duration_ms": 0
     },
     {
       "layer": "L9",
       "category": "latency",
       "name": "embedding_100",
-      "passed": true,
-      "detail": "mean=2.77s p99=3.0s (n=10)",
+      "passed": false,
+      "detail": "mean=5.03s p99=5.98s (n=10)",
       "duration_ms": 0
     },
     {
       "layer": "L9",
       "category": "latency",
       "name": "vector_search",
-      "passed": true,
-      "detail": "mean=0.36s p99=0.52s (n=30)",
+      "passed": false,
+      "detail": "mean=0.58s p99=0.81s (n=30)",
       "duration_ms": 0
     },
     {
@@ -2392,7 +2672,7 @@
       "category": "latency",
       "name": "memory_add_search",
       "passed": true,
-      "detail": "mean=1.14s errors=0/20",
+      "detail": "mean=1.45s errors=0/20",
       "duration_ms": 0
     },
     {
@@ -2400,7 +2680,7 @@
       "category": "concurrent",
       "name": "150agent_50ops",
       "passed": true,
-      "detail": "ops=7500 ok=7498 fail=2 qps=35.1 elapsed=213.9s",
+      "detail": "ops=1000 ok=1000 fail=0 qps=14.6 elapsed=68.6s",
       "duration_ms": 0
     },
     {
@@ -2408,7 +2688,7 @@
       "category": "concurrent",
       "name": "150agent_30s",
       "passed": true,
-      "detail": "ops=1077 ok=1077 fail=0 qps=32.4 err_rate=0.0%",
+      "detail": "ops=177 ok=177 fail=0 qps=16.2 err_rate=0.0%",
       "duration_ms": 0
     },
     {
@@ -2416,7 +2696,7 @@
       "category": "compare",
       "name": "mcp_vs_rest",
       "passed": true,
-      "detail": "mcp_mean=0.49s rest_mean=0.07s overhead=0.42s",
+      "detail": "mcp_mean=0.76s rest_mean=0.08s overhead=0.68s",
       "duration_ms": 0
     },
     {
@@ -2424,15 +2704,15 @@
       "category": "cold_start",
       "name": "asset_mcp",
       "passed": true,
-      "detail": "cold_start=2.56s",
+      "detail": "cold_start=4.65s",
       "duration_ms": 0
     },
     {
       "layer": "L9",
       "category": "staircase",
-      "name": "150_no_degrade",
+      "name": "100_no_degrade",
       "passed": true,
-      "detail": "err_rate@150=0.0% qps@150=34.5",
+      "detail": "err_rate@100=0.5% qps@100=12.7",
       "duration_ms": 0
     }
   ]

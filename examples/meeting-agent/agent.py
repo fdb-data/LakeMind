@@ -478,6 +478,11 @@ async def index():
         return f.read()
 
 
+@app.get("/api/health")
+async def api_health():
+    return {"status": "ok", "service": "meeting-agent"}
+
+
 @app.post("/api/start")
 async def api_start(request: Request):
     body = await request.json()
@@ -532,8 +537,11 @@ async def api_search(query: str, top_k: int = 5):
 
 @app.get("/api/tasks")
 async def api_tasks():
-    tasks = await agent.list_tasks()
-    return {"tasks": tasks, "count": len(tasks)}
+    try:
+        tasks = await agent.list_tasks()
+        return {"tasks": tasks, "count": len(tasks)}
+    except Exception as e:
+        return {"tasks": [], "count": 0, "error": str(e)}
 
 
 @app.get("/api/tasks/{task_id}")

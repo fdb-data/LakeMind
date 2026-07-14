@@ -31,3 +31,20 @@ async def metrics(request: Request):
         "healthy_count": sum(1 for v in health.values() if v),
         "total_count": len(health),
     }
+
+
+@router.post("/reconcile")
+async def reconcile(request: Request):
+    from ..services.reconciliation_service import ReconciliationService
+    return ReconciliationService.scan_all()
+
+
+@router.get("/reconcile/drifts")
+async def get_drifts(request: Request):
+    from ..services.reconciliation_service import ReconciliationService
+    params = request.query_params
+    return ReconciliationService.get_drifts(
+        category=params.get("category"),
+        page=int(params.get("page", "1")),
+        page_size=int(params.get("page_size", "50")),
+    )

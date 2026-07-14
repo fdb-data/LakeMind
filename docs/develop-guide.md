@@ -6,7 +6,9 @@
 
 ## 1. 概述
 
-LakeMind 是认知资产存取平台。作为业务开发者，你通过 MCP 工具存取知识/记忆/技能，通过 Ray 执行分布式计算。你的业务代码运行在 Ray worker 中，通过 `os.environ` 读取平台注入的密钥，调用外部服务，结果写回 LakeMind。
+LakeMind 是认知资产存取平台 + 受控 Job Runtime。作为业务开发者，你通过 MCP 工具存取知识/记忆/技能，通过 JobService 提交受控 Job（以 Skill 为定义的确定性或可复现任务）。你的业务代码运行在 Ray worker 中，通过 `os.environ` 读取平台注入的密钥，调用外部服务，结果写回 LakeMind。
+
+> **v0.2.0 架构**：LakeMind 采用四平面架构（Access / Control / Data & Index / Execution）。Control Plane 包含 12 个 Application Service，MCP 和 REST API 共享同一组 Service。详见 `docs/architecture/v0.2.0/application-services.md`。
 
 **核心流程**：
 
@@ -40,7 +42,7 @@ my-skill/
 ```
 
 - `SKILL.md`：自然语言描述，Agent 通过语义搜索找到这个 Skill 并理解其用途
-- `scripts/`：给 Agent 直接执行的辅助脚本（平台不执行）
+- `scripts/`：给 Agent 直接执行的辅助脚本（或通过 JobService 受控执行）
 - `jobs/`：给 Ray 执行的作业，每个子目录是一个 job，用 `job_name` 区分
 - 一个 Skill 可以包含**多个 job**（如 asr → summarize → extract pipeline）
 

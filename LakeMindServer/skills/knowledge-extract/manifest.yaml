@@ -1,0 +1,19 @@
+name: knowledge-extract
+version: "1.0.0"
+description: Extract knowledge concepts from meeting transcript
+entry_point: main.py
+model_profiles:
+  - knowledge-embedding
+resource_needs:
+  cpu: 1
+  memory_mb: 2048
+  timeout_seconds: 600
+inputs:
+  - name: transcript
+    type: json
+    required: true
+outputs:
+  - name: concepts
+    type: json
+  - name: memory_facts
+    type: json

@@ -181,8 +181,8 @@ docker compose up -d
 | lakemind-ray-head | 8265 | Ray dashboard (4 CPU) |
 | lakemind-ray-worker-1/2 | — | Ray worker (各 4 CPU) |
 | lakemind-asset-mcp | 8401 | 认知资产面 (23 tools) |
-| lakemind-data-mcp | 8402 | 数据面 (18 tools) |
-| lakemind-admin-mcp | 8403 | 管理面 (17 tools) |
+| lakemind-data-mcp | 8402 | 数据面 (24 tools) |
+| lakemind-admin-mcp | 8403 | 管理面 (21 tools) |
 | lakemind-steward | 8500 | 管理运维 Agent |
 | lakemind-monitor | 3000 | 人类仪表板 |
 
