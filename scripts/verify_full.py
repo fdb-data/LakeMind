@@ -60,8 +60,7 @@ CONTAINERS = [
     "lakemind-valkey", "lakemind-ray-head", "lakemind-ray-worker-1",
     "lakemind-ray-worker-2", "lakemind-model-serving",
     "lakemind-asset-mcp", "lakemind-data-mcp",
-    "lakemind-admin-mcp", "lakemind-steward", "lakemind-monitor",
-    "lakemind-cc-bff", "lakemind-cc-steward", "lakemind-cc-frontend",
+    "lakemind-admin-mcp", "lakemind-control-center",
 ]
 
 EXPECTED_ENGINES = [
@@ -487,17 +486,16 @@ def _l2_v2_endpoints():
     # Instances
     r = rest("GET", "/instances")
     record("L2", "v2_instances", "list", r.status_code == 200, f"got {r.status_code}")
-    # Control Center BFF
+    # Control Center (merged: frontend + BFF + steward on port 3000)
     try:
         with httpx.Client() as c:
-            r = c.get("http://localhost:3001/health", timeout=5)
+            r = c.get("http://localhost:3000/health", timeout=5)
             record("L2", "v2_cc_bff", "health", r.status_code == 200, f"got {r.status_code}")
     except Exception as e:
         skip("L2", "v2_cc_bff", "health", f"connection refused: {e}")
-    # Control Center Steward
     try:
         with httpx.Client() as c:
-            r = c.get("http://localhost:3002/health", timeout=5)
+            r = c.get("http://localhost:3000/steward/health", timeout=5)
             record("L2", "v2_cc_steward", "health", r.status_code == 200, f"got {r.status_code}")
     except Exception as e:
         skip("L2", "v2_cc_steward", "health", f"connection refused: {e}")
@@ -511,7 +509,7 @@ def _l2_v2_functional():
     try:
         with httpx.Client() as c:
             pw_hash = hashlib.sha256("lakemind-admin-2026".encode()).hexdigest()
-            r = c.post("http://localhost:3001/auth/login",
+            r = c.post("http://localhost:3000/api/auth/login",
                        json={"username": "admin", "password": "lakemind-admin-2026"}, timeout=10)
             login_ok = r.status_code == 200 and "session_id" in r.json()
             record("L2", "v2_bff", "login", login_ok, f"got {r.status_code}")
@@ -520,19 +518,19 @@ def _l2_v2_functional():
                 session_id = r.json()["session_id"]
                 cookies = {"session_id": session_id}
 
-                r2 = c.get("http://localhost:3001/overview", cookies=cookies, timeout=10)
+                r2 = c.get("http://localhost:3000/api/overview", cookies=cookies, timeout=10)
                 record("L2", "v2_bff", "overview", r2.status_code == 200, f"got {r2.status_code}")
 
-                r3 = c.get("http://localhost:3001/models", cookies=cookies, timeout=10)
+                r3 = c.get("http://localhost:3000/api/models", cookies=cookies, timeout=10)
                 record("L2", "v2_bff", "models", r3.status_code == 200, f"got {r3.status_code}")
 
-                r4 = c.get("http://localhost:3001/operations", cookies=cookies, timeout=10)
+                r4 = c.get("http://localhost:3000/api/operations", cookies=cookies, timeout=10)
                 record("L2", "v2_bff", "operations", r4.status_code == 200, f"got {r4.status_code}")
 
-                r5 = c.get("http://localhost:3001/audit", cookies=cookies, timeout=10)
+                r5 = c.get("http://localhost:3000/api/audit", cookies=cookies, timeout=10)
                 record("L2", "v2_bff", "audit", r5.status_code == 200, f"got {r5.status_code}")
 
-                r6 = c.post("http://localhost:3001/auth/logout", cookies=cookies, timeout=10)
+                r6 = c.post("http://localhost:3000/api/auth/logout", cookies=cookies, timeout=10)
                 record("L2", "v2_bff", "logout", r6.status_code == 200, f"got {r6.status_code}")
     except Exception as e:
         record("L2", "v2_bff", "login", False, str(e)[:100])
@@ -1008,61 +1006,46 @@ async def test_l6():
 
 
 # ════════════════════════════════════════════════════════════════
-# L7 — Steward + Monitor
+# L7 — ControlCenter (merged: frontend + BFF + steward)
 # ════════════════════════════════════════════════════════════════
 
 def test_l7():
-    print(f"\n{'='*60}\nL7 — Steward + Monitor (8)\n{'='*60}")
+    print(f"\n{'='*60}\nL7 — ControlCenter (5)\n{'='*60}")
     with httpx.Client(timeout=30) as c:
-        # Steward
-        try:
-            r = c.get("http://localhost:8500/health")
-            record("L7", "steward", "health", r.status_code == 200, f"got {r.status_code}")
-        except Exception as e:
-            record("L7", "steward", "health", False, str(e)[:60])
-        try:
-            r = c.post("http://localhost:8500/chat", json={"message": "巡检平台状态"})
-            record("L7", "steward", "chat", r.status_code == 200, f"got {r.status_code}")
-        except Exception as e:
-            record("L7", "steward", "chat", False, str(e)[:60])
-        try:
-            r = c.post("http://localhost:8500/inspect", json={"target": "engines"})
-            record("L7", "steward", "inspect", r.status_code == 200, f"got {r.status_code}")
-        except Exception as e:
-            record("L7", "steward", "inspect", False, str(e)[:60])
-
-        # Monitor
-        try:
-            r = c.get("http://localhost:3003/")
-            record("L7", "monitor", "index", r.status_code == 200, f"got {r.status_code}")
-        except Exception as e:
-            record("L7", "monitor", "index", False, str(e)[:60])
-        try:
-            r = c.get("http://localhost:3003/api/health")
-            record("L7", "monitor", "api_health", r.status_code == 200, f"got {r.status_code}")
-        except Exception as e:
-            record("L7", "monitor", "api_health", False, str(e)[:60])
-        try:
-            r = c.get("http://localhost:3003/api/asset/capabilities")
-            record("L7", "monitor", "capabilities", r.status_code == 200, f"got {r.status_code}")
-        except Exception as e:
-            record("L7", "monitor", "capabilities", False, str(e)[:60])
-        try:
-            r = c.get("http://localhost:3003/api/admin/health")
-            record("L7", "monitor", "admin_health", r.status_code == 200, f"got {r.status_code}")
-        except Exception as e:
-            record("L7", "monitor", "admin_health", False, str(e)[:60])
-        try:
-            r = c.post("http://localhost:3003/api/chat", json={"message": "hello"})
-            record("L7", "monitor", "chat", r.status_code == 200, f"got {r.status_code}")
-        except Exception as e:
-            record("L7", "monitor", "chat", False, str(e)[:60])
-
+        # ControlCenter — frontend
         try:
             r = c.get("http://localhost:3000/")
             record("L7", "cc_frontend", "index", r.status_code == 200, f"got {r.status_code}")
         except Exception as e:
             record("L7", "cc_frontend", "index", False, str(e)[:60])
+
+        # ControlCenter — BFF health
+        try:
+            r = c.get("http://localhost:3000/health")
+            record("L7", "cc_bff", "health", r.status_code == 200, f"got {r.status_code}")
+        except Exception as e:
+            record("L7", "cc_bff", "health", False, str(e)[:60])
+
+        # ControlCenter — Steward health (via nginx proxy)
+        try:
+            r = c.get("http://localhost:3000/steward/health")
+            record("L7", "cc_steward", "health", r.status_code == 200, f"got {r.status_code}")
+        except Exception as e:
+            record("L7", "cc_steward", "health", False, str(e)[:60])
+
+        # ControlCenter — Steward inspection
+        try:
+            r = c.get("http://localhost:3000/steward/inspection")
+            record("L7", "cc_steward", "inspect", r.status_code == 200, f"got {r.status_code}")
+        except Exception as e:
+            record("L7", "cc_steward", "inspect", False, str(e)[:60])
+
+        # ControlCenter — Steward chat
+        try:
+            r = c.post("http://localhost:3000/steward/chat", json={"message": "巡检平台状态"})
+            record("L7", "cc_steward", "chat", r.status_code == 200, f"got {r.status_code}")
+        except Exception as e:
+            record("L7", "cc_steward", "chat", False, str(e)[:60])
 
 
 # ════════════════════════════════════════════════════════════════
