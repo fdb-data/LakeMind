@@ -27,6 +27,34 @@ def _ctx(request: Request):
     }
 
 
+def _sync_job_runs(job_id: str, status: str) -> None:
+    try:
+        from ..db import execute as _db_execute
+        _v2_status = {
+            "completed": "SUCCEEDED",
+            "cancelled": "CANCELLED",
+            "failed": "FAILED",
+            "running": "RUNNING",
+            "submitted": "SUBMITTED",
+        }.get(status, status.upper())
+        _db_execute(
+            "UPDATE job_runs SET status = %s, updated_at = now() WHERE job_id = %s",
+            (_v2_status, job_id),
+        )
+        if _v2_status in ("SUCCEEDED", "FAILED", "CANCELLED"):
+            _db_execute(
+                "UPDATE job_runs SET finished_at = now() WHERE job_id = %s",
+                (job_id,),
+            )
+            _db_execute(
+                "UPDATE job_attempts SET status = %s, finished_at = now() "
+                "WHERE job_id = %s AND status IN ('QUEUED','RUNNING')",
+                (_v2_status, job_id),
+            )
+    except Exception:
+        pass
+
+
 class SubmitBody(BaseModel):
     func: str
     args: dict = {}
@@ -66,6 +94,7 @@ async def job_status(job_id: str, request: Request):
                         "FAILED": "failed",
                     }.get(status, status.lower())
                     meta.update_ray_job_status(job_id, pg_status)
+                    _sync_job_runs(job_id, pg_status)
                 return {"job_id": job_id, "ray_job_id": ray_job_id, "status": status,
                         "entrypoint": ray_info.get("entrypoint"),
                         "start_time": ray_info.get("start_time"),
@@ -160,6 +189,25 @@ async def submit_skill_job(body: SubmitSkillBody, request: Request):
         task_id=body.task_id,
     )
 
+    try:
+        from ..db import execute as _db_execute
+        import json as _json
+        _db_execute(
+            "INSERT INTO job_runs (job_id, tenant_id, skill_asset_id, skill_version, "
+            "skill_checksum, initiator_id, inputs, params, status) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'SUBMITTED') "
+            "ON CONFLICT (job_id) DO NOTHING",
+            (job_id, ctx["tenant_id"], body.skill_uri, "", "",
+             ctx["agent_id"], _json.dumps(body.params), _json.dumps({})),
+        )
+        _db_execute(
+            "INSERT INTO job_attempts (attempt_id, job_id, attempt_number, status) "
+            "VALUES (%s, %s, 1, 'QUEUED') ON CONFLICT DO NOTHING",
+            (f"atm_{job_id}", job_id),
+        )
+    except Exception:
+        pass
+
     for key_name in tenant_secrets:
         meta.log_secret_access(
             ctx["tenant_id"], key_name, ctx["agent_id"],
@@ -175,8 +223,10 @@ async def submit_skill_job(body: SubmitSkillBody, request: Request):
             job_id=job_id,
         )
         meta.update_ray_job_status(job_id, "running", ray_job_id=ray_job_id)
+        _sync_job_runs(job_id, "running")
     except Exception as e:
         meta.update_ray_job_status(job_id, "failed")
+        _sync_job_runs(job_id, "failed")
         raise HTTPException(status_code=500, detail=f"ray submit failed: {e}")
 
     return {"job_id": job_id, "status": "submitted", "ray_job_id": ray_job_id}
@@ -195,6 +245,7 @@ async def cancel_job(job_id: str, request: Request):
     else:
         result = {"job_id": job_id, "status": "cancelled"}
     meta.update_ray_job_status(job_id, "cancelled")
+    _sync_job_runs(job_id, "cancelled")
     return result
 
 

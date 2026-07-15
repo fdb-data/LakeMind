@@ -63,7 +63,7 @@ LakeMindModelServing (:10824)  ← 统一模型服务（litellm + fastembed + Fu
 | 分布式计算 | **Ray 2.41.0** | 3 节点 12 CPU（已实现） |
 | Embedding | **fastembed** | jinaai/jina-embeddings-v2-base-zh, dim=768（中英混合），由 ModelServing 提供 |
 | LLM 网关 | **litellm** | 内部能力，路由多 provider（不通过 MCP 暴露）（PyPI 包名 `litellm`） |
-| ASR | **FunASR** | 本地语音识别（SenseVoice-Small）（PyPI 包名 `funasr`） |
+| ASR | **faster-whisper** | 本地语音识别（whisper-large-v3-turbo, INT8 CPU）（PyPI 包名 `faster-whisper`） |
 | MCP SDK | **FastMCP** | tools + resources + prompts 三要素 |
 | Agent 框架 | **LangGraph** | Steward 巡检工作流 |
 
@@ -86,6 +86,7 @@ LakeMindModelServing (:10824)  ← 统一模型服务（litellm + fastembed + Fu
 2. **统一存储底座** — SeaweedFS 一个对象存储
 3. **统一元数据** — PostgreSQL 一个数据库
 4. **计算与引擎分离** — 引擎可替换，计算可走嵌入式或 Ray
+5. **禁止运行时动态下载模型** — 所有模型（ASR、Embedding、本地 LLM 等）必须在部署前预下载到持久化存储，运行时只从本地路径加载。模型缺失时返回错误，不触发下载。预下载通过独立的一次性容器（如 `asr-model-init`）或模型 Bundle 镜像完成。
 
 ## 7. 关键设计决策
 
@@ -98,12 +99,18 @@ LakeMindModelServing (:10824)  ← 统一模型服务（litellm + fastembed + Fu
 
 ## 8. 约定
 
-- `docker-compose` 在各包目录内运行（`.env`、`config/` 为相对路径）。
-- 3 compose 组：`LakeMindServer/`（`lakemind-server`，含 `--profile ray`，创建网络）、`LakeMindMCP/`（`lakemind-mcp`，`--profile all`，外部网络）、`LakeMindMonitor/`（`lakemind-runtime`，外部网络，含 Steward + Monitor + ModelServing）。
-- 启动顺序：LakeMindServer → LakeMindMCP → LakeMindMonitor。
-- BuildKit 禁用：`$env:DOCKER_BUILDKIT=0`。
+- 根目录 `docker-compose.yml` 是唯一统一编排文件（纯运行，不含 build）。
+- 开发覆盖：`docker-compose.build.yml`（将 GHCR 镜像替换为本地 dev 标签）。
+- 构建定义：`docker-bake.hcl`（本地和 CI 的唯一构建入口）。
+- 依赖锁定：`uv.lock`（Python）+ `package-lock.json`（前端）。
+- 5 个自研镜像：`postgres-age`、`server-api`、`mcp-suite`、`model-serving`、`control-center`。
+- 3 个 MCP 复用同一 `mcp-suite` 镜像，通过不同 `command` 启动。
+- Ray 使用官方镜像 `rayproject/ray:2.41.0-py312`。
+- 启动顺序：数据平面 → 运行平面 → 模型平面 → 管理平面。
+- 本地开发：`docker buildx bake core --load` → `docker compose -f docker-compose.yml -f docker-compose.build.yml --env-file .env --profile ray --profile all up -d --no-build`。
+- 正式部署：`docker compose --env-file .env pull` → `docker compose --env-file .env --profile ray --profile all up -d --no-build`。
 - 跨包依赖只通过 MCP 协议（运行平面）或 REST API（数据平面，:10823），不直连任何底层引擎。
-- 验证脚本放 `scripts/`，主验证脚本 `scripts/verify_full.py`（L0-L9 全分层，297/297 PASS）。
+- 验证脚本放 `scripts/`，主验证脚本 `scripts/verify_full.py`（L0-L9 全分层）。
 - 代码不加注释，除非逻辑非显而易见。
 - 设计文档用中文，代码标识符用英文。
 - PowerShell 下读写中文文件名需设置 `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8`。

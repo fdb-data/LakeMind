@@ -196,7 +196,7 @@ class MeetingAgent:
                 job_id = job["job_id"]
                 logger.info("[SUBMIT] ASR chunk %d -> job %s", chunk_num, job_id)
 
-                status = await self.client.poll_job(job_id, interval=1.0, timeout=120)
+                status = await self.client.poll_job(job_id, interval=1.0, timeout=180)
                 ray_status = status.get("status", "")
 
                 if ray_status in ("SUCCEEDED", "Completed", "completed"):
@@ -252,7 +252,7 @@ class MeetingAgent:
             job_id = job["job_id"]
             logger.info("[SUBMIT] Summarize #%d -> job %s", summary_num, job_id)
 
-            status = await self.client.poll_job(job_id, interval=1.5, timeout=120)
+            status = await self.client.poll_job(job_id, interval=1.5, timeout=180)
             ray_status = status.get("status", "")
 
             if ray_status in ("SUCCEEDED", "Completed", "completed"):
@@ -314,7 +314,7 @@ class MeetingAgent:
             job_id = job["job_id"]
             logger.info("[SUBMIT] Extract #%d -> job %s", extract_num, job_id)
 
-            status = await self.client.poll_job(job_id, interval=1.5, timeout=120)
+            status = await self.client.poll_job(job_id, interval=1.5, timeout=180)
             ray_status = status.get("status", "")
 
             if ray_status in ("SUCCEEDED", "Completed", "completed"):

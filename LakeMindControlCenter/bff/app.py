@@ -11,7 +11,7 @@ app = FastAPI(title="LakeMind Control Center BFF", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -28,12 +28,15 @@ class LoginRequest(BaseModel):
     password: str
 
 
-async def _cp_get(path: str, params: dict | None = None) -> dict:
+async def _cp_get(path: str, params: dict | None = None, tenant_id: str | None = None) -> dict:
+    headers = {"Authorization": f"Bearer {_BFF_TOKEN}"}
+    if tenant_id:
+        headers["X-Tenant-Id"] = tenant_id
     async with httpx.AsyncClient() as client:
         resp = await client.get(
             f"{_CONTROL_PLANE}{path}",
             params=params,
-            headers={"Authorization": f"Bearer {_BFF_TOKEN}"},
+            headers=headers,
             timeout=10.0,
         )
         if resp.status_code != 200:
@@ -41,12 +44,15 @@ async def _cp_get(path: str, params: dict | None = None) -> dict:
         return resp.json()
 
 
-async def _cp_post(path: str, body: dict | None = None) -> dict:
+async def _cp_post(path: str, body: dict | None = None, tenant_id: str | None = None) -> dict:
+    headers = {"Authorization": f"Bearer {_BFF_TOKEN}"}
+    if tenant_id:
+        headers["X-Tenant-Id"] = tenant_id
     async with httpx.AsyncClient() as client:
         resp = await client.post(
             f"{_CONTROL_PLANE}{path}",
             json=body,
-            headers={"Authorization": f"Bearer {_BFF_TOKEN}"},
+            headers=headers,
             timeout=10.0,
         )
         if resp.status_code != 200:
@@ -76,7 +82,7 @@ async def login(req: LoginRequest):
         "tenant_id": data.get("tenant_id"),
     }
     response = JSONResponse({"session_id": session_id, "role": _sessions[session_id]["role"]})
-    response.set_cookie("session_id", session_id, httponly=True, max_age=3600)
+    response.set_cookie("session_id", session_id, httponly=True, max_age=3600, samesite="lax")
     return response
 
 
@@ -97,23 +103,31 @@ def _get_session(request: Request) -> dict:
     return _sessions[session_id]
 
 
+def _refresh_session_cookie(response: JSONResponse, request: Request) -> JSONResponse:
+    session_id = request.cookies.get("session_id")
+    if session_id:
+        response.set_cookie("session_id", session_id, httponly=True, max_age=3600, samesite="lax")
+    return response
+
+
 @app.get("/overview")
 async def overview(request: Request):
-    _get_session(request)
+    session = _get_session(request)
     import asyncio
     results = await asyncio.gather(
         _cp_get("/api/v1/instances"),
         _cp_get("/api/v1/assets", {"page_size": "1"}),
-        _cp_get("/api/v1/jobs", {"page_size": "1"}),
+        _cp_get("/api/v1/jobs", {"page_size": "1"}, tenant_id=session.get("tenant_id")),
         _cp_get("/api/v1/audit", {"page_size": "5"}),
         return_exceptions=True,
     )
-    return {
+    resp = JSONResponse({
         "instances": results[0] if not isinstance(results[0], Exception) else {"items": []},
         "assets_total": results[1].get("total", 0) if not isinstance(results[1], Exception) else 0,
         "jobs_total": results[2].get("total", 0) if not isinstance(results[2], Exception) else 0,
         "recent_audit": results[3].get("items", []) if not isinstance(results[3], Exception) else [],
-    }
+    })
+    return _refresh_session_cookie(resp, request)
 
 
 @app.get("/assets")
@@ -143,27 +157,27 @@ async def get_lineage(asset_id: str, request: Request):
 
 @app.get("/jobs")
 async def list_jobs(request: Request):
-    _get_session(request)
+    session = _get_session(request)
     params = dict(request.query_params)
-    return await _cp_get("/api/v1/jobs", params)
+    return await _cp_get("/api/v1/jobs", params, tenant_id=session.get("tenant_id"))
 
 
 @app.get("/jobs/{job_id}")
 async def get_job(job_id: str, request: Request):
-    _get_session(request)
-    return await _cp_get(f"/api/v1/jobs/{job_id}")
+    session = _get_session(request)
+    return await _cp_get(f"/api/v1/jobs/{job_id}", tenant_id=session.get("tenant_id"))
 
 
 @app.post("/jobs/{job_id}/retry")
 async def retry_job(job_id: str, request: Request):
-    _get_session(request)
-    return await _cp_post(f"/api/v1/jobs/{job_id}/retry")
+    session = _get_session(request)
+    return await _cp_post(f"/api/v1/jobs/{job_id}/retry", tenant_id=session.get("tenant_id"))
 
 
 @app.post("/jobs/{job_id}/cancel")
 async def cancel_job(job_id: str, request: Request):
-    _get_session(request)
-    return await _cp_post(f"/api/v1/jobs/{job_id}/cancel")
+    session = _get_session(request)
+    return await _cp_post(f"/api/v1/jobs/{job_id}/cancel", tenant_id=session.get("tenant_id"))
 
 
 @app.get("/models")
@@ -172,10 +186,56 @@ async def list_models(request: Request):
     return await _cp_get("/api/v1/models/definitions")
 
 
+@app.post("/models/definitions")
+async def create_model(request: Request):
+    _get_session(request)
+    body = await request.json()
+    return await _cp_post("/api/v1/models/definitions", body)
+
+
 @app.get("/models/deployments")
 async def list_deployments(request: Request):
     _get_session(request)
     return await _cp_get("/api/v1/models/deployments")
+
+
+@app.post("/models/deployments")
+async def create_deployment(request: Request):
+    _get_session(request)
+    body = await request.json()
+    return await _cp_post("/api/v1/models/deployments", body)
+
+
+@app.post("/models/deployments/{deployment_id}/enable")
+async def enable_deployment(deployment_id: str, request: Request):
+    _get_session(request)
+    return await _cp_post(f"/api/v1/models/deployments/{deployment_id}/enable")
+
+
+@app.post("/models/deployments/{deployment_id}/disable")
+async def disable_deployment(deployment_id: str, request: Request):
+    _get_session(request)
+    return await _cp_post(f"/api/v1/models/deployments/{deployment_id}/disable")
+
+
+@app.get("/models/profiles")
+async def list_profiles(request: Request):
+    _get_session(request)
+    return await _cp_get("/api/v1/models/profiles")
+
+
+@app.post("/models/profiles")
+async def create_profile(request: Request):
+    _get_session(request)
+    body = await request.json()
+    return await _cp_post("/api/v1/models/profiles", body)
+
+
+@app.post("/models/profiles/resolve")
+async def resolve_profile(request: Request):
+    _get_session(request)
+    body = await request.json()
+    return await _cp_post("/api/v1/models/profiles/resolve", body)
 
 
 @app.get("/instances")

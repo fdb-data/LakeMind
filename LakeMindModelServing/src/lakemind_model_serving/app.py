@@ -65,9 +65,19 @@ def create_app() -> FastAPI:
 
     if cfg.asr.built_in.enabled:
         asr_service = ASRService(
-            model_name=cfg.asr.built_in.model,
+            model_path=cfg.asr.built_in.model_path,
+            model_alias=cfg.asr.built_in.model_alias,
             language=cfg.asr.built_in.language,
-            cache_dir=cfg.asr.built_in.cache_dir,
+            device=cfg.asr.built_in.device,
+            compute_type=cfg.asr.built_in.compute_type,
+            cpu_threads=cfg.asr.built_in.cpu_threads,
+            num_workers=cfg.asr.built_in.num_workers,
+            beam_size=cfg.asr.built_in.beam_size,
+            vad_filter=cfg.asr.built_in.vad_filter,
+            vad_min_silence_duration_ms=cfg.asr.built_in.vad_min_silence_duration_ms,
+            condition_on_previous_text=cfg.asr.built_in.condition_on_previous_text,
+            word_timestamps=cfg.asr.built_in.word_timestamps,
+            required=cfg.asr.built_in.required,
         )
         app.state.asr_service = asr_service
     else:
@@ -78,5 +88,16 @@ def create_app() -> FastAPI:
     app.include_router(audio.router, tags=["audio"])
     app.include_router(models.router, tags=["models"])
     app.include_router(health.router, tags=["health"])
+
+    @app.on_event("startup")
+    async def preload_asr():
+        if cfg.asr.built_in.enabled and cfg.asr.built_in.preload and asr_service:
+            import asyncio
+            logger.info("Pre-loading ASR models...")
+            try:
+                await asyncio.to_thread(asr_service.load)
+                logger.info("ASR models pre-loaded successfully")
+            except Exception as e:
+                logger.error("ASR pre-load failed (non-fatal, ASR will be unavailable): %s", e)
 
     return app

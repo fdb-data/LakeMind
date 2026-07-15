@@ -50,14 +50,9 @@ async def list_models(request: Request):
         models.append({
             "id": asr_service.model_name,
             "type": "asr",
-            "provider": "funasr",
+            "provider": "faster-whisper",
             "tags": ["asr"],
-        })
-        models.append({
-            "id": "sensevoice-small",
-            "type": "asr",
-            "provider": "funasr",
-            "tags": ["asr"],
+            "status": asr_service.status.value,
         })
 
     seen = set()

@@ -1,5 +1,7 @@
 from __future__ import annotations
 from typing import Any
+import io
+import os
 import pyarrow as pa
 from pyiceberg.catalog import load_catalog
 
@@ -7,6 +9,82 @@ from pyiceberg.catalog import load_catalog
 _TYPE_MAP_ARROW_TO_ICEBERG = {
     pa.string(): "StringType",
 }
+
+
+def _make_boto3_output_file_cls():
+    import boto3
+    from botocore.client import Config
+    from pyiceberg.io import OutputFile, InputStream
+    from pyiceberg.io.pyarrow import PyArrowFile, PyArrowFileIO
+
+    _s3_endpoint = os.environ.get("S3_ENDPOINT", "http://lakemind-seaweedfs:8333")
+    _s3 = boto3.client(
+        "s3", endpoint_url=_s3_endpoint, aws_access_key_id="admin",
+        aws_secret_access_key="admin123456", region_name="us-east-1",
+        config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
+    )
+
+    class _Boto3OutputStream(io.BytesIO):
+        def __init__(self, bucket, key):
+            super().__init__()
+            self._bucket = bucket
+            self._key = key
+            self._uploaded = False
+
+        def close(self):
+            if not self._uploaded:
+                self.seek(0)
+                _s3.put_object(Bucket=self._bucket, Key=self._key, Body=self)
+                self._uploaded = True
+            super().close()
+
+    class Boto3OutputFile(OutputFile):
+        def __init__(self, location: str, pyarrow_io: PyArrowFileIO):
+            super().__init__(location)
+            path = location[5:] if location.startswith("s3://") else location
+            self._bucket, _, self._key = path.partition("/")
+            self._pyarrow_io = pyarrow_io
+
+        def __len__(self):
+            try:
+                resp = _s3.head_object(Bucket=self._bucket, Key=self._key)
+                return resp["ContentLength"]
+            except Exception:
+                return 0
+
+        def exists(self):
+            try:
+                _s3.head_object(Bucket=self._bucket, Key=self._key)
+                return True
+            except Exception:
+                return False
+
+        def to_input_file(self):
+            return self._pyarrow_io.new_input(self.location)
+
+        def create(self, overwrite: bool = False):
+            if not overwrite and self.exists():
+                raise FileExistsError(self.location)
+            return _Boto3OutputStream(self._bucket, self._key)
+
+    return Boto3OutputFile
+
+
+def _patch_pyiceberg_file_io():
+    from pyiceberg.io.pyarrow import PyArrowFileIO
+
+    Boto3OutputFile = _make_boto3_output_file_cls()
+    _orig_new_output = PyArrowFileIO.new_output
+
+    def _new_output(self, location: str):
+        if location.startswith("s3://"):
+            return Boto3OutputFile(location, self)
+        return _orig_new_output(self, location)
+
+    PyArrowFileIO.new_output = _new_output
+
+
+_patch_pyiceberg_file_io()
 
 
 class IcebergTabularStorage:

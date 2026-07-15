@@ -15,7 +15,7 @@ dependencies = [
     "psycopg2-binary>=2.9",
     "litellm>=1.40",
     "fastembed>=0.4",
-    "funasr>=1.0",
+    "faster-whisper>=1.0",
     "cryptography>=42.0",
     "python-multipart>=0.0.9",
 ]

@@ -1,0 +1,28 @@
+# 开发覆盖文件 — 将 GHCR 镜像地址替换为本地 dev 标签
+# 用法：
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml --env-file .env --profile ray --profile all up -d --no-build
+
+services:
+  postgres:
+    image: lakemind/postgres-age:dev
+
+  server-api:
+    image: lakemind/server-api:dev
+
+  asset-mcp:
+    image: lakemind/mcp-suite:dev
+
+  data-mcp:
+    image: lakemind/mcp-suite:dev
+
+  admin-mcp:
+    image: lakemind/mcp-suite:dev
+
+  model-serving:
+    image: lakemind/model-serving:dev
+
+  asr-model-init:
+    image: lakemind/model-serving:dev
+
+  control-center:
+    image: lakemind/control-center:dev

@@ -110,22 +110,3 @@ app.include_router(secrets_v2_api.router, prefix="/api/v1/secrets", tags=["secre
 @app.get("/api/v1/health", tags=["system"])
 async def health():
     return {"status": "ok", "version": "2.0.0"}
-
-
-@app.post("/api/v1/cognitive/embedding/embed", tags=["cognitive-embedding"])
-async def legacy_embedding_embed(request: Request):
-    import httpx as _httpx
-    body = await request.json()
-    texts = body.get("texts", [])
-    ms_url = os.environ.get("MODEL_SERVING_URL", "http://lakemind-model-serving:10824").rstrip("/")
-    ms_key = os.environ.get("MODELSERVING_API_KEY", "lakemind-modelserving-key")
-    async with _httpx.AsyncClient() as client:
-        resp = await client.post(
-            f"{ms_url}/v1/embeddings",
-            headers={"Authorization": f"Bearer {ms_key}"},
-            json={"model": "jina-embeddings-v2-base-zh", "input": texts},
-            timeout=60,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-    return {"vectors": [item["embedding"] for item in data["data"]]}

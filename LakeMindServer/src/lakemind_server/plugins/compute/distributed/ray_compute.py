@@ -259,10 +259,18 @@ class RayCompute:
                 runtime_env["pip"] = ray_cfg["dependencies"]
 
             client = self._job_submission_client()
-            ray_job_id = client.submit_job(
+            submit_kwargs: dict[str, Any] = dict(
                 entrypoint=ray_cfg["entrypoint"],
                 runtime_env=runtime_env,
             )
+            ray_resources = ray_cfg.get("resources") or {}
+            if resources_override:
+                ray_resources.update(resources_override)
+            if ray_resources:
+                num_cpus = ray_resources.get("num_cpus") or ray_resources.get("cpu")
+                if num_cpus:
+                    submit_kwargs["entrypoint_num_cpus"] = float(num_cpus)
+            ray_job_id = client.submit_job(**submit_kwargs)
             logger.info("Submitted skill job %s -> ray job %s (job_name=%s)", job_id, ray_job_id, job_name)
             return ray_job_id
         finally:

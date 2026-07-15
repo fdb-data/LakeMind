@@ -52,14 +52,26 @@ def llm_chat(system_prompt: str, user_content: str, model: str = "deepseek-v4-fl
 
 
 def asr(audio: bytes, filename: str = "audio.wav") -> dict:
-    resp = httpx.post(
-        f"{MS_URL}/v1/audio/transcriptions",
-        headers={"Authorization": f"Bearer {MS_KEY}"},
-        files={"file": (filename, audio, "audio/wav")},
-        timeout=120,
-    )
-    resp.raise_for_status()
-    return resp.json()
+    max_retries = 3
+    backoff = 5
+    for attempt in range(max_retries):
+        try:
+            resp = httpx.post(
+                f"{MS_URL}/v1/audio/transcriptions",
+                headers={"Authorization": f"Bearer {MS_KEY}"},
+                files={"file": (filename, audio, "audio/wav")},
+                timeout=180,
+            )
+            resp.raise_for_status()
+            return resp.json()
+        except (httpx.TimeoutException, httpx.TransportError, httpx.HTTPStatusError) as e:
+            if attempt < max_retries - 1:
+                import time as _t
+                print(f"ASR attempt {attempt+1}/{max_retries} failed: {e}, retrying in {backoff}s...")
+                _t.sleep(backoff)
+                backoff *= 2
+            else:
+                raise
 
 
 def embed(text: str) -> list[float]:

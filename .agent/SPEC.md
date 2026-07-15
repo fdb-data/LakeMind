@@ -268,7 +268,7 @@ docker restart lakemind-server-api
 | 分布式计算 | Ray 2.41.0 | `ray[default]` |
 | Embedding | fastembed | `fastembed` |
 | LLM 网关 | litellm | `litellm` |
-| ASR | FunASR | `funasr` |
+| ASR | faster-whisper | `faster-whisper` |
 | MCP SDK | FastMCP | `mcp` |
 | Agent 框架 | LangGraph | `langgraph` |
 | Web 框架 | FastAPI（Steward）/ Express（Monitor） | — |
@@ -283,6 +283,18 @@ docker restart lakemind-server-api
 | Daft | DuckDB + Ray 替代 |
 | Dragonfly | BSL 1.1 禁止 SaaS，已用 Valkey（BSD 3-Clause）替代 |
 | AGE 图扩展 | 编译超时，PG 原生表替代 |
+
+### 模型管理规范
+
+| 规则 | 说明 |
+|------|------|
+| **禁止运行时动态下载** | 所有模型（ASR、Embedding、本地 LLM 等）必须在部署前预下载到持久化存储。运行时只从本地绝对路径加载。 |
+| **模型缺失返回错误** | 模型文件不存在时返回 `503 Service Unavailable`，不触发任何下载。 |
+| **预下载容器** | 通过独立的一次性容器（`asr-model-init`，`restart: no`）或模型 Bundle 镜像完成预下载。 |
+| **持久化 volume** | 模型存储在 Docker named volume 中，容器重建后不丢失。 |
+| **启动时预加载** | ModelServing 启动时预加载模型（`preload: true`），不在首个请求时触发加载。 |
+| **readiness 检查** | `/health/ready` 反映模型是否实际加载完成，`/health` 仅检查进程存活。 |
+| **local_only 模式** | FunASR `AutoModel` 传入本地绝对路径，不传入 ModelScope model ID，运行时不访问外部模型仓库。 |
 
 ---
 

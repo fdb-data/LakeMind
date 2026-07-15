@@ -178,9 +178,18 @@ class ServerClient:
     async def job_result(self, job_id: str) -> dict:
         return await self.get(f"/api/v1/compute/jobs/{job_id}/result")
 
-    # ── Embedding ──
+    # ── Embedding (via ModelServing) ──
     async def embed(self, texts: list[str]) -> dict:
-        return await self.post("/api/v1/cognitive/embedding/embed", json={"texts": texts})
+        ms_url = os.environ.get("MODEL_SERVING_URL", "http://lakemind-model-serving:10824").rstrip("/")
+        ms_key = os.environ.get("MODELSERVING_API_KEY", "lakemind-modelserving-key")
+        resp = await self.client.post(
+            f"{ms_url}/v1/embeddings",
+            headers={"Authorization": f"Bearer {ms_key}"},
+            json={"model": "jina-embeddings-v2-base-zh", "input": texts},
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        return {"vectors": [item["embedding"] for item in data["data"]]}
 
     # ── Memory (mem0-style) ──
     async def memory_add(self, messages: list[dict], metadata: dict | None = None,

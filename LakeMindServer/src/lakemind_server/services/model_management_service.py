@@ -168,6 +168,16 @@ class ModelManagementService:
         return execute("SELECT * FROM model_deployments ORDER BY priority")
 
     @staticmethod
+    def list_profiles() -> list[dict]:
+        return execute("SELECT * FROM model_profiles ORDER BY created_at")
+
+    @staticmethod
+    def list_routes(profile_name: str | None = None) -> list[dict]:
+        if profile_name:
+            return execute("SELECT * FROM model_routes WHERE profile_name = %s ORDER BY priority", (profile_name,))
+        return execute("SELECT * FROM model_routes ORDER BY priority")
+
+    @staticmethod
     def enable_deployment(ctx: SecurityContext, deployment_id: str) -> dict:
         execute(
             "UPDATE model_deployments SET status = 'enabled' WHERE deployment_id = %s",

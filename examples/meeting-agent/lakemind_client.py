@@ -8,6 +8,18 @@ logger = logging.getLogger(__name__)
 
 
 class LakeMindClient:
+    """
+    LakeMind REST API client for the meeting-agent example.
+
+    API version status:
+      - Storage endpoints (/api/v1/storage/*): data plane, version-agnostic — KEEP
+      - Job endpoints (/api/v1/compute/jobs/*): v0.1.0 — v0.2.0 JobService requires
+        published skills in assets table, not S3 packages. Bridge writes job_runs records.
+      - Tenant creation (/api/v1/metadata/tenants): v0.1.0 — v0.2.0 security API has
+        no POST /principals endpoint yet.
+      - Embedding: ModelServing /v1/embeddings direct — v0.2.0 pattern.
+      - Memory: via AssetMCP (MCP abstraction hides endpoint version).
+    """
     def __init__(
         self,
         server_url: str | None = None,
@@ -126,6 +138,14 @@ class LakeMindClient:
             if s in ("SUCCEEDED", "STOPPED", "FAILED", "completed", "cancelled", "failed"):
                 return status
             if asyncio.get_event_loop().time() > deadline:
+                try:
+                    await self._http.post(
+                        f"{self.server_url}/api/v1/compute/jobs/{job_id}/cancel",
+                        headers=self._headers, timeout=10,
+                    )
+                    logger.warning("poll_job %s: timed out after %ss, cancelled job", job_id, timeout)
+                except Exception:
+                    logger.warning("poll_job %s: timed out after %ss, cancel failed", job_id, timeout)
                 raise TimeoutError(f"job {job_id} timed out after {timeout}s (last status: {s})")
             await asyncio.sleep(interval)
 

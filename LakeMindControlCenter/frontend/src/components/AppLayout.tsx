@@ -7,7 +7,7 @@ import {
   LogoutOutlined,
 } from '@ant-design/icons';
 import { useState, useEffect } from 'react';
-import { logout } from '../api/client';
+import { logout, api } from '../api/client';
 
 const { Sider, Content, Header } = Layout;
 
@@ -37,10 +37,11 @@ export default function AppLayout() {
 
   async function apiCheck() {
     try {
-      const { default: axios } = await import('axios');
-      await axios.get(`${import.meta.env.VITE_BFF_URL || 'http://localhost:3001'}/overview`, { withCredentials: true });
-    } catch {
-      navigate('/login');
+      await api.get('/overview');
+    } catch (err: any) {
+      if (err?.response?.status === 401) {
+        navigate('/login');
+      }
     }
   }
 

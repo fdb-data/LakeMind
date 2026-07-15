@@ -11,17 +11,17 @@ COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-install-project
 
-COPY src ./src
+COPY LakeMindAssetMCP/src ./LakeMindAssetMCP/src
+COPY LakeMindDataMCP/src ./LakeMindDataMCP/src
+COPY LakeMindAdminMCP/src ./LakeMindAdminMCP/src
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-editable
 
 FROM ${PYTHON_IMAGE} AS runtime
 WORKDIR /app
-RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 && rm -rf /var/lib/apt/lists/*
 ENV PATH="/app/.venv/bin:${PATH}" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    LAKE_CONFIG=/etc/lakemind/models.yaml
+    LAKE_CONFIG=/etc/lakemind/config.yaml
 COPY --from=builder /app/.venv /app/.venv
-EXPOSE 10824
-CMD ["python", "-m", "lakemind_model_serving"]
+CMD ["python", "-m", "lakemind_asset_mcp"]

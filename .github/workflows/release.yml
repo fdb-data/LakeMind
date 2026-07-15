@@ -30,12 +30,15 @@ jobs:
             echo "version=${VERSION}" >> $GITHUB_OUTPUT
           fi
 
-  server-api:
+  build:
     needs: determine-version
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    strategy:
+      matrix:
+        target: [postgres-age, server-api, mcp-suite, model-serving, control-center]
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -44,205 +47,16 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
+      - uses: docker/bake-action@v5
         with:
-          context: LakeMindServer
-          file: LakeMindServer/Dockerfile
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/server-api:v${{ needs.determine-version.outputs.version }}
-            ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/server-api:latest
+          files: docker-bake.hcl
+          targets: ${{ matrix.target }}
           push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          load: true
-
-  postgres-age:
-    needs: determine-version
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
-        with:
-          context: LakeMindServer/docker/postgres-age
-          file: LakeMindServer/docker/postgres-age/Dockerfile
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/postgres-age:16
-          push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  ray:
-    needs: determine-version
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
-        with:
-          context: LakeMindServer
-          file: LakeMindServer/Dockerfile.ray
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/ray:2.41.0-py3.12
-          push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  asset-mcp:
-    needs: determine-version
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
-        with:
-          context: LakeMindMCP/LakeMindAssetMCP
-          file: LakeMindMCP/LakeMindAssetMCP/Dockerfile
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/asset-mcp:v${{ needs.determine-version.outputs.version }}
-          push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  data-mcp:
-    needs: determine-version
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
-        with:
-          context: LakeMindMCP/LakeMindDataMCP
-          file: LakeMindMCP/LakeMindDataMCP/Dockerfile
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/data-mcp:v${{ needs.determine-version.outputs.version }}
-          push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  admin-mcp:
-    needs: determine-version
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
-        with:
-          context: LakeMindMCP/LakeMindAdminMCP
-          file: LakeMindMCP/LakeMindAdminMCP/Dockerfile
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/admin-mcp:v${{ needs.determine-version.outputs.version }}
-          push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  monitor:
-    needs: determine-version
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
-        with:
-          context: LakeMindMonitor
-          file: LakeMindMonitor/Dockerfile
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/monitor:v${{ needs.determine-version.outputs.version }}
-          push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  steward:
-    needs: determine-version
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
-        with:
-          context: LakeMindSteward
-          file: LakeMindSteward/Dockerfile
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/steward:v${{ needs.determine-version.outputs.version }}
-          push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  model-serving:
-    needs: [determine-version, server-api]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
-        with:
-          context: LakeMindModelServing
-          file: LakeMindModelServing/Dockerfile
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/model-serving:v${{ needs.determine-version.outputs.version }}
-            ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/model-serving:latest
-          push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-contexts: |
-            lakemind/server-api:latest=docker-image://${{ env.REGISTRY }}/${{ env.NAMESPACE }}/server-api:latest
+          set: |
+            *.REGISTRY=${{ env.REGISTRY }}/${{ env.NAMESPACE }}
+            *.VERSION=${{ needs.determine-version.outputs.version }}
+            *.cache-from=type=gha,scope=${{ matrix.target }}
+            *.cache-to=type=gha,mode=max,scope=${{ matrix.target }}
 
   meeting-agent:
     needs: determine-version
@@ -262,46 +76,49 @@ jobs:
         with:
           context: examples/meeting-agent
           file: examples/meeting-agent/Dockerfile
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/meeting-agent:v${{ needs.determine-version.outputs.version }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/meeting-agent:${{ needs.determine-version.outputs.version }}
           push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=meeting-agent
+          cache-to: type=gha,mode=max,scope=meeting-agent
 
-  # ── 汇总：生成 SBOM + GitHub Release ──
   finalize:
-    needs: [determine-version, server-api, postgres-age, ray, asset-mcp, data-mcp, admin-mcp, monitor, steward, model-serving, meeting-agent]
+    needs: [determine-version, build, meeting-agent]
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      packages: write
+      packages: read
     steps:
       - uses: actions/checkout@v4
-      - name: Create release summary
+      - name: Generate release notes
         run: |
-          cat > release-notes.md << 'EOF'
-          ## LakeMind v${{ needs.determine-version.outputs.version }}
+          VERSION="${{ needs.determine-version.outputs.version }}"
+          cat > release-notes.md << EOF
+          # LakeMind v${VERSION}
 
-          ### Docker Images (GHCR)
-          | Image | Tag |
-          |-------|-----|
-          | server-api | `v${{ needs.determine-version.outputs.version }}` |
-          | postgres-age | `16` |
-          | ray | `2.41.0-py3.12` |
-          | model-serving | `v${{ needs.determine-version.outputs.version }}` |
-          | asset-mcp | `v${{ needs.determine-version.outputs.version }}` |
-          | data-mcp | `v${{ needs.determine-version.outputs.version }}` |
-          | admin-mcp | `v${{ needs.determine-version.outputs.version }}` |
-          | monitor | `v${{ needs.determine-version.outputs.version }}` |
-          | steward | `v${{ needs.determine-version.outputs.version }}` |
-          | meeting-agent | `v${{ needs.determine-version.outputs.version }}` |
+          ## 镜像清单
 
-          ```bash
-          docker pull ghcr.io/fdb-data/lakemind/server-api:v${{ needs.determine-version.outputs.version }}
-          ```
+          | 镜像 | 标签 |
+          |------|------|
+          | postgres-age | ${VERSION} |
+          | server-api | ${VERSION} |
+          | mcp-suite | ${VERSION} |
+          | model-serving | ${VERSION} |
+          | control-center | ${VERSION} |
+          | meeting-agent | ${VERSION} |
+
+          ## 第三方镜像
+
+          | 镜像 | 版本 |
+          |------|------|
+          | SeaweedFS | 3.101 |
+          | PostgreSQL | 16 |
+          | Valkey | 8.0.9 |
+          | Ray | 2.41.0-py312 |
           EOF
-      - name: Create or update GitHub Release
+      - uses: softprops/action-gh-release@v2
         if: github.event_name == 'push'
-        uses: softprops/action-gh-release@v2
         with:
           body_path: release-notes.md
-          generate_release_notes: true
+          draft: false
+          prerelease: false
