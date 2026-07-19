@@ -77,6 +77,14 @@ async def list_routes(request: Request):
     return ModelManagementService.list_routes(params.get("profile_name"))
 
 
+@router.post("/routes")
+async def create_route(request: Request):
+    ctx = get_security_context(request)
+    _check_perm(ctx, Action.MODEL_CONFIGURE.value)
+    body = await request.json()
+    return ModelManagementService.create_route(**body)
+
+
 @router.post("/profiles/resolve")
 async def resolve_profile(request: Request):
     ctx = get_security_context(request)

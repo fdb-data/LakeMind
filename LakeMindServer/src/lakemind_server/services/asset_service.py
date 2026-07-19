@@ -19,13 +19,14 @@ class AssetService:
     @staticmethod
     def create_asset(ctx: SecurityContext, asset_type: str, name: str,
                      source_type: str = "upload", source_uri: str | None = None,
-                     metadata: dict | None = None, visibility: str = "private") -> dict:
+                     metadata: dict | None = None, visibility: str = "private",
+                     version: str = "1.0.0") -> dict:
         asset_id = _ulid("ast")
         execute(
-            "INSERT INTO assets (asset_id, tenant_id, asset_type, name, status, owner_id, created_by, "
+            "INSERT INTO assets (asset_id, tenant_id, asset_type, name, version, status, owner_id, created_by, "
             "visibility, source_type, source_uri, metadata) "
-            "VALUES (%s, %s, %s, %s, 'DRAFT', %s, %s, %s, %s, %s, %s)",
-            (asset_id, ctx.tenant_id, asset_type, name, ctx.principal_id, ctx.principal_id,
+            "VALUES (%s, %s, %s, %s, %s, 'DRAFT', %s, %s, %s, %s, %s, %s)",
+            (asset_id, ctx.tenant_id, asset_type, name, version, ctx.principal_id, ctx.principal_id,
              visibility, source_type, source_uri, metadata or {}),
         )
         AuditService.record(

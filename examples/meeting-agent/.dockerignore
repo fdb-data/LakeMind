@@ -7,3 +7,8 @@ agent.err
 UPGRADE_PLAN.md
 DESIGN.md
 README.md
+frontend/node_modules/
+.git/
+agent.py
+lakemind_client.py
+static/

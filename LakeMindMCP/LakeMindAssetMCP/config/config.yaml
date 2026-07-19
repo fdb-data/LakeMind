@@ -22,6 +22,10 @@ tokens:
     agent_id: "opencode-agent"
     tenant_id: "opencode"
     scopes: ["asset"]
+  - token: "meeting-agent-mcp-token"
+    agent_id: "meeting-agent"
+    tenant_id: "examples-meeting-agent"
+    scopes: ["asset"]
 
 audit:
   level: "info"

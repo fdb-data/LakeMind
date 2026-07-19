@@ -18,6 +18,12 @@ from .api import memories as memories_api
 from .api import jobs_v2 as jobs_v2_api
 from .api import models as models_api
 from .api import secrets_v2 as secrets_v2_api
+from .api import tenants as tenants_api
+from .api import steward as steward_api
+from .api import observability as observability_api
+from .api import events as events_api
+from .api import notifications as notifications_api
+from .api import search as search_api
 
 cfg = load_config()
 engines = Engines(cfg)
@@ -105,6 +111,15 @@ app.include_router(jobs_v2_api.router, prefix="/api/v1/jobs", tags=["jobs"])
 app.include_router(models_api.router, prefix="/api/v1/models", tags=["models"])
 
 app.include_router(secrets_v2_api.router, prefix="/api/v1/secrets", tags=["secrets-v2"])
+
+app.include_router(tenants_api.router, prefix="/api/v1/tenants", tags=["tenants"])
+
+app.include_router(steward_api.router, prefix="/api/v1/steward", tags=["steward"])
+
+app.include_router(observability_api.router, prefix="/api/v1/observability", tags=["observability"])
+app.include_router(events_api.router, prefix="/api/v1/events", tags=["events"])
+app.include_router(notifications_api.router, prefix="/api/v1/notifications", tags=["notifications"])
+app.include_router(search_api.router, prefix="/api/v1/search", tags=["search"])
 
 
 @app.get("/api/v1/health", tags=["system"])

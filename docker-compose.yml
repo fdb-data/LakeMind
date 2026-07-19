@@ -98,10 +98,13 @@ services:
     environment:
       LAKE_CONFIG: /etc/lakemind/engines.yaml
       API_KEY: "${SERVER_API_KEY}"
+      SERVER_API_KEY: "${SERVER_API_KEY}"
+      SERVER_API_URL: "http://lakemind-server-api:10823"
       LAKEMIND_MASTER_KEY: "${LAKEMIND_MASTER_KEY}"
       LAKEMIND_V2_AUTH: "${LAKEMIND_V2_AUTH:-1}"
       S3_ENDPOINT: "http://lakemind-seaweedfs:8333"
       MODEL_SERVING_URL: "http://lakemind-model-serving:10824"
+      MODELSERVING_API_KEY: "${MODELSERVING_API_KEY:-lakemind-modelserving-key}"
       PG_HOST: lakemind-postgres
       PG_PORT: 5432
       PG_DB: ${PG_DB:-lakemind}
@@ -309,6 +312,11 @@ services:
       LAKEMIND_MODEL_SERVING: "http://lakemind-model-serving:10824"
       LAKEMIND_BFF_TOKEN: "${SERVER_API_KEY}"
       LAKEMIND_STEWARD_TOKEN: "${SERVER_API_KEY}"
+      VALKEY_HOST: "lakemind-valkey"
+      VALKEY_PORT: "6379"
+      SESSION_TTL: "3600"
+      SESSION_IDLE_TIMEOUT: "1800"
+      SESSION_MAX_LIFETIME: "28800"
     ports:
       - "3000:3000"
     networks: [lakemind]
@@ -322,3 +330,28 @@ services:
       timeout: 5s
       retries: 10
       start_period: 15s
+
+  # ══════════════════════════════════════════════════════════════
+  # 4b. 管理平面 — Telemetry Agent（独立只读）
+  # ══════════════════════════════════════════════════════════════
+
+  telemetry-agent:
+    build:
+      context: ./LakeMindTelemetryAgent
+    image: ${LAKEMIND_REGISTRY}/telemetry-agent:${LAKEMIND_VERSION}
+    container_name: lakemind-telemetry-agent
+    environment:
+      LAKEMIND_SERVER_API: "http://lakemind-server-api:10823"
+      SERVER_API_KEY: "${SERVER_API_KEY}"
+      DATABASE_URL: "postgresql://lakemind:lakemind@lakemind-postgres:5432/lakemind"
+      VALKEY_HOST: "lakemind-valkey"
+      VALKEY_PORT: "6379"
+      SEAWEEDFS_URL: "http://lakemind-seaweedfs:8333"
+      RAY_DASHBOARD_URL: "http://lakemind-ray-head:8265"
+      MODEL_SERVING_URL: "http://lakemind-model-serving:10824"
+      TELEMETRY_INTERVAL: "60"
+    networks: [lakemind]
+    restart: unless-stopped
+    depends_on:
+      server-api:
+        condition: service_healthy

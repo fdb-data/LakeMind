@@ -11,12 +11,13 @@ def _ulid(prefix: str) -> str:
 
 VALID_TRANSITIONS = {
     "PENDING": {"RUNNING", "APPROVAL_REQUIRED", "CANCELLED"},
-    "APPROVAL_REQUIRED": {"APPROVED", "CANCELLED"},
+    "APPROVAL_REQUIRED": {"APPROVED", "REJECTED", "CANCELLED"},
     "APPROVED": {"RUNNING", "CANCELLED"},
     "RUNNING": {"SUCCEEDED", "FAILED", "CANCELLED"},
     "SUCCEEDED": set(),
     "FAILED": set(),
     "CANCELLED": set(),
+    "REJECTED": set(),
 }
 
 
@@ -48,11 +49,13 @@ class OperationService:
 
     @staticmethod
     def approve(operation_id: str, approver_id: str) -> dict:
-        row = execute_one("SELECT status FROM operations WHERE operation_id = %s", (operation_id,))
+        row = execute_one("SELECT status, initiator_id FROM operations WHERE operation_id = %s", (operation_id,))
         if row is None:
             raise ValueError(f"Operation not found: {operation_id}")
         if row["status"] != "APPROVAL_REQUIRED":
             raise ValueError(f"Cannot approve operation in status: {row['status']}")
+        if row["initiator_id"] == approver_id:
+            raise ValueError("SELF_APPROVAL_FORBIDDEN")
         execute(
             "UPDATE operations SET status = 'APPROVED', approver_id = %s, updated_at = %s WHERE operation_id = %s",
             (approver_id, datetime.now(timezone.utc), operation_id),
@@ -65,6 +68,29 @@ class OperationService:
             result="success",
         )
         return {"operation_id": operation_id, "status": "APPROVED"}
+
+    @staticmethod
+    def reject(operation_id: str, rejecter_id: str, reason: str) -> dict:
+        row = execute_one("SELECT status, initiator_id FROM operations WHERE operation_id = %s", (operation_id,))
+        if row is None:
+            raise ValueError(f"Operation not found: {operation_id}")
+        if row["status"] != "APPROVAL_REQUIRED":
+            raise ValueError(f"Cannot reject operation in status: {row['status']}")
+        if row["initiator_id"] == rejecter_id:
+            raise ValueError("SELF_REJECTION_FORBIDDEN")
+        execute(
+            "UPDATE operations SET status = 'REJECTED', approver_id = %s, failure_reason = %s, updated_at = %s WHERE operation_id = %s",
+            (rejecter_id, reason, datetime.now(timezone.utc), operation_id),
+        )
+        AuditService.record(
+            event_type="operation.rejected",
+            principal_id=rejecter_id,
+            resource_id=operation_id,
+            action="reject_operation",
+            result="success",
+            details={"reason": reason},
+        )
+        return {"operation_id": operation_id, "status": "REJECTED"}
 
     @staticmethod
     def execute(operation_id: str) -> dict:

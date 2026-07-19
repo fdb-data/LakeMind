@@ -25,7 +25,7 @@ export default function Login() {
             <Input placeholder="admin" />
           </Form.Item>
           <Form.Item name="password" label="Password" rules={[{ required: true }]}>
-            <Input.Password placeholder="lakemind-admin-2026" />
+            <Input.Password placeholder="Enter password" />
           </Form.Item>
           <Form.Item>
             <Button type="primary" htmlType="submit" block>Login</Button>

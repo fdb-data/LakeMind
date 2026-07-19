@@ -1,0 +1,732 @@
+openapi: 3.1.0
+info:
+  title: LakeMind Control Center Phase 1A Core API
+  version: 0.2.2
+  description: |
+    Phase 1A Core 契约。新增端点：
+    - GET /auth/me (enhanced with capabilities)
+    - POST /security/switch-tenant
+    - GET /observability/metrics
+    - POST /observability/metrics (telemetry agent only)
+    - GET /events/stream (SSE)
+    - GET /events (paginated replay)
+    - GET /notifications
+    - POST /notifications/{id}/read
+    - GET /notifications/unread-count
+    - GET /search
+    - GET /view/mission-control
+    - GET /view/tenant-detail/{id}
+    - GET /view/job-detail/{id}
+    - GET /view/asset-detail/{id}
+    - GET /view/deployment-detail/{id}
+    - GET /view/service-detail/{id}
+    - GET /feature-flags
+    - GET /organization/groups
+    - GET /organization/entitlements
+    - GET /organization/quotas
+    - GET /organization/usage
+
+servers:
+  - url: http://localhost:10823/api/v1
+    description: LakeMind Server
+  - url: http://localhost:3000/api
+    description: Control Center BFF
+
+paths:
+  /security/auth/me:
+    get:
+      tags: [security]
+      summary: Get current principal with capabilities
+      security: [{sessionCookie: []}]
+      responses:
+        '200':
+          description: Principal info with capabilities
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrincipalWithCapabilities'
+
+  /security/switch-tenant:
+    post:
+      tags: [security]
+      summary: Switch active tenant (validated against memberships)
+      security: [{sessionCookie: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tenant_id]
+              properties:
+                tenant_id: {type: string}
+      responses:
+        '200':
+          description: Tenant switched
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tenant_id: {type: string}
+                  security_version: {type: integer}
+        '403':
+          description: No membership in target tenant
+
+  /observability/metrics:
+    get:
+      tags: [observability]
+      summary: Query metrics (scope-filtered)
+      security: [{sessionCookie: []}]
+      parameters:
+        - name: name
+          in: query
+          required: true
+          schema: {type: string}
+        - name: labels
+          in: query
+          schema: {type: string}
+          description: JSON filter for low-cardinality labels
+        - name: from
+          in: query
+          schema: {type: string, format: date-time}
+        - name: to
+          in: query
+          schema: {type: string, format: date-time}
+        - name: page_size
+          in: query
+          schema: {type: integer, default: 500, maximum: 5000}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricsQueryResult'
+    post:
+      tags: [observability]
+      summary: Write metrics (telemetry agent only)
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [metrics]
+              properties:
+                metrics:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/MetricDataPoint'
+      responses:
+        '201':
+          description: Metrics written
+        '400':
+          description: Cardinality violation
+
+  /events/stream:
+    get:
+      tags: [events]
+      summary: SSE stream of events (scope-filtered)
+      security: [{sessionCookie: []}]
+      parameters:
+        - name: Last-Event-ID
+          in: header
+          schema: {type: integer}
+          description: Last sequence number for replay
+      responses:
+        '200':
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  /events:
+    get:
+      tags: [events]
+      summary: Paginated event replay
+      security: [{sessionCookie: []}]
+      parameters:
+        - name: after_sequence
+          in: query
+          schema: {type: integer}
+        - name: event_type
+          in: query
+          schema: {type: string}
+        - name: resource_type
+          in: query
+          schema: {type: string}
+        - name: page_size
+          in: query
+          schema: {type: integer, default: 100, maximum: 1000}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventPage'
+
+  /notifications:
+    get:
+      tags: [notifications]
+      summary: List notifications
+      security: [{sessionCookie: []}]
+      parameters:
+        - name: unread_only
+          in: query
+          schema: {type: boolean, default: false}
+        - name: page
+          in: query
+          schema: {type: integer, default: 1}
+        - name: page_size
+          in: query
+          schema: {type: integer, default: 20}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPage'
+
+  /notifications/unread-count:
+    get:
+      tags: [notifications]
+      summary: Get unread notification count
+      security: [{sessionCookie: []}]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count: {type: integer}
+
+  /notifications/{id}/read:
+    post:
+      tags: [notifications]
+      summary: Mark notification as read
+      security: [{sessionCookie: []}]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: Marked as read
+
+  /search:
+    get:
+      tags: [search]
+      summary: Global search across objects
+      security: [{sessionCookie: []}]
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: {type: string}
+        - name: type
+          in: query
+          schema: {type: string}
+          description: Comma-separated object types (tenant,asset,job,model,service,operation,config)
+        - name: page
+          in: query
+          schema: {type: integer, default: 1}
+        - name: page_size
+          in: query
+          schema: {type: integer, default: 20, maximum: 100}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResultPage'
+
+  /view/mission-control:
+    get:
+      tags: [view]
+      summary: Mission Control View Model (aggregated)
+      security: [{sessionCookie: []}]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MissionControlView'
+
+  /view/tenant-detail/{id}:
+    get:
+      tags: [view]
+      summary: Tenant detail View Model
+      security: [{sessionCookie: []}]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantDetailView'
+
+  /view/job-detail/{id}:
+    get:
+      tags: [view]
+      summary: Job detail View Model
+      security: [{sessionCookie: []}]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobDetailView'
+
+  /view/asset-detail/{id}:
+    get:
+      tags: [view]
+      summary: Asset detail View Model
+      security: [{sessionCookie: []}]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetDetailView'
+
+  /view/deployment-detail/{id}:
+    get:
+      tags: [view]
+      summary: Model deployment detail View Model
+      security: [{sessionCookie: []}]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeploymentDetailView'
+
+  /view/service-detail/{id}:
+    get:
+      tags: [view]
+      summary: Service detail View Model
+      security: [{sessionCookie: []}]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceDetailView'
+
+  /feature-flags:
+    get:
+      tags: [system]
+      summary: Get feature flags
+      security: [{sessionCookie: []}]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+                  properties:
+                    enabled: {type: boolean}
+                    reason: {type: string}
+
+  /organization/groups:
+    get:
+      tags: [organization]
+      summary: List groups
+      security: [{sessionCookie: []}]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: {$ref: '#/components/schemas/Group'}
+
+  /organization/entitlements:
+    get:
+      tags: [organization]
+      summary: List entitlements
+      security: [{sessionCookie: []}]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: {$ref: '#/components/schemas/Entitlement'}
+
+  /organization/quotas:
+    get:
+      tags: [organization]
+      summary: List quotas
+      security: [{sessionCookie: []}]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: {$ref: '#/components/schemas/Quota'}
+
+  /organization/usage:
+    get:
+      tags: [organization]
+      summary: Get usage metrics (aggregated from metrics_series)
+      security: [{sessionCookie: []}]
+      parameters:
+        - name: from
+          in: query
+          schema: {type: string, format: date-time}
+        - name: to
+          in: query
+          schema: {type: string, format: date-time}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageReport'
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: session_id
+    bearerAuth:
+      type: http
+      scheme: bearer
+
+  schemas:
+    PrincipalWithCapabilities:
+      type: object
+      properties:
+        principal_id: {type: string}
+        principal_type: {type: string}
+        tenant_id: {type: string}
+        roles:
+          type: array
+          items: {type: string}
+        capabilities:
+          type: array
+          items: {type: string}
+        effective_permissions:
+          type: object
+          additionalProperties: {type: boolean}
+        security_version: {type: integer}
+        active_tenant_id: {type: string}
+        available_tenants:
+          type: array
+          items:
+            type: object
+            properties:
+              tenant_id: {type: string}
+              name: {type: string}
+              role: {type: string}
+
+    MetricDataPoint:
+      type: object
+      required: [metric_name, value, observed_at]
+      properties:
+        metric_name: {type: string}
+        labels:
+          type: object
+          additionalProperties: {type: string}
+        value: {type: number}
+        observed_at: {type: string, format: date-time}
+        scope_type:
+          type: string
+          enum: [PLATFORM, TENANT]
+        scope_id: {type: string}
+
+    MetricsQueryResult:
+      type: object
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/MetricDataPoint'}
+        total: {type: integer}
+        observed_at: {type: string, format: date-time}
+        freshness_seconds: {type: number}
+        stale: {type: boolean, default: false}
+
+    Event:
+      type: object
+      properties:
+        event_id: {type: string, format: uuid}
+        event_type: {type: string}
+        scope_type:
+          type: string
+          enum: [PLATFORM, TENANT]
+        scope_id: {type: string}
+        resource_type: {type: string}
+        resource_id: {type: string}
+        sequence: {type: integer}
+        created_at: {type: string, format: date-time}
+        payload: {type: object}
+
+    EventPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/Event'}
+        total: {type: integer}
+        has_more: {type: boolean}
+        last_sequence: {type: integer}
+
+    Notification:
+      type: object
+      properties:
+        notification_id: {type: string}
+        category:
+          type: string
+          enum: [approval, job_failure, config_drift, model_unhealthy, service_down]
+        severity:
+          type: string
+          enum: [info, warning, critical]
+        title: {type: string}
+        message: {type: string}
+        resource_type: {type: string}
+        resource_id: {type: string}
+        read: {type: boolean}
+        created_at: {type: string, format: date-time}
+
+    NotificationPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/Notification'}
+        total: {type: integer}
+        page: {type: integer}
+        page_size: {type: integer}
+
+    SearchResult:
+      type: object
+      properties:
+        object_type: {type: string}
+        object_id: {type: string}
+        title: {type: string}
+        subtitle: {type: string}
+        scope_type: {type: string}
+        scope_id: {type: string}
+        href: {type: string}
+        updated_at: {type: string, format: date-time}
+
+    SearchResultPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/SearchResult'}
+        total: {type: integer}
+        page: {type: integer}
+        page_size: {type: integer}
+        groups:
+          type: object
+          additionalProperties: {type: integer}
+          description: Count by object_type
+
+    ViewMeta:
+      type: object
+      properties:
+        request_id: {type: string}
+        correlation_id: {type: string}
+        partial: {type: boolean, default: false}
+        partial_failure:
+          type: array
+          items: {type: string}
+        observed_at: {type: string, format: date-time}
+
+    CardData:
+      type: object
+      properties:
+        value: {type: object}
+        observed_at: {type: string, format: date-time}
+        freshness_seconds: {type: number}
+        stale: {type: boolean}
+        source: {type: string}
+        partial: {type: boolean}
+        href: {type: string}
+
+    MissionControlView:
+      type: object
+      properties:
+        _meta: {$ref: '#/components/schemas/ViewMeta'}
+        pending_approvals: {$ref: '#/components/schemas/CardData'}
+        failed_jobs_24h: {$ref: '#/components/schemas/CardData'}
+        degraded_assets: {$ref: '#/components/schemas/CardData'}
+        unhealthy_deployments: {$ref: '#/components/schemas/CardData'}
+        config_drifts: {$ref: '#/components/schemas/CardData'}
+        outbox_backlog: {$ref: '#/components/schemas/CardData'}
+        data_plane_health: {$ref: '#/components/schemas/CardData'}
+        runtime_plane_health: {$ref: '#/components/schemas/CardData'}
+        model_plane_health: {$ref: '#/components/schemas/CardData'}
+        management_plane_health: {$ref: '#/components/schemas/CardData'}
+        cpu_usage: {$ref: '#/components/schemas/CardData'}
+        memory_usage: {$ref: '#/components/schemas/CardData'}
+        storage_usage: {$ref: '#/components/schemas/CardData'}
+        job_queue_depth: {$ref: '#/components/schemas/CardData'}
+        knowledge_health: {$ref: '#/components/schemas/CardData'}
+        skill_health: {$ref: '#/components/schemas/CardData'}
+        memory_health: {$ref: '#/components/schemas/CardData'}
+        recent_changes: {$ref: '#/components/schemas/CardData'}
+
+    TenantDetailView:
+      type: object
+      properties:
+        _meta: {$ref: '#/components/schemas/ViewMeta'}
+        tenant:
+          type: object
+        members:
+          type: array
+        entitlements:
+          type: array
+        quotas:
+          type: object
+        usage:
+          type: object
+        asset_summary:
+          type: object
+        job_summary:
+          type: object
+        config_summary:
+          type: object
+
+    JobDetailView:
+      type: object
+      properties:
+        _meta: {$ref: '#/components/schemas/ViewMeta'}
+        job:
+          type: object
+        attempts:
+          type: array
+        artifacts:
+          type: array
+        events:
+          type: array
+        logs:
+          type: object
+
+    AssetDetailView:
+      type: object
+      properties:
+        _meta: {$ref: '#/components/schemas/ViewMeta'}
+        asset:
+          type: object
+        health:
+          type: object
+        bindings:
+          type: array
+        lineage:
+          type: array
+
+    DeploymentDetailView:
+      type: object
+      properties:
+        _meta: {$ref: '#/components/schemas/ViewMeta'}
+        deployment:
+          type: object
+        health_history:
+          type: array
+        model:
+          type: object
+        metrics:
+          type: object
+
+    ServiceDetailView:
+      type: object
+      properties:
+        _meta: {$ref: '#/components/schemas/ViewMeta'}
+        service:
+          type: object
+        instances:
+          type: array
+        health_history:
+          type: array
+        metrics:
+          type: object
+
+    Group:
+      type: object
+      properties:
+        group_id: {type: string}
+        name: {type: string}
+        tenant_id: {type: string}
+        member_count: {type: integer}
+
+    Entitlement:
+      type: object
+      properties:
+        entitlement_id: {type: string}
+        name: {type: string}
+        tenant_id: {type: string}
+        scopes:
+          type: array
+          items: {type: string}
+
+    Quota:
+      type: object
+      properties:
+        tenant_id: {type: string}
+        resource: {type: string}
+        limit: {type: number}
+        used: {type: number}
+        unit: {type: string}
+
+    UsageReport:
+      type: object
+      properties:
+        tenant_id: {type: string}
+        period:
+          type: object
+          properties:
+            from: {type: string, format: date-time}
+            to: {type: string, format: date-time}
+        metrics:
+          type: array
+          items:
+            type: object
+            properties:
+              metric_name: {type: string}
+              value: {type: number}
+              unit: {type: string}

@@ -96,18 +96,25 @@ class ConfigurationService:
     @staticmethod
     def activate(revision_id: str, activated_by: str) -> dict:
         row = execute_one(
-            "SELECT scope FROM config_revisions WHERE revision_id = %s",
+            "SELECT scope, rollout_version FROM config_revisions WHERE revision_id = %s",
             (revision_id,),
         )
         if row is None:
             raise ValueError(f"Revision not found: {revision_id}")
-        execute(
-            "UPDATE config_revisions SET is_active = FALSE WHERE scope = %s AND is_active = TRUE",
+        in_progress = execute_one(
+            "SELECT revision_id FROM config_revisions WHERE scope = %s AND rollout_status = 'APPLYING'",
             (row["scope"],),
         )
+        if in_progress:
+            raise ValueError("ROLLOUT_IN_PROGRESS")
         execute(
-            "UPDATE config_revisions SET is_active = TRUE, activated_at = %s WHERE revision_id = %s",
-            (datetime.now(timezone.utc), revision_id),
+            "UPDATE config_revisions SET is_active = FALSE, rollout_status = 'ROLLED_BACK' WHERE scope = %s AND is_active = TRUE",
+            (row["scope"],),
+        )
+        new_version = (row["rollout_version"] or 0) + 1
+        execute(
+            "UPDATE config_revisions SET is_active = TRUE, activated_at = %s, rollout_status = 'ACTIVE', rollout_version = %s WHERE revision_id = %s",
+            (datetime.now(timezone.utc), new_version, revision_id),
         )
         AuditService.record(
             event_type="config.activated",
@@ -115,8 +122,9 @@ class ConfigurationService:
             resource_id=revision_id,
             action="activate_config",
             result="success",
+            details={"scope": row["scope"], "rollout_version": new_version},
         )
-        return {"revision_id": revision_id, "activated": True}
+        return {"revision_id": revision_id, "activated": True, "rollout_version": new_version}
 
     @staticmethod
     def rollback(revision_id: str, rolled_back_by: str) -> dict:

@@ -53,8 +53,8 @@ class ModelManagementService:
             """
             INSERT INTO model_deployments
                 (deployment_id, model_id, provider, endpoint, secret_ref,
-                 priority, timeout_ms, max_concurrency)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                 priority, timeout_ms, max_concurrency, status, desired_state)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'disabled', 'DRAFT')
             """,
             (deployment_id, model_id, provider, endpoint, secret_ref,
              priority, timeout_ms, max_concurrency),
@@ -180,19 +180,45 @@ class ModelManagementService:
     @staticmethod
     def enable_deployment(ctx: SecurityContext, deployment_id: str) -> dict:
         execute(
-            "UPDATE model_deployments SET status = 'enabled' WHERE deployment_id = %s",
+            "UPDATE model_deployments SET desired_state = 'ACTIVE' WHERE deployment_id = %s",
             (deployment_id,),
         )
-        AuditService.record(ctx, action="model.configure", resource_type="model_deployment", resource_id=deployment_id)
+        event_id = _ulid("evt")
+        execute(
+            "INSERT INTO outbox (event_id, event_type, aggregate_id, aggregate_type, payload, status) "
+            "VALUES (%s, 'DEPLOYMENT_ENABLE', %s, 'model_deployment', %s::jsonb, 'PENDING')",
+            (event_id, deployment_id, json.dumps({"deployment_id": deployment_id, "desired_state": "ACTIVE"})),
+        )
+        AuditService.record(
+            event_type="model.deployment_enable_requested",
+            principal_id=ctx.principal_id,
+            tenant_id=ctx.tenant_id,
+            resource_id=deployment_id,
+            action="model.configure",
+            result="success",
+        )
         return execute_one("SELECT * FROM model_deployments WHERE deployment_id = %s", (deployment_id,))
 
     @staticmethod
     def disable_deployment(ctx: SecurityContext, deployment_id: str) -> dict:
         execute(
-            "UPDATE model_deployments SET status = 'disabled' WHERE deployment_id = %s",
+            "UPDATE model_deployments SET desired_state = 'DISABLED' WHERE deployment_id = %s",
             (deployment_id,),
         )
-        AuditService.record(ctx, action="model.configure", resource_type="model_deployment", resource_id=deployment_id)
+        event_id = _ulid("evt")
+        execute(
+            "INSERT INTO outbox (event_id, event_type, aggregate_id, aggregate_type, payload, status) "
+            "VALUES (%s, 'DEPLOYMENT_DISABLE', %s, 'model_deployment', %s::jsonb, 'PENDING')",
+            (event_id, deployment_id, json.dumps({"deployment_id": deployment_id, "desired_state": "DISABLED"})),
+        )
+        AuditService.record(
+            event_type="model.deployment_disable_requested",
+            principal_id=ctx.principal_id,
+            tenant_id=ctx.tenant_id,
+            resource_id=deployment_id,
+            action="model.configure",
+            result="success",
+        )
         return execute_one("SELECT * FROM model_deployments WHERE deployment_id = %s", (deployment_id,))
 
     @staticmethod

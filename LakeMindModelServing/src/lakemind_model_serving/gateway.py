@@ -56,8 +56,8 @@ class ModelGateway:
         self._router = Router(
             model_list=model_list,
             fallbacks=fallbacks,
-            num_retries=2,
-            timeout=30,
+            num_retries=3,
+            timeout=120,
         )
         logger.info("litellm Router initialized with %d models", len(model_list))
 

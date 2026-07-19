@@ -1,21 +1,18 @@
-import os
 import json
-import time
+import os
+import sys
 import httpx
 
 MS_URL = os.environ.get("MODEL_SERVING_URL", "http://lakemind-model-serving:10824")
 MS_KEY = os.environ.get("MODELSERVING_API_KEY", "lakemind-modelserving-key")
 SERVER_URL = os.environ.get("SERVER_API_URL", "http://lakemind-server-api:10823")
-SERVER_KEY = os.environ.get("SERVER_API_KEY", os.environ.get("API_KEY", "lakemind-internal-api-key"))
-EMBED_MODEL = os.environ.get("EMBED_MODEL", "jina-embeddings-v2-base-zh")
+SERVER_KEY = os.environ.get("SERVER_API_KEY", "lakemind-internal-api-key")
 
 
 def download_from_s3(uri: str) -> bytes:
     from urllib.parse import urlparse
     p = urlparse(uri)
-    bucket = p.netloc
-    key = p.path.lstrip("/")
-    url = f"{SERVER_URL}/api/v1/storage/objects/{bucket}/{key}"
+    url = f"{SERVER_URL}/api/v1/storage/objects/{p.netloc}/{p.path.lstrip('/')}"
     resp = httpx.get(url, headers={"Authorization": f"Bearer {SERVER_KEY}"}, timeout=60)
     resp.raise_for_status()
     return resp.content
@@ -26,100 +23,49 @@ def upload_to_s3(uri: str, data: bytes | str):
     if isinstance(data, str):
         data = data.encode()
     p = urlparse(uri)
-    bucket = p.netloc
-    key = p.path.lstrip("/")
-    url = f"{SERVER_URL}/api/v1/storage/objects/{bucket}/{key}"
+    url = f"{SERVER_URL}/api/v1/storage/objects/{p.netloc}/{p.path.lstrip('/')}"
     resp = httpx.put(url, content=data, headers={"Authorization": f"Bearer {SERVER_KEY}"}, timeout=60)
+    resp.raise_for_status()
+
+
+def asr(audio: bytes, filename: str = "audio.wav") -> dict:
+    content_type = "audio/wav"
+    if filename.endswith(".webm"):
+        content_type = "audio/webm"
+    elif filename.endswith(".mp3"):
+        content_type = "audio/mpeg"
+    elif filename.endswith(".m4a"):
+        content_type = "audio/mp4"
+    resp = httpx.post(
+        f"{MS_URL}/v1/audio/transcriptions",
+        headers={"Authorization": f"Bearer {MS_KEY}"},
+        files={"file": (filename, audio, content_type)},
+        timeout=300,
+    )
     resp.raise_for_status()
     return resp.json()
 
 
 def llm_chat(system_prompt: str, user_content: str, model: str = "deepseek-v4-flash") -> str:
-    resp = httpx.post(
-        f"{MS_URL}/v1/chat/completions",
-        headers={"Authorization": f"Bearer {MS_KEY}"},
-        json={
-            "model": model,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_content},
-            ],
-        },
-        timeout=120,
-    )
-    resp.raise_for_status()
-    return resp.json()["choices"][0]["message"]["content"]
-
-
-def asr(audio: bytes, filename: str = "audio.wav") -> dict:
-    max_retries = 3
-    backoff = 5
-    for attempt in range(max_retries):
+    import time
+    last_err = None
+    for attempt in range(6):
         try:
             resp = httpx.post(
-                f"{MS_URL}/v1/audio/transcriptions",
+                f"{MS_URL}/v1/chat/completions",
                 headers={"Authorization": f"Bearer {MS_KEY}"},
-                files={"file": (filename, audio, "audio/wav")},
-                timeout=180,
+                json={
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_content},
+                    ],
+                },
+                timeout=120,
             )
             resp.raise_for_status()
-            return resp.json()
-        except (httpx.TimeoutException, httpx.TransportError, httpx.HTTPStatusError) as e:
-            if attempt < max_retries - 1:
-                import time as _t
-                print(f"ASR attempt {attempt+1}/{max_retries} failed: {e}, retrying in {backoff}s...")
-                _t.sleep(backoff)
-                backoff *= 2
-            else:
-                raise
-
-
-def embed(text: str) -> list[float]:
-    resp = httpx.post(
-        f"{MS_URL}/v1/embeddings",
-        headers={"Authorization": f"Bearer {MS_KEY}"},
-        json={"model": EMBED_MODEL, "input": [text]},
-        timeout=30,
-    )
-    resp.raise_for_status()
-    return resp.json()["data"][0]["embedding"]
-
-
-def ingest_knowledge(kb_name: str, concepts: list[dict], tenant_id: str = "default"):
-    db = f"tenant_{tenant_id}"
-    table = f"kb_{kb_name}"
-    data = []
-    for concept in concepts:
-        fm = concept.get("frontmatter", {})
-        title = fm.get("title", concept.get("title", ""))
-        body = concept.get("body", "")
-        text = f"{title}\n{body}"
-        vec = embed(text)
-        data.append({
-            "concept_id": fm.get("resource", f"{kb_name}_{int(time.time()*1000000)}"),
-            "type": fm.get("type", "Concept"),
-            "title": title,
-            "description": body[:500],
-            "tags": fm.get("tags", []),
-            "s3_uri": "",
-            "vector": vec,
-            "created_at": time.time(),
-        })
-
-    add_url = f"{SERVER_URL}/api/v1/storage/vectors/{db}/{table}/add"
-    create_url = f"{SERVER_URL}/api/v1/storage/vectors/{db}"
-    list_url = f"{SERVER_URL}/api/v1/storage/vectors/{db}"
-    headers = {"Authorization": f"Bearer {SERVER_KEY}"}
-
-    try:
-        list_resp = httpx.get(list_url, headers=headers, timeout=10)
-        existing = list_resp.json().get("tables", []) if list_resp.status_code == 200 else []
-    except Exception:
-        existing = []
-
-    if table not in existing:
-        resp = httpx.post(create_url, headers=headers, json={"name": table, "data": data, "mode": "overwrite"}, timeout=30)
-    else:
-        resp = httpx.post(add_url, headers=headers, json={"data": data}, timeout=30)
-    resp.raise_for_status()
-    return {"kb_name": kb_name, "ingested": len(data)}
+            return resp.json()["choices"][0]["message"]["content"]
+        except Exception as e:
+            last_err = e
+            time.sleep(5 * (attempt + 1))
+    raise last_err

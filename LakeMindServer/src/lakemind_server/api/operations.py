@@ -42,6 +42,14 @@ async def approve_operation(op_id: str, request: Request):
     return OperationService.approve(op_id, ctx.principal_id)
 
 
+@router.post("/{op_id}/reject")
+async def reject_operation(op_id: str, request: Request):
+    ctx = get_security_context(request)
+    body = await request.json()
+    return OperationService.reject(op_id, ctx.principal_id, body.get("reason", ""))
+
+
 @router.post("/{op_id}/cancel")
-async def cancel_operation(op_id: str):
+async def cancel_operation(op_id: str, request: Request):
+    ctx = get_security_context(request)
     return OperationService.cancel(op_id)

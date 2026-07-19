@@ -21,10 +21,13 @@ def issue_token(principal_id: str, tenant_id: str, scopes: list[str],
     token_plain = pysecrets.token_urlsafe(32)
     token_hash = _hash_token(token_plain)
     token_id = _ulid("tok")
+    jti = _ulid("jti")
+    p_row = execute_one("SELECT security_version FROM principals WHERE principal_id = %s", (principal_id,))
+    security_version = p_row["security_version"] if p_row else 0
     execute(
-        "INSERT INTO v2_tokens (token_id, principal_id, tenant_id, token_hash, scopes, expires_at) "
-        "VALUES (%s, %s, %s, %s, %s::jsonb, %s)",
-        (token_id, principal_id, tenant_id, token_hash, json.dumps(scopes), expires_at),
+        "INSERT INTO v2_tokens (token_id, principal_id, tenant_id, token_hash, scopes, expires_at, security_version, jti) "
+        "VALUES (%s, %s, %s, %s, %s::jsonb, %s, %s, %s)",
+        (token_id, principal_id, tenant_id, token_hash, json.dumps(scopes), expires_at, security_version, jti),
     )
     return {
         "token_id": token_id,
@@ -32,6 +35,8 @@ def issue_token(principal_id: str, tenant_id: str, scopes: list[str],
         "principal_id": principal_id,
         "tenant_id": tenant_id,
         "scopes": scopes,
+        "security_version": security_version,
+        "jti": jti,
         "expires_at": expires_at.isoformat() if expires_at else None,
     }
 
@@ -64,7 +69,8 @@ def parse_token(token_str: str, request_id: str, correlation_id: str | None = No
     token_hash = _hash_token(token_str)
     row = execute_one(
         "SELECT t.token_id, t.principal_id, t.tenant_id, t.scopes, t.expires_at, t.revoked_at, "
-        "p.principal_type, p.name, p.status "
+        "t.security_version AS token_security_version, t.jti, "
+        "p.principal_type, p.name, p.status, p.security_version AS principal_security_version "
         "FROM v2_tokens t JOIN principals p ON t.principal_id = p.principal_id "
         "WHERE t.token_hash = %s",
         (token_hash,),
@@ -77,6 +83,8 @@ def parse_token(token_str: str, request_id: str, correlation_id: str | None = No
         raise ValueError("TOKEN_EXPIRED")
     if row["status"] != "active":
         raise ValueError("PRINCIPAL_DISABLED")
+    if row["token_security_version"] != row["principal_security_version"]:
+        raise ValueError("SECURITY_VERSION_MISMATCH")
 
     role_rows = execute(
         "SELECT r.name FROM role_bindings rb JOIN roles r ON rb.role_id = r.role_id "
@@ -95,6 +103,7 @@ def parse_token(token_str: str, request_id: str, correlation_id: str | None = No
         token_id=row["token_id"],
         request_id=request_id,
         correlation_id=correlation_id,
+        security_version=row["principal_security_version"],
     )
 
 

@@ -15,15 +15,21 @@ def _ulid(prefix: str) -> str:
 class SkillService:
 
     @staticmethod
-    def register(ctx: SecurityContext, manifest: dict, code_package: bytes,
+    def register(ctx: SecurityContext, manifest: dict, code_package: bytes | dict,
                  trust_level: str = "untrusted") -> dict:
         asset = AssetService.create_asset(
             ctx, asset_type="skill", name=manifest.get("name", "unnamed"),
             source_type="upload", metadata={"manifest": manifest},
+            version=manifest.get("version", "1.0.0"),
         )
         asset_id = asset["asset_id"]
 
-        code_checksum = hashlib.sha256(code_package).hexdigest()
+        if isinstance(code_package, dict):
+            code_checksum = hashlib.sha256(
+                code_package.get("s3_uri", "").encode()
+            ).hexdigest()
+        else:
+            code_checksum = hashlib.sha256(code_package).hexdigest()
 
         execute(
             "INSERT INTO skill_meta (asset_id, manifest, code_checksum, entry_point, "

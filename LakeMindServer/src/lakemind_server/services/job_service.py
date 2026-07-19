@@ -42,7 +42,12 @@ class JobService:
             if existing:
                 return existing
 
-        skill = SkillService.get_skill(ctx, skill_ref)
+        _ref = skill_ref.replace("lake://skills/", "")
+        if "@" in _ref:
+            _name, _ver = _ref.rsplit("@", 1)
+        else:
+            _name, _ver = _ref, "latest"
+        skill = SkillService.get_skill(ctx, _name, _ver)
         if not skill:
             raise ValueError("SKILL_NOT_FOUND")
 
@@ -64,7 +69,7 @@ class JobService:
             raise ValueError("JOB_CONCURRENCY_LIMIT")
 
         secret_refs = skill.get("secret_refs", [])
-        resolved_secrets = resolve_job_secrets(ctx.tenant_id, secret_refs)
+        resolved_secrets = resolve_job_secrets(skill.get("manifest", {}), ctx, f"job:{skill.get('name', 'unknown')}") if secret_refs else {}
 
         model_binding = None
         if model_profile:
@@ -85,7 +90,7 @@ class JobService:
             """,
             (
                 job_id, ctx.tenant_id, skill["asset_id"], skill["version"],
-                skill.get("checksum", ""), ctx.principal_id,
+                skill.get("code_checksum", skill.get("checksum", "")), ctx.principal_id,
                 json.dumps(inputs), json.dumps(params or {}),
                 json.dumps(model_binding) if model_binding else None,
                 json.dumps(secret_refs), json.dumps(resource_final),
@@ -139,7 +144,8 @@ class JobService:
                 )
 
         AuditService.record(
-            ctx, action="job.submit", resource_type="job_run", resource_id=job_id,
+            event_type="job.submit", principal_id=ctx.principal_id, tenant_id=ctx.tenant_id,
+            resource_id=job_id, action="job.submit",
             details={"skill_ref": skill_ref, "attempt_id": attempt_id},
         )
 

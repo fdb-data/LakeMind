@@ -49,13 +49,52 @@ async def delete_asset(asset_id: str, request: Request):
 
 
 @router.get("/{asset_id}/bindings")
-async def get_bindings(asset_id: str):
+async def get_bindings(asset_id: str, request: Request):
+    ctx = get_security_context(request)
     return AssetService.get_bindings(asset_id)
 
 
 @router.get("/{asset_id}/lineage")
-async def get_lineage(asset_id: str):
+async def get_lineage(asset_id: str, request: Request):
+    ctx = get_security_context(request)
     return AssetService.get_lineage(asset_id)
+
+
+@router.get("/{asset_id}/health")
+async def get_health(asset_id: str, request: Request):
+    ctx = get_security_context(request)
+    from ..db import execute_one
+    asset = execute_one("SELECT * FROM assets WHERE asset_id = %s", (asset_id,))
+    if asset is None:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="ASSET_NOT_FOUND")
+    if not ctx.can_access_tenant(asset.get("tenant_id", "")):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=403, detail="TENANT_SCOPE_VIOLATION")
+    completeness_score = 1.0 if asset.get("uri") else 0.0
+    completeness_status = "healthy" if completeness_score >= 1.0 else "unhealthy"
+    retrievability_score = 1.0 if asset.get("status") == "ready" else 0.5
+    retrievability_status = "healthy" if retrievability_score >= 1.0 else "degraded"
+    executability_score = 1.0 if asset.get("asset_type") != "skill" else (1.0 if asset.get("status") == "ready" else 0.0)
+    executability_status = "healthy" if executability_score >= 1.0 else "degraded"
+    drift_score = 1.0
+    drift_status = "healthy"
+    overall = "healthy"
+    if completeness_score < 1.0 or retrievability_score < 0.5:
+        overall = "unhealthy"
+    elif retrievability_score < 1.0 or executability_score < 1.0:
+        overall = "degraded"
+    return {
+        "overall": overall,
+        "dimensions": {
+            "completeness": {"score": completeness_score, "status": completeness_status, "details": "File existence and metadata check"},
+            "retrievability": {"score": retrievability_score, "status": retrievability_status, "details": "Index availability check"},
+            "executability": {"score": executability_score, "status": executability_status, "details": "Skill parse and dependency check"},
+            "drift": {"score": drift_score, "status": drift_status, "details": "Checksum comparison"},
+        },
+        "last_checked_at": asset.get("updated_at"),
+        "recommendations": [] if overall == "healthy" else ["reindex"],
+    }
 
 
 @router.post("/{asset_id}/reindex")

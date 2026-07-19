@@ -9,6 +9,10 @@ tokens:
     agent_id: "steward"
     tenant_id: "platform"
     scopes: ["data"]
+  - token: "meeting-agent-mcp-token"
+    agent_id: "meeting-agent"
+    tenant_id: "examples-meeting-agent"
+    scopes: ["data"]
 
 audit:
   level: "info"

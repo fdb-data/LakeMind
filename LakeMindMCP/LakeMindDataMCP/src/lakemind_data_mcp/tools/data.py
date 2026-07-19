@@ -113,23 +113,35 @@ def register(mcp, server: ServerClient, redact_keys: list[str]) -> None:
     @mcp.tool()
     @audited(redact_keys)
     async def s3_get(uri: str) -> dict[str, Any]:
-        """Read S3 object. Returns content and size."""
+        """Read S3 object. Returns content (text) or content_b64 (binary) and size."""
         require_scope(SCOPE)
         parts = uri.replace("s3://", "").split("/", 1)
         bucket, key = parts[0], parts[1] if len(parts) > 1 else ""
         data = await server.object_get(bucket, key)
-        content = data.decode("utf-8") if isinstance(data, bytes) else str(data)
-        return {"uri": uri, "content": content, "size": len(data) if data else 0}
+        if data is None:
+            return {"uri": uri, "content": "", "size": 0}
+        try:
+            content = data.decode("utf-8") if isinstance(data, bytes) else str(data)
+            return {"uri": uri, "content": content, "size": len(data)}
+        except UnicodeDecodeError:
+            import base64
+            content_b64 = base64.b64encode(data).decode("ascii") if isinstance(data, bytes) else base64.b64encode(str(data).encode()).decode("ascii")
+            return {"uri": uri, "content_b64": content_b64, "size": len(data), "is_binary": True}
 
     @mcp.tool()
     @audited(redact_keys)
-    async def s3_put(uri: str, body: str) -> dict[str, Any]:
-        """Write S3 object."""
+    async def s3_put(uri: str, body: str = "", body_b64: str = "") -> dict[str, Any]:
+        """Write S3 object. Pass body for text, or body_b64 for binary data (base64-encoded)."""
         require_scope(SCOPE)
         parts = uri.replace("s3://", "").split("/", 1)
         bucket, key = parts[0], parts[1] if len(parts) > 1 else ""
-        await server.object_put(bucket, key, body.encode())
-        return {"uri": uri, "written": len(body)}
+        if body_b64:
+            import base64
+            raw = base64.b64decode(body_b64)
+        else:
+            raw = body.encode()
+        await server.object_put(bucket, key, raw)
+        return {"uri": uri, "written": len(raw)}
 
     @mcp.tool()
     @audited(redact_keys)

@@ -15,7 +15,8 @@ class AuditService:
     def record(event_type: str, principal_id: str | None = None,
                tenant_id: str | None = None, resource_id: str | None = None,
                action: str = "", result: str = "success",
-               details: dict | None = None, request_id: str | None = None) -> dict:
+               details: dict | None = None, request_id: str | None = None,
+               correlation_id: str | None = None) -> dict:
         audit_id = _ulid("aud")
         execute(
             "INSERT INTO audit_log (audit_id, event_type, principal_id, tenant_id, resource_id, action, result, details, request_id) "
@@ -27,6 +28,9 @@ class AuditService:
     @staticmethod
     def query(event_type: str | None = None, principal_id: str | None = None,
               tenant_id: str | None = None, resource_id: str | None = None,
+              action: str | None = None, result: str | None = None,
+              request_id: str | None = None, correlation_id: str | None = None,
+              operation_id: str | None = None, job_id: str | None = None,
               start_time: datetime | None = None, end_time: datetime | None = None,
               page: int = 1, page_size: int = 50) -> dict:
         query_str = "SELECT * FROM audit_log WHERE 1=1"
@@ -39,6 +43,16 @@ class AuditService:
             query_str += " AND tenant_id = %s"; params.append(tenant_id)
         if resource_id:
             query_str += " AND resource_id = %s"; params.append(resource_id)
+        if action:
+            query_str += " AND action = %s"; params.append(action)
+        if result:
+            query_str += " AND result = %s"; params.append(result)
+        if request_id:
+            query_str += " AND request_id = %s"; params.append(request_id)
+        if operation_id:
+            query_str += " AND resource_id = %s"; params.append(operation_id)
+        if job_id:
+            query_str += " AND resource_id = %s"; params.append(job_id)
         if start_time:
             query_str += " AND created_at >= %s"; params.append(start_time)
         if end_time:

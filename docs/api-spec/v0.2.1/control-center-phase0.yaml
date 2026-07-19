@@ -1,0 +1,700 @@
+openapi: 3.0.3
+info:
+  title: LakeMind Control Center Phase 0 API
+  version: 0.2.1
+  description: Frozen API contract for Control Center Phase 0
+
+paths:
+  /api/v1/security/auth/login:
+    post:
+      summary: User login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password_hash]
+              properties:
+                username: { type: string }
+                password_hash: { type: string }
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string }
+                  principal_id: { type: string }
+                  tenant_id: { type: string }
+                  role: { type: string }
+                  security_version: { type: integer }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/tenants:
+    post:
+      summary: Create tenant (triggers Provisioning Saga)
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTenantRequest"
+      responses:
+        "202":
+          description: Operation created, pending approval/execution
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationResponse"
+        "403": { $ref: "#/components/responses/Forbidden" }
+    get:
+      summary: List tenants
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: page_size
+          in: query
+          schema: { type: integer, default: 50 }
+      responses:
+        "200":
+          description: Tenant list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedTenants"
+
+  /api/v1/tenants/{tenant_id}:
+    get:
+      summary: Get tenant details
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Tenant" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      summary: Update tenant (quotas, allowed_models)
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateTenantRequest" }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Tenant" }
+
+  /api/v1/tenants/{tenant_id}/suspend:
+    post:
+      summary: Suspend tenant
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "202":
+          schema: { $ref: "#/components/schemas/OperationResponse" }
+
+  /api/v1/tenants/{tenant_id}/resume:
+    post:
+      summary: Resume suspended tenant
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "202":
+          schema: { $ref: "#/components/schemas/OperationResponse" }
+
+  /api/v1/tenants/{tenant_id}/archive:
+    post:
+      summary: Archive tenant
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "202":
+          schema: { $ref: "#/components/schemas/OperationResponse" }
+
+  /api/v1/tenants/{tenant_id}/memberships:
+    get:
+      summary: List tenant memberships
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Membership" }
+    post:
+      summary: Invite principal to tenant
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [principal_id, role_name]
+              properties:
+                principal_id: { type: string }
+                role_name: { type: string }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Membership" }
+
+  /api/v1/tenants/{tenant_id}/memberships/{membership_id}/revoke:
+    post:
+      summary: Revoke membership (increments security_version)
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - name: membership_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Membership" }
+
+  /api/v1/models/deployments/{deployment_id}/health:
+    get:
+      summary: Get three-dimension deployment health
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: deployment_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeploymentHealth" }
+
+  /api/v1/models/routes:
+    post:
+      summary: Create model route
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateRouteRequest" }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Route" }
+
+  /api/v1/models/routes/{route_id}:
+    delete:
+      summary: Delete model route (with impact check)
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: route_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Route deleted
+
+  /api/v1/configuration/{scope}/revisions:
+    get:
+      summary: List config revisions for scope
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: scope
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/ConfigRevision" }
+
+  /api/v1/configuration/revisions/{revision_id}/activate:
+    post:
+      summary: Activate config revision (optimistic lock, 409 on conflict)
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: revision_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "202":
+          schema: { $ref: "#/components/schemas/OperationResponse" }
+        "409":
+          description: Another rollout in progress
+
+  /api/v1/jobs/{job_id}/logs:
+    get:
+      summary: Get job logs (archived or live)
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: attempt_id
+          in: query
+          schema: { type: string }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 1000 }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  source: { type: string, enum: [archive, live, lost] }
+                  lines:
+                    type: array
+                    items: { type: string }
+                  has_more: { type: boolean }
+
+  /api/v1/jobs/{job_id}/timeline:
+    get:
+      summary: Get job event timeline
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items: { $ref: "#/components/schemas/JobEvent" }
+
+  /api/v1/assets/{asset_id}/health:
+    get:
+      summary: Get asset health (four-dimension score)
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: asset_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssetHealth" }
+
+  /api/v1/operations/{op_id}/reject:
+    post:
+      summary: Reject operation (APPROVAL_REQUIRED → REJECTED)
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: op_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OperationResponse" }
+        "409":
+          description: Operation not in APPROVAL_REQUIRED state
+
+  /api/v1/audit:
+    get:
+      summary: List audit events with correlation filters
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: action
+          in: query
+          schema: { type: string }
+        - name: result
+          in: query
+          schema: { type: string }
+        - name: request_id
+          in: query
+          schema: { type: string }
+        - name: correlation_id
+          in: query
+          schema: { type: string }
+        - name: operation_id
+          in: query
+          schema: { type: string }
+        - name: job_id
+          in: query
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: page_size
+          in: query
+          schema: { type: integer, default: 50 }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/AuditEntry" }
+                  total: { type: integer }
+
+  /api/v1/steward/findings:
+    get:
+      summary: List steward findings
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [OPEN, ACKNOWLEDGED, RESOLVED, SUPPRESSED] }
+        - name: severity
+          in: query
+          schema: { type: string, enum: [info, warning, critical] }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/StewardFinding" }
+
+  /api/v1/steward/findings/{finding_id}/acknowledge:
+    post:
+      summary: Acknowledge finding
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: finding_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StewardFinding" }
+
+  /api/v1/steward/findings/{finding_id}/resolve:
+    post:
+      summary: Resolve finding
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: finding_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StewardFinding" }
+
+  /api/v1/steward/findings/{finding_id}/suppress:
+    post:
+      summary: Suppress finding
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: finding_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StewardFinding" }
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+
+  parameters:
+    TenantId:
+      name: tenant_id
+      in: path
+      required: true
+      schema: { type: string }
+
+  responses:
+    Unauthorized:
+      description: Authentication failed
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: Permission denied
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+            request_id: { type: string }
+
+    OperationResponse:
+      type: object
+      properties:
+        operation_id: { type: string }
+        status: { type: string }
+
+    CreateTenantRequest:
+      type: object
+      required: [name, admin_principal_id]
+      properties:
+        name: { type: string }
+        admin_principal_id: { type: string }
+        quotas: { type: object }
+        allowed_models: { type: array, items: { type: string } }
+        config_template: { type: string }
+
+    UpdateTenantRequest:
+      type: object
+      properties:
+        quotas: { type: object }
+        allowed_models: { type: array, items: { type: string } }
+
+    Tenant:
+      type: object
+      properties:
+        tenant_id: { type: string }
+        name: { type: string }
+        status: { type: string, enum: [PROVISIONING, ACTIVE, SUSPENDED, ARCHIVED] }
+        quotas: { type: object }
+        allowed_models: { type: array, items: { type: string } }
+        created_at: { type: string, format: date-time }
+
+    PaginatedTenants:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Tenant" }
+        total: { type: integer }
+        page: { type: integer }
+        page_size: { type: integer }
+
+    Membership:
+      type: object
+      properties:
+        id: { type: string }
+        principal_id: { type: string }
+        tenant_id: { type: string }
+        membership_status: { type: string, enum: [ACTIVE, INVITED, REVOKED] }
+        joined_at: { type: string, format: date-time }
+        revoked_at: { type: string, format: date-time }
+
+    DeploymentHealth:
+      type: object
+      properties:
+        test:
+          type: object
+          properties:
+            status: { type: string, enum: [UNKNOWN, TESTING, PASSED, FAILED] }
+            checked_at: { type: string, format: date-time }
+            error: { type: string }
+        readiness:
+          type: object
+          properties:
+            status: { type: string, enum: [UNKNOWN, CHECKING, READY, NOT_READY] }
+            checked_at: { type: string, format: date-time }
+            error: { type: string }
+        active:
+          type: object
+          properties:
+            status: { type: string, enum: [UNKNOWN, STARTING, SERVING, DEGRADED, STOPPED] }
+            reported_at: { type: string, format: date-time }
+            metrics:
+              type: object
+              properties:
+                latency_p99: { type: number }
+                error_rate: { type: number }
+                qps: { type: number }
+        composite:
+          type: object
+          properties:
+            state: { type: string }
+            convergence_status: { type: string, enum: [CONVERGED, CONVERGING, DRIFTED, FAILED] }
+
+    CreateRouteRequest:
+      type: object
+      required: [profile_id, deployment_id]
+      properties:
+        profile_id: { type: string }
+        deployment_id: { type: string }
+        is_fallback: { type: boolean, default: false }
+        priority: { type: integer, default: 0 }
+
+    Route:
+      type: object
+      properties:
+        route_id: { type: string }
+        profile_id: { type: string }
+        deployment_id: { type: string }
+        is_fallback: { type: boolean }
+        priority: { type: integer }
+
+    ConfigRevision:
+      type: object
+      properties:
+        revision_id: { type: string }
+        scope: { type: string }
+        values: { type: object }
+        rollout_status: { type: string, enum: [DRAFT, VALIDATED, APPLYING, ACTIVE, FAILED, ROLLED_BACK] }
+        rollout_version: { type: integer }
+        created_by: { type: string }
+        created_at: { type: string, format: date-time }
+        activated_at: { type: string, format: date-time }
+
+    JobEvent:
+      type: object
+      properties:
+        id: { type: string }
+        job_id: { type: string }
+        event_type: { type: string }
+        event_seq: { type: integer }
+        occurred_at: { type: string, format: date-time }
+        payload: { type: object }
+        correlation_id: { type: string }
+
+    AssetHealth:
+      type: object
+      properties:
+        overall: { type: string, enum: [healthy, degraded, unhealthy] }
+        dimensions:
+          type: object
+          properties:
+            completeness:
+              type: object
+              properties:
+                score: { type: number }
+                status: { type: string }
+                details: { type: string }
+            retrievability:
+              type: object
+              properties:
+                score: { type: number }
+                status: { type: string }
+                details: { type: string }
+            executability:
+              type: object
+              properties:
+                score: { type: number }
+                status: { type: string }
+                details: { type: string }
+            drift:
+              type: object
+              properties:
+                score: { type: number }
+                status: { type: string }
+                details: { type: string }
+        last_checked_at: { type: string, format: date-time }
+        recommendations:
+          type: array
+          items: { type: string }
+
+    AuditEntry:
+      type: object
+      properties:
+        audit_id: { type: string }
+        event_type: { type: string }
+        principal_id: { type: string }
+        tenant_id: { type: string }
+        resource_id: { type: string }
+        action: { type: string }
+        result: { type: string }
+        request_id: { type: string }
+        correlation_id: { type: string }
+        created_at: { type: string, format: date-time }
+
+    StewardFinding:
+      type: object
+      properties:
+        id: { type: string }
+        category: { type: string }
+        severity: { type: string }
+        title: { type: string }
+        evidence: { type: array }
+        affected_objects: { type: array }
+        suggested_action: { type: string }
+        confidence: { type: string }
+        fingerprint: { type: string }
+        status: { type: string, enum: [OPEN, ACKNOWLEDGED, RESOLVED, SUPPRESSED] }
+        occurrence_count: { type: integer }
+        first_seen_at: { type: string, format: date-time }
+        last_seen_at: { type: string, format: date-time }

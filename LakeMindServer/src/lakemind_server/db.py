@@ -1,7 +1,9 @@
 from __future__ import annotations
 import os
+import json
 import psycopg2
 from psycopg2 import pool
+from psycopg2.extras import Json
 from typing import Any
 
 
@@ -38,15 +40,23 @@ def put_conn(conn):
     get_pool().putconn(conn)
 
 
+def _adapt_params(params):
+    if params is None:
+        return None
+    return tuple(Json(v) if isinstance(v, (dict, list)) else v for v in params)
+
+
 def execute(query: str, params: tuple | None = None) -> Any:
     conn = get_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute(query, params)
+            cur.execute(query, _adapt_params(params))
             if cur.description:
                 rows = cur.fetchall()
                 colnames = [desc[0] for desc in cur.description]
-                return [dict(zip(colnames, row)) for row in rows]
+                result = [dict(zip(colnames, row)) for row in rows]
+                conn.commit()
+                return result
             conn.commit()
             return None
     except Exception:

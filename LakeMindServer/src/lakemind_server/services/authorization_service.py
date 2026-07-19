@@ -4,6 +4,7 @@ import ulid
 from ..db import execute, execute_one
 from ..security.token_parser import issue_token, revoke_token, list_tokens, create_principal, assign_role, authorize, check_tenant
 from ..security.context import SecurityContext
+from ..security.actions import actions_for_roles
 
 
 class AuthorizationService:
@@ -78,7 +79,7 @@ class AuthorizationService:
         roles = [r["name"] for r in role_rows]
         primary_role = roles[0] if roles else "readonly"
 
-        result = issue_token(row["principal_id"], row["tenant_id"], roles)
+        result = issue_token(row["principal_id"], row["tenant_id"], actions_for_roles(roles))
         AuditService.record(
             event_type="auth.login",
             principal_id=row["principal_id"],
@@ -94,6 +95,7 @@ class AuthorizationService:
             "roles": roles,
             "tenant_id": row["tenant_id"],
             "principal_id": row["principal_id"],
+            "security_version": result.get("security_version", 0),
         }
 
 
