@@ -1,8 +1,8 @@
-# LakeMind v0.2.0 Operation / 事件 / 幂等规范
+﻿# LakeMind v0.2.0 Operation / 事件 / 幂等规范
 
 > 日期：2026-07-13  
 > 状态：accepted  
-> 依据：[设计方案](../../../v0.2.0.design/LakeMind_v0.2.0_设计方案.md) §12.5-§12.6, §12.9
+> 依据：[设计方案](../../../reports/v0.2.0-design/LakeMind_v0.2.0_设计方案.md) §12.5-§12.6, §12.9
 
 ---
 

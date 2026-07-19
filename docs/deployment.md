@@ -220,9 +220,6 @@ $env:DOCKER_BUILDKIT=0      # PowerShell
 
 ```bash
 python scripts/verify_full.py                          # L0-L9 全分层，286/286 PASS（主验证脚本）
-python LakeMindServer/scripts/verify_pg_catalog.py     # 8 PG catalog
-python LakeMindServer/scripts/verify_ray.py            # 12 Ray 分布式
-python scripts/verify_llm.py                           # 10 LLM 网关
 ```
 
 期望：297/297 PASS

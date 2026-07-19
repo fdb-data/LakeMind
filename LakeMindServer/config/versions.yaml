@@ -1,6 +1,6 @@
-# LakeMind MVP 版本配套表
+﻿# LakeMind MVP 版本配套表
 # 生成时间：2026-06-30
-# 所有版本均已在本机验证通过（verify_services.py 3/3 PASS）。
+# 所有版本均已在本机验证通过（verify_full.py L0-L9 PASS）。
 # 升级任何组件前请先在此表确认兼容性，改完版本号后重跑验证脚本。
 
 # ============================================================
@@ -100,7 +100,7 @@ platform:
   verification:
     boto3: "1.43.37"
     redis_py: "8.0.1"
-    script: "scripts/verify_services.py"
+    script: "../scripts/verify_full.py"
 
 # ============================================================
 # 四、兼容性矩阵（关键交叉点）

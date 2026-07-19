@@ -133,7 +133,6 @@ docker ps --format "table {{.Names}}\t{{.Status}}" | findstr lakemind
 # lakemind-admin-mcp        Up (healthy)
 # lakemind-model-serving    Up (healthy)
 # lakemind-control-center   Up (healthy)
-# lakemind-telemetry-agent  Up
 ```
 
 ### 3.2 平台端口

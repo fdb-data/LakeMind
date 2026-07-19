@@ -238,11 +238,6 @@ docker restart lakemind-server-api
 | 验证 | 脚本 | 范围 | 当前结果 |
 |------|------|------|---------|
 | **全面测试 L0-L9** | `scripts/verify_full.py` | 58 tools + 10 prompts + 23 resources + REST API + 安全 + 端到端 + 性能 | **297/297 PASS** |
-| PG catalog | `LakeMindServer/scripts/verify_pg_catalog.py` | PyIceberg + PG | 8/8 PASS |
-| Ray 计算 | `LakeMindServer/scripts/verify_ray.py` | 7 任务类型 | 12/12 PASS |
-| LLM 网关 | `scripts/verify_llm.py` | 3 provider 路由 | 10/10 PASS |
-| Monitor | `LakeMindMonitor/scripts/verify_monitor.py` | 23 API 路由 + 页面 | 18/18 PASS |
-| 旧脚本（已弃用） | `scripts/verify_three_mcp_v2.py` | 3 MCP tools/prompts | 128/142 PASS（已被 verify_full.py 替代） |
 
 ### 5.3 验证流程
 

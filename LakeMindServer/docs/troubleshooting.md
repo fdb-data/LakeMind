@@ -1,4 +1,4 @@
-# 故障排查手册
+﻿# 故障排查手册
 
 > **⚠️ 部分内容过期**：本文档仍包含 Apache Gravitino 故障排查。Gravitino 已被 PostgreSQL 16 替代，相关排查内容仅作历史参考。
 
@@ -260,7 +260,7 @@ wsl -e date
 2. docker compose logs --tail 50      → 有无错误日志？
 3. docker stats                       → 资源使用是否异常？
 4. curl 各端口                        → 服务是否可达？
-5. python scripts/verify_services.py  → 端到端是否通过？
+5. python ../scripts/verify_full.py  → 端到端是否通过？
 6. 查阅本手册对应章节
 7. 查阅组件官方文档
 ```
@@ -285,7 +285,7 @@ cat .env
 cat config/seaweedfs/s3.json
 
 echo "=== Verify ==="
-python scripts/verify_services.py
+python ../scripts/verify_full.py
 
 echo "=== Versions ==="
 cat config/versions.yaml

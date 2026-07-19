@@ -330,28 +330,3 @@ services:
       timeout: 5s
       retries: 10
       start_period: 15s
-
-  # ══════════════════════════════════════════════════════════════
-  # 4b. 管理平面 — Telemetry Agent（独立只读）
-  # ══════════════════════════════════════════════════════════════
-
-  telemetry-agent:
-    build:
-      context: ./LakeMindTelemetryAgent
-    image: ${LAKEMIND_REGISTRY}/telemetry-agent:${LAKEMIND_VERSION}
-    container_name: lakemind-telemetry-agent
-    environment:
-      LAKEMIND_SERVER_API: "http://lakemind-server-api:10823"
-      SERVER_API_KEY: "${SERVER_API_KEY}"
-      DATABASE_URL: "postgresql://lakemind:lakemind@lakemind-postgres:5432/lakemind"
-      VALKEY_HOST: "lakemind-valkey"
-      VALKEY_PORT: "6379"
-      SEAWEEDFS_URL: "http://lakemind-seaweedfs:8333"
-      RAY_DASHBOARD_URL: "http://lakemind-ray-head:8265"
-      MODEL_SERVING_URL: "http://lakemind-model-serving:10824"
-      TELEMETRY_INTERVAL: "60"
-    networks: [lakemind]
-    restart: unless-stopped
-    depends_on:
-      server-api:
-        condition: service_healthy

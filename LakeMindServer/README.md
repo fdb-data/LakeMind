@@ -1,4 +1,4 @@
-# LakeMindServer
+﻿# LakeMindServer
 
 多模智能数据湖服务器平台。MVP 单机部署的 docker-compose 与全部组件配置在此目录。
 
@@ -12,8 +12,8 @@ LakeMindServer/
     seaweedfs/s3.json         # S3 网关身份
     versions.yaml             # 版本配套表
   scripts/
-    verify_services.py        # 平台集成验证（S3 / Valkey）
-    verify_scenario.py        # 端到端真实场景验证（5 数据域全覆盖）
+    bootstrap.py              # 启动时数据初始化
+    migrate_v01_to_v02.py     # v0.1→v0.2 迁移
   docs/                       # 手册目录
     installation.md           # 安装手册
     configuration.md          # 配置手册
@@ -29,7 +29,7 @@ cd LakeMindServer
 cp .env.example .env
 docker compose --env-file .env up -d
 pip install boto3 redis
-python scripts/verify_services.py
+python ../scripts/verify_full.py
 ```
 
 预期：3/3 PASS。
@@ -38,7 +38,7 @@ python scripts/verify_services.py
 
 ```bash
 pip install pyiceberg[sql-sqlite] pylance lancedb duckdb daft pyarrow
-python scripts/verify_scenario.py
+python ../scripts/verify_full.py
 ```
 
 预期：29/29 PASS。覆盖全部 5 个数据域：

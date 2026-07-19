@@ -1,4 +1,4 @@
-# 使用手册
+﻿# 使用手册
 
 > **⚠️ 部分内容过期**：本文档仍包含 Apache Gravitino 使用说明。Gravitino 已被 PostgreSQL 16 替代（PG SQL catalog + PG 原生图表）。相关内容仅作历史参考。
 
@@ -278,7 +278,7 @@ redis-cli -p 6379
 ### 5.1 运行
 
 ```bash
-python scripts/verify_services.py
+python ../scripts/verify_full.py
 ```
 
 ### 5.2 验证内容
@@ -300,7 +300,7 @@ S3_SECRET_KEY=admin123456 \
 VALKEY_PORT=6379 \
 GRAVITINO_URI=http://localhost:8090 \
 GRAVITINO_METALAKE=lakemind_metalake \
-python scripts/verify_services.py
+python ../scripts/verify_full.py
 ```
 
 ### 5.4 退出码
@@ -323,7 +323,7 @@ pip install pyiceberg[sql-sqlite] pylance lancedb duckdb daft pyarrow
 ### 5B.2 运行
 
 ```bash
-python scripts/verify_scenario.py
+python ../scripts/verify_full.py
 ```
 
 ### 5B.3 验证内容
@@ -418,7 +418,7 @@ docker exec lakemind-valkey redis-cli ping
 ### 7.2 完整验证
 
 ```bash
-python scripts/verify_services.py
+python ../scripts/verify_full.py
 ```
 
 ---

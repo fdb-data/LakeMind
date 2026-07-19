@@ -1,4 +1,4 @@
-# 配置手册
+﻿# 配置手册
 
 > **⚠️ 部分内容过期**：本文档仍包含 Apache Gravitino 相关配置。Gravitino 已被 PostgreSQL 16 替代（PG SQL catalog）。相关内容仅作历史参考。
 
@@ -130,7 +130,7 @@ LakeMindServer/
 升级组件时：
 1. 修改 `.env` 中的镜像 tag。
 2. `docker compose pull && docker compose up -d`。
-3. 重跑 `python scripts/verify_services.py`。
+3. 重跑 `python ../scripts/verify_full.py`。
 4. 更新 `versions.yaml` 中的版本号。
 
 ---

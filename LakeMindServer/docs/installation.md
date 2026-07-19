@@ -1,4 +1,4 @@
-# 安装手册
+﻿# 安装手册
 
 > **⚠️ 部分内容过期**：本文档仍包含 Apache Gravitino 安装步骤。Gravitino 已被 PostgreSQL 16 替代，无需单独安装。相关内容仅作历史参考。
 
@@ -65,7 +65,8 @@ LakeMindServer/
     seaweedfs/s3.json         # S3 网关身份配置
     versions.yaml             # 版本配套表
   scripts/
-    verify_services.py        # 平台集成验证脚本
+    bootstrap.py              # 启动时数据初始化
+    migrate_v01_to_v02.py     # v0.1→v0.2 迁移
   docs/                       # 本文档目录
 ```
 
@@ -184,7 +185,7 @@ pip install boto3 redis
 ## 8. 运行验证脚本
 
 ```bash
-python scripts/verify_services.py
+python ../scripts/verify_full.py
 ```
 
 预期输出（3/3 PASS）：
@@ -207,7 +208,7 @@ python scripts/verify_services.py
 - [ ] Docker Desktop 运行中，WSL2 后端
 - [ ] `.env` 文件已创建并配置
 - [ ] 三个容器全部 Up（`docker ps`）
-- [ ] `verify_services.py` 3/3 PASS
+- [ ] `../scripts/verify_full.py` L0-L9 PASS
 - [ ] `data/` 目录下有实际数据文件
 - [ ] 版本配套表 `config/versions.yaml` 已查阅
 

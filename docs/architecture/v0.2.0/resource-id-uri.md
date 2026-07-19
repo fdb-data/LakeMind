@@ -1,8 +1,8 @@
-# LakeMind v0.2.0 资源 ID 与 URI 规范
+﻿# LakeMind v0.2.0 资源 ID 与 URI 规范
 
 > 日期：2026-07-13  
 > 状态：accepted  
-> 依据：[设计方案](../../../v0.2.0.design/LakeMind_v0.2.0_设计方案.md) §12.3-§12.4
+> 依据：[设计方案](../../../reports/v0.2.0-design/LakeMind_v0.2.0_设计方案.md) §12.3-§12.4
 
 ---
 

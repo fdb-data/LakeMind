@@ -1,8 +1,8 @@
-# LakeMind v0.2.0 Provider 契约定义
+﻿# LakeMind v0.2.0 Provider 契约定义
 
 > 日期：2026-07-13  
 > 状态：accepted  
-> 依据：[设计方案](../../../v0.2.0.design/LakeMind_v0.2.0_设计方案.md) §12.8 + v0.1.0 `protocols.py`
+> 依据：[设计方案](../../../reports/v0.2.0-design/LakeMind_v0.2.0_设计方案.md) §12.8 + v0.1.0 `protocols.py`
 
 ---
 

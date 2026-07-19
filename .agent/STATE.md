@@ -14,7 +14,7 @@
 开发平面  ░░░░░░░░░░░░░░░░░░░░    0%  (Studio 未开始)
 示例      ████████████████████  100%  (meeting-agent v0.2.0 全链路 + lakemind-connector)
 验证      ████████████████████  100%  (L0-L8 286/286 PASS)
-文档      ████████████████████  100%  (AGENTS + .agent/ + docs/ + README + README_agent + CHANGELOG)
+文档      ████████████████████  100%  (AGENTS + .agent/ + docs/ + README + CHANGELOG)
 
 总体      ████████████████████  ~99%
 ```
@@ -117,9 +117,6 @@ memory:          True
 | 验证 | 脚本 | 结果 | 说明 |
 |------|------|------|------|
 | **全面测试 L0-L8** | `scripts/verify_full.py` | **286/286 PASS** | 全分层验证（L9 性能压测跳过） |
-| PG catalog | `LakeMindServer/scripts/verify_pg_catalog.py` | 8/8 PASS | PyIceberg + PG |
-| Ray 计算 | `LakeMindServer/scripts/verify_ray.py` | 12/12 PASS | 7 任务类型 |
-| LLM 网关 | `scripts/verify_llm.py` | 10/10 PASS | 3 provider 路由 |
 | Meeting Agent E2E | `examples/meeting-agent/` | ✅ PASS | 133 chunks → 31 ASR → 30 转写 → 6 版纪要 → 7 条知识 |
 | ControlCenter | `docs/control-center.md` | ✅ PASS | Jobs 5853 条, Models 5 def+8 dep+5 profile, Instances 8 个全 healthy |
 
@@ -281,7 +278,7 @@ user: admin / tenant: ten_default / role: platform_admin
 | `.agent/SPEC.md` | 开发规范 |
 | `.agent/STATE.md` | 本文件 |
 | `README.md` | 项目总览 |
-| `README_agent.md` | Agent 接入指南 |
+| `docs/lakemind-example-develop-guide.md` | Example 开发指南 |
 | `docs/` | 发布文档（architecture, api-reference, mcp-tools, control-center, etc.） |
 | `reports/` | 验证报告与设计文档 |
 
@@ -302,6 +299,3 @@ user: admin / tenant: ten_default / role: platform_admin
 | 脚本 | 结果 |
 |------|------|
 | `scripts/verify_full.py` | **286/286 PASS**（L0-L8 全分层） |
-| `LakeMindServer/scripts/verify_pg_catalog.py` | 8/8 PASS |
-| `LakeMindServer/scripts/verify_ray.py` | 12/12 PASS |
-| `scripts/verify_llm.py` | 10/10 PASS |

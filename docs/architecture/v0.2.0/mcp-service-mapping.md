@@ -1,8 +1,8 @@
-# LakeMind v0.2.0 MCP 与 REST 共享语义方案
+﻿# LakeMind v0.2.0 MCP 与 REST 共享语义方案
 
 > 日期：2026-07-13  
 > 状态：accepted  
-> 依据：[设计方案](../../../v0.2.0.design/LakeMind_v0.2.0_设计方案.md) §4.5
+> 依据：[设计方案](../../../reports/v0.2.0-design/LakeMind_v0.2.0_设计方案.md) §4.5
 
 ---
 
