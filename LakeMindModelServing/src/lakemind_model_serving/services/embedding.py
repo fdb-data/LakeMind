@@ -1,40 +1,60 @@
 from __future__ import annotations
 
 import logging
+import threading
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-class EmbeddingService:
-    def __init__(self, model_name: str = "jinaai/jina-embeddings-v2-base-zh",
-                 dim: int = 768, cache_dir: str = "/data/fastembed_cache"):
-        self._model = None
-        self._model_name = model_name
-        self._dim = dim
+class EmbeddingManager:
+    """Manage multiple local fastembed models with lazy loading."""
+
+    def __init__(self, cache_dir: str = "/data/fastembed_cache"):
         self._cache_dir = cache_dir
+        self._models: dict[str, Any] = {}
+        self._dims: dict[str, int] = {}
+        self._paths: dict[str, str | None] = {}
+        self._lock = threading.Lock()
 
-    def _ensure_model(self):
-        if self._model is None:
-            from fastembed import TextEmbedding
-            self._model = TextEmbedding(
-                model_name=self._model_name,
-                cache_dir=self._cache_dir,
-            )
-            logger.info("fastembed model loaded: %s", self._model_name)
+    def register(self, name: str, dim: int = 0, model_path: str | None = None):
+        with self._lock:
+            self._dims[name] = dim
+            self._paths[name] = model_path
 
-    def embed(self, texts: list[str]) -> list[list[float]]:
+    def unregister(self, name: str):
+        with self._lock:
+            self._models.pop(name, None)
+            self._dims.pop(name, None)
+            self._paths.pop(name, None)
+            logger.info("Embedding model unloaded: %s", name)
+
+    def embed(self, texts: list[str], model_name: str) -> tuple[list[list[float]], int]:
         if not texts:
-            return []
-        self._ensure_model()
-        return [[float(x) for x in v] for v in self._model.embed(texts)]
+            return [], self._dims.get(model_name, 0)
+        if model_name not in self._models:
+            with self._lock:
+                if model_name not in self._models:
+                    from fastembed import TextEmbedding
+                    cache_dir = self._paths.get(model_name) or self._cache_dir
+                    self._models[model_name] = TextEmbedding(
+                        model_name=model_name,
+                        cache_dir=cache_dir,
+                    )
+                    logger.info("fastembed model loaded: %s", model_name)
+        model = self._models[model_name]
+        vectors = [[float(x) for x in v] for v in model.embed(texts)]
+        dim = self._dims.get(model_name) or (len(vectors[0]) if vectors else 0)
+        return vectors, dim
 
-    @property
-    def dim(self) -> int:
-        return self._dim
+    def list_loaded(self) -> list[str]:
+        return list(self._models.keys())
 
-    @property
-    def model_name(self) -> str:
-        return self._model_name
+    def list_registered(self) -> list[str]:
+        return list(self._dims.keys())
+
+    def get_dim(self, name: str) -> int:
+        return self._dims.get(name, 0)
 
     def health(self) -> bool:
         try:

@@ -8,129 +8,107 @@ from ..auth import check_auth
 router = APIRouter()
 
 
-class RegisterModelRequest(BaseModel):
-    model_id: str
-    type: str = "llm"
-    provider: str = "openai"
+class CreateModelRequest(BaseModel):
+    name: str
+    model_type: str
+    provider: str
+    source: str = "external"
     litellm_model: str = ""
     api_key: str = ""
     base_url: str = ""
-    tags: list[str] = []
-    context_window: int = 0
-    dim: int = 0
-    priority: int = 99
+    model_path: str = ""
+    model_config: dict | None = None
+    capabilities: list | None = None
+    context_length: int | None = None
+    embedding_dim: int | None = None
+    priority: int = 100
+    status: str = "enabled"
 
 
 @router.get("/v1/models")
 async def list_models(request: Request):
     check_auth(request)
-    gateway = request.app.state.gateway
-    embedding_service = request.app.state.embedding_service
-    asr_service = getattr(request.app.state, "asr_service", None)
-
-    models = gateway.list_models()
-
-    if embedding_service:
-        models.append({
-            "id": embedding_service.model_name,
-            "type": "embedding",
-            "provider": "fastembed",
-            "tags": ["embed"],
-            "dim": embedding_service.dim,
-        })
-        models.append({
-            "id": "jina-embeddings-v2-base-zh",
-            "type": "embedding",
-            "provider": "fastembed",
-            "tags": ["embed"],
-            "dim": embedding_service.dim,
-        })
-
-    if asr_service:
-        models.append({
-            "id": asr_service.model_name,
-            "type": "asr",
-            "provider": "faster-whisper",
-            "tags": ["asr"],
-            "status": asr_service.status.value,
-        })
-
-    seen = set()
-    unique = []
-    for m in models:
-        if m["id"] not in seen:
-            seen.add(m["id"])
-            unique.append(m)
-
-    return {"object": "list", "data": unique}
+    registry = request.app.state.registry
+    params = request.query_params
+    models = registry.list_models(params.get("type"))
+    return {"object": "list", "data": models}
 
 
 @router.get("/v1/models/types")
 async def list_model_types(request: Request):
     check_auth(request)
-    return {"types": ["llm", "embedding", "asr"]}
+    return {"types": ["chat", "embedding", "asr"]}
 
 
 @router.get("/v1/models/{model_id}")
 async def get_model(model_id: str, request: Request):
     check_auth(request)
     registry = request.app.state.registry
-    info = registry.get(model_id)
-    if info is None:
+    model = registry.get_model(model_id)
+    if not model:
         raise HTTPException(status_code=404, detail=f"Model {model_id} not found")
-    return info
+    return model
 
 
-@router.post("/v1/models/register")
-async def register_model(body: RegisterModelRequest, request: Request):
+@router.post("/v1/models")
+async def create_model(body: CreateModelRequest, request: Request):
     check_auth(request)
-    gateway = request.app.state.gateway
     registry = request.app.state.registry
+    existing = registry.get_model_by_name(body.name)
+    if existing:
+        raise HTTPException(status_code=409, detail=f"Model name '{body.name}' already exists")
+    try:
+        return registry.create_model(**body.model_dump())
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-    model_config = body.model_dump()
-    litellm_model = model_config.get("litellm_model") or f"{body.provider}/{body.model_id}"
 
-    ok = registry.register(
-        model_id=body.model_id,
-        model_type=body.type,
-        provider=body.provider,
-        litellm_model=litellm_model,
-        api_key=body.api_key,
-        base_url=body.base_url,
-        tags=body.tags,
-        context_window=body.context_window,
-        dim=body.dim,
-        priority=body.priority,
-    )
-    if not ok:
-        raise HTTPException(status_code=500, detail="Failed to persist model registration")
-
-    if body.type == "llm":
-        ok = gateway.register_model({
-            "model_id": body.model_id,
-            "type": body.type,
-            "provider": body.provider,
-            "litellm_model": litellm_model,
-            "api_key": body.api_key,
-            "base_url": body.base_url,
-            "tags": body.tags,
-            "context_window": body.context_window,
-        })
-        if not ok:
-            raise HTTPException(status_code=500, detail="Failed to load model into gateway")
-
-    return {"status": "ok", "model_id": body.model_id}
+@router.put("/v1/models/{model_id}")
+async def update_model(model_id: str, request: Request):
+    check_auth(request)
+    registry = request.app.state.registry
+    body = await request.json()
+    try:
+        return registry.update_model(model_id, **body)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.delete("/v1/models/{model_id}")
-async def deregister_model(model_id: str, request: Request):
+async def delete_model(model_id: str, request: Request):
     check_auth(request)
-    gateway = request.app.state.gateway
     registry = request.app.state.registry
+    try:
+        return registry.delete_model(model_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
-    ok = registry.deregister(model_id)
-    if not ok:
-        raise HTTPException(status_code=404, detail=f"Model {model_id} not found in registry")
 
-    gateway.deregister_model(model_id)
-    return {"status": "ok", "deleted": model_id}
+@router.post("/v1/models/{model_id}/enable")
+async def enable_model(model_id: str, request: Request):
+    check_auth(request)
+    registry = request.app.state.registry
+    try:
+        return registry.enable_model(model_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/v1/models/{model_id}/disable")
+async def disable_model(model_id: str, request: Request):
+    check_auth(request)
+    registry = request.app.state.registry
+    try:
+        return registry.disable_model(model_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/v1/models/{model_id}/test")
+async def test_model(model_id: str, request: Request):
+    check_auth(request)
+    registry = request.app.state.registry
+    try:
+        return registry.test_model(model_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
