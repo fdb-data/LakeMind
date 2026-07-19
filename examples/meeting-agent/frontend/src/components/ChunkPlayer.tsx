@@ -4,10 +4,9 @@ import { Card, Space, Button, Slider, Typography } from "antd";
 interface Props {
   taskId: string;
   chunks: any[];
-  segments: any[];
 }
 
-export default function ChunkPlayer({ taskId, chunks, segments }: Props) {
+export default function ChunkPlayer({ taskId, chunks }: Props) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [currentChunk, setCurrentChunk] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -21,7 +20,7 @@ export default function ChunkPlayer({ taskId, chunks, segments }: Props) {
     if (chunks.length > 0) loadChunk(0);
   }, [chunks]);
 
-  async function loadChunk(idx: number) {
+  async function loadChunk(idx: number, autoplay = false) {
     if (idx >= chunks.length) { setPlaying(false); return; }
     const seq = chunks[idx].sequence_no;
     const resp = await fetch(`/api/tasks/${taskId}/audio/chunks/${seq}`);
@@ -30,11 +29,14 @@ export default function ChunkPlayer({ taskId, chunks, segments }: Props) {
       audioRef.current.src = URL.createObjectURL(blob);
       audioRef.current.playbackRate = rate;
       setCurrentChunk(idx);
+      if (autoplay) {
+        audioRef.current.play().catch(() => {});
+      }
     }
   }
 
   function onEnded() {
-    loadChunk(currentChunk + 1);
+    loadChunk(currentChunk + 1, true);
   }
 
   function togglePlay() {
@@ -52,25 +54,6 @@ export default function ChunkPlayer({ taskId, chunks, segments }: Props) {
     if (audioRef.current) audioRef.current.currentTime += seconds;
   }
 
-  function jumpToSegment(seg: any) {
-    const targetMs = seg.start_ms || 0;
-    let acc = 0;
-    for (let i = 0; i < chunks.length; i++) {
-      const dur = chunks[i].duration_ms || 0;
-      if (acc + dur > targetMs) {
-        loadChunk(i).then(() => {
-          if (audioRef.current) {
-            audioRef.current.currentTime = (targetMs - acc) / 1000;
-            audioRef.current.play();
-            setPlaying(true);
-          }
-        });
-        return;
-      }
-      acc += dur;
-    }
-  }
-
   const accBefore = chunks.slice(0, currentChunk).reduce((s, c) => s + (c.duration_ms || 0), 0);
   const displayMs = accBefore + (currentTime * 1000);
 
@@ -85,26 +68,6 @@ export default function ChunkPlayer({ taskId, chunks, segments }: Props) {
         <Typography.Text>{Math.floor(displayMs / 1000)}s / {Math.floor(totalMs / 1000)}s</Typography.Text>
         <Typography.Text type="secondary">分片 {currentChunk + 1}/{chunks.length}</Typography.Text>
       </Space>
-      {segments.length > 0 && (
-        <div style={{ marginTop: 8, maxHeight: 150, overflow: "auto" }}>
-          {segments.map((seg: any) => {
-            const segMs = seg.start_ms || 0;
-            const isCurrent = segMs <= displayMs && (seg.end_ms || segMs) >= displayMs;
-            return (
-              <div key={seg.segment_id} onClick={() => jumpToSegment(seg)} style={{
-                cursor: "pointer", padding: "2px 8px",
-                background: isCurrent ? "#e6f7ff" : "transparent",
-                borderRadius: 4,
-              }}>
-                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                  [{Math.floor(segMs / 1000)}s]
-                </Typography.Text>{" "}
-                {seg.edited_text || seg.original_text}
-              </div>
-            );
-          })}
-        </div>
-      )}
     </Card>
   );
 }

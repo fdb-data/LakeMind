@@ -29,12 +29,14 @@ LakeMind is a **cognitive asset platform + controlled Job Runtime**. It stores y
 You (Agent)
   │
   ├─ AssetMCP (:8401)  → knowledge / memory / skills (23 MCP tools)
-  ├─ AdminMCP (:8403)  → tenant / token / health   (17 MCP tools)
+  ├─ AdminMCP (:8403)  → tenant / token / health   (21 MCP tools)
   ├─ Server    (:10823) → REST API: vectors, S3, Ray jobs
   └─ ModelServing (:10824) → embedding / LLM / ASR
 ```
 
 All services are on `localhost`. No external calls.
+
+> **Management UI**: ControlCenter at `http://localhost:3000` provides a unified dashboard (Mission Control, model configuration, job monitoring, Steward chat).
 
 ---
 
@@ -1059,7 +1061,7 @@ The `opencode` tenant already has:
 | technical_knowledge | FunASR SenseVoice 语音识别输出格式 |
 | technical_knowledge | LanceDB 向量存储操作模式 |
 | technical_knowledge | 浏览器 MediaRecorder 多分片录音最佳实践 |
-| technical_knowledge | LakeMind Monitor 资产页面数据流 |
+| technical_knowledge | LakeMind ControlCenter 管理页面数据流 |
 | project_knowledge | meeting-agent 示例架构与设计决策 |
 | infrastructure_fix | LakeMind Server 基础设施修复记录 |
 

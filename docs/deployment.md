@@ -2,31 +2,25 @@
 
 ## 部署模式
 
-### 单机 docker-compose（v0.1.0）
+### 单机 docker-compose（v0.2.0）
 
 适用于开发、测试、小规模生产（≤50 Agent）。
 
-#### 启动顺序
+#### 一键启动
 
 ```bash
-# 1. 数据平面（7 容器：server-api + postgres + seaweedfs + valkey + ray-head + 2 worker）
-cd LakeMindServer
-docker compose --env-file .env --profile ray up -d
+# 启动全部服务（数据平面 + 3 MCP + ModelServing + ControlCenter + Ray）
+docker compose --env-file .env --profile ray --profile all up -d
 
-# 2. 三个 MCP（3 容器）
-cd LakeMindMCP
-docker compose --profile all up -d --build
-
-# 3. Steward + Monitor + ModelServing（3 容器）
-cd LakeMindMonitor
-docker compose up -d --build
+# 本地开发（先 build 再 up）
+docker buildx bake core --load
+docker compose -f docker-compose.yml -f docker-compose.build.yml --env-file .env --profile ray --profile all up -d --no-build
 ```
 
 #### 不启动 Ray
 
 ```bash
-cd LakeMindServer
-docker compose --env-file .env up -d    # 不加 --profile ray
+docker compose --env-file .env --profile all up -d    # 不加 --profile ray
 ```
 
 此时 `compute.distributed` 使用 `embedded` 插件（需在 engines.yaml 中切换）。
@@ -34,22 +28,19 @@ docker compose --env-file .env up -d    # 不加 --profile ray
 #### 选择性启动 MCP
 
 ```bash
-cd LakeMindMCP
-docker compose --profile asset up -d --build    # 只启动 AssetMCP
-docker compose --profile data up -d --build     # 只启动 DataMCP
-docker compose --profile admin up -d --build    # 只启动 AdminMCP
+docker compose --env-file .env --profile asset up -d    # 只启动 AssetMCP
+docker compose --env-file .env --profile data up -d     # 只启动 DataMCP
+docker compose --env-file .env --profile admin up -d    # 只启动 AdminMCP
 ```
 
 ### 停止与清理
 
 ```bash
 # 停止全部
-cd LakeMindMonitor && docker compose down
-cd LakeMindMCP && docker compose --profile all down
-cd LakeMindServer && docker compose --profile ray down
+docker compose --env-file .env --profile ray --profile all down
 
 # 清理数据卷（谨慎！）
-cd LakeMindServer && docker compose --profile ray down -v
+docker compose --env-file .env --profile ray --profile all down -v
 ```
 
 ## 容器清单
@@ -61,14 +52,13 @@ cd LakeMindServer && docker compose --profile ray down -v
 | lakemind-postgres | postgres:16 | 5432 | ~0% | 35 MB |
 | lakemind-seaweedfs | chrislusf/seaweedfs:latest | 8333/8888/9333 | ~0.4% | 90 MB |
 | lakemind-valkey | valkey/valkey:8.0 | 6379 | ~2.5% | 23 MB |
-| lakemind-ray-head | lakemind/ray:2.41.0-py3.12 | 8265 | ~12% | 871 MB |
-| lakemind-ray-worker-1 | lakemind/ray:2.41.0-py3.12 | — | ~4% | 334 MB |
-| lakemind-ray-worker-2 | lakemind/ray:2.41.0-py3.12 | — | ~7% | 420 MB |
-| lakemind-asset-mcp | lakemind-asset-mcp:latest | 8401 | ~0.2% | 47 MB |
-| lakemind-data-mcp | lakemind-data-mcp:latest | 8402 | ~0.2% | 47 MB |
-| lakemind-admin-mcp | lakemind-admin-mcp:latest | 8403 | ~0.2% | 44 MB |
-| lakemind-steward | lakemind-steward:latest | 8500 | ~0.2% | 62 MB |
-| lakemind-monitor | lakemind-monitor:latest | 3000 | ~0% | 21 MB |
+| lakemind-ray-head | rayproject/ray:2.41.0-py312 | 8265 | ~12% | 871 MB |
+| lakemind-ray-worker-1 | rayproject/ray:2.41.0-py312 | — | ~4% | 334 MB |
+| lakemind-ray-worker-2 | rayproject/ray:2.41.0-py312 | — | ~7% | 420 MB |
+| lakemind-asset-mcp | lakemind/mcp-suite:latest | 8401 | ~0.2% | 47 MB |
+| lakemind-data-mcp | lakemind/mcp-suite:latest | 8402 | ~0.2% | 47 MB |
+| lakemind-admin-mcp | lakemind/mcp-suite:latest | 8403 | ~0.2% | 44 MB |
+| lakemind-control-center | lakemind/control-center:latest | 3000 | ~1% | 120 MB |
 
 ## 引擎切换
 
@@ -175,8 +165,7 @@ LakeMind 使用以下端口，确保未被占用：
 | 8401 | asset-mcp | `netstat -tlnp \| grep 8401` |
 | 8402 | data-mcp | `netstat -tlnp \| grep 8402` |
 | 8403 | admin-mcp | `netstat -tlnp \| grep 8403` |
-| 8500 | steward | `netstat -tlnp \| grep 8500` |
-| 3000 | monitor | `netstat -tlnp \| grep 3000` |
+| 3000 | control-center | `netstat -tlnp \| grep 3000` |
 | 5432 | postgres | `netstat -tlnp \| grep 5432` |
 | 8333 | seaweedfs | `netstat -tlnp \| grep 8333` |
 | 6379 | valkey | `netstat -tlnp \| grep 6379` |
@@ -216,9 +205,7 @@ docker compose --env-file .env up -d    # 不加 --profile ray
 # 错误：network lakemind-server_lakemind not found
 # 原因：LakeMindServer 未先启动
 # 解决：按顺序启动
-cd LakeMindServer && docker compose --env-file .env --profile ray up -d
-cd LakeMindMCP && docker compose --profile all up -d --build
-cd LakeMindMonitor && docker compose up -d --build
+docker compose --env-file .env --profile ray --profile all up -d
 ```
 
 ### BuildKit 兼容问题
@@ -232,11 +219,10 @@ $env:DOCKER_BUILDKIT=0      # PowerShell
 ## 验证脚本
 
 ```bash
-python scripts/verify_full.py                          # L0-L9 全分层，297/297 PASS（主验证脚本）
+python scripts/verify_full.py                          # L0-L9 全分层，286/286 PASS（主验证脚本）
 python LakeMindServer/scripts/verify_pg_catalog.py     # 8 PG catalog
 python LakeMindServer/scripts/verify_ray.py            # 12 Ray 分布式
 python scripts/verify_llm.py                           # 10 LLM 网关
-python LakeMindMonitor/scripts/verify_monitor.py       # 18 Monitor
 ```
 
 期望：297/297 PASS
@@ -350,12 +336,10 @@ docker exec -i lakemind-postgres psql -U lakemind lakemind < backup_20260712.sql
 
 ```bash
 # 停止全部容器
-cd LakeMindMonitor && docker compose down
-cd LakeMindMCP && docker compose --profile all down
-cd LakeMindServer && docker compose --profile ray down
+docker compose --env-file .env --profile ray --profile all down
 
 # 清理数据卷（谨慎！不可恢复）
-cd LakeMindServer && docker compose --profile ray down -v
+docker compose --env-file .env --profile ray --profile all down -v
 
 # 清理镜像
 docker image prune -a --filter "name=lakemind"

@@ -20,9 +20,7 @@ Agent 通过 MCP 检索和存取知识、记忆、技能等认知资产，通过
 | `LakeMindMCP/LakeMindAssetMCP/` | 运行平面 | 资产面 MCP（知识/记忆/技能/本体），23 tools | ✅ 已完成 |
 | `LakeMindMCP/LakeMindDataMCP/` | 运行平面 | 数据面 MCP（通过 REST API 透传，不做语义包装），24 tools | ✅ 已完成 |
 | `LakeMindMCP/LakeMindAdminMCP/` | 运行平面 | 管理面 MCP（用户/租户/Token/健康），21 tools | ✅ 已完成 |
-| `LakeMindSteward/` | 运行平面 | 管理运维 Agent（LangGraph 巡检 + 对话） | ✅ v0.1.0（v0.2.0 迁至 ControlCenter） |
-| `LakeMindMonitor/` | 运行平面 | 人类只读仪表板 + Steward 对话窗（Express） | ✅ v0.1.0（v0.2.0 迁至 ControlCenter） |
-| `LakeMindControlCenter/` | 运行平面 | 统一管理入口（前端 + BFF + Steward，10 页面） | ✅ v0.2.0 新增 |
+| `LakeMindControlCenter/` | 运行平面 | 统一管理入口（前端 + BFF + Steward，10 页面） | ✅ v0.2.0 |
 | `LakeMindStudio/` | 开发平面 | 资产设计、MCP 调试、Skill 脚手架（Tauri） | ❌ 未开始（P2） |
 
 ## 3. 访问拓扑
@@ -31,7 +29,8 @@ Agent 通过 MCP 检索和存取知识、记忆、技能等认知资产，通过
 Agent ──→ AssetMCP (:8401)  ← 资产面（知识/记忆/技能/本体）
 Steward ─→ DataMCP  (:8402)  ← 数据面（REST API 透传）
 Steward ─→ AdminMCP (:8403)  ← 管理面（用户/租户/健康）
-Monitor ─→ 3 MCP（只读）+ Steward（chat/inspect）
+ControlCenter (:3000) ← 前端 + BFF (:3001) + Steward (:3002，内嵌)
+Monitor ─→ 3 MCP（只读）+ Steward（chat/inspect）  ← 已迁入 ControlCenter
 Studio  ─→ 3 MCP + Git
          │
          ▼
@@ -45,8 +44,8 @@ LakeMindModelServing (:10824)  ← 统一模型服务（litellm + fastembed + Fu
 
 - **MCP 是 Agent 唯一入口**，嵌入式引擎在 Server 进程中运行，MCP 通过 REST API 调用，不直连任何底层引擎。
 - **MCP 三要素**：Tools（操作）+ Resources（只读浏览）+ Prompts（使用指南），每个 MCP 都有全部三要素。
-- **Steward** 走 MCP admin 域。
-- **Monitor** 全走 MCP（只读），自身极轻。
+- **ControlCenter** 统一了 v0.1.0 的 Steward + Monitor：前端（nginx :3000）→ BFF（FastAPI :3001）→ Steward（LangGraph :3002）。Steward 走 MCP admin 域。
+- **Monitor** 已迁入 ControlCenter（Mission Control 页面），不再独立部署。
 
 ## 4. 技术栈（锁定，不擅自替换）
 

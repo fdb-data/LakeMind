@@ -1,8 +1,22 @@
 from __future__ import annotations
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, HTTPException
+from pydantic import BaseModel
 from ..services.instance_registry import InstanceRegistry
 
 router = APIRouter()
+
+
+class RegisterRequest(BaseModel):
+    service_type: str
+    version: str
+    endpoint: str
+    capabilities: list[str] = []
+    instance_id: str = ""
+
+
+class HeartbeatRequest(BaseModel):
+    health_status: str = "healthy"
+    active_revision_id: str | None = None
 
 
 @router.get("")
@@ -14,3 +28,28 @@ async def list_instances(request: Request):
 @router.get("/{instance_id}")
 async def get_instance(instance_id: str):
     return InstanceRegistry.get_instance(instance_id)
+
+
+@router.post("")
+async def register_instance(body: RegisterRequest):
+    existing = None
+    if body.instance_id:
+        existing = InstanceRegistry.get_instance(body.instance_id)
+    if existing:
+        InstanceRegistry.heartbeat(body.instance_id, "healthy")
+        return existing
+    return InstanceRegistry.register(
+        service_type=body.service_type,
+        version=body.version,
+        endpoint=body.endpoint,
+        capabilities=body.capabilities,
+    )
+
+
+@router.put("/{instance_id}/heartbeat")
+async def heartbeat_instance(instance_id: str, body: HeartbeatRequest):
+    existing = InstanceRegistry.get_instance(instance_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="INSTANCE_NOT_FOUND")
+    InstanceRegistry.heartbeat(instance_id, body.health_status, body.active_revision_id)
+    return {"ok": True}

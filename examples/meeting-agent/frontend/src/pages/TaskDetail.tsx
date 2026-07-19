@@ -161,12 +161,12 @@ export default function TaskDetail() {
           if (e.data.size > 100 && !stoppingRef.current) {
             const buf = await e.data.arrayBuffer();
             chunkSeqRef.current++;
-            uploadChunk(chunkSeqRef.current, buf, 10000);
+            uploadChunk(chunkSeqRef.current, buf, 20000);
           }
         };
         mr.onstop = () => { recordOneChunk(); };
         mr.start();
-        setTimeout(() => { if (mr.state === "recording") mr.stop(); }, 10000);
+        setTimeout(() => { if (mr.state === "recording") mr.stop(); }, 20000);
       }
       recordOneChunk();
     } catch (err: any) {
@@ -320,7 +320,7 @@ export default function TaskDetail() {
 
       {chunks.length > 0 && !recording && (
         <div style={{ flexShrink: 0, marginBottom: 8 }}>
-          <ChunkPlayer taskId={taskId!} chunks={chunks} segments={segments} />
+          <ChunkPlayer taskId={taskId!} chunks={chunks} />
         </div>
       )}
 
@@ -337,7 +337,7 @@ export default function TaskDetail() {
               </Typography.Text>
             ) : (
               segments.map((s: any, i: number) => {
-                const segStartMs = s.start_ms != null ? s.start_ms : ((s.chunk_sequence || 1) - 1) * 10000;
+                const segStartMs = s.start_ms != null ? s.start_ms : ((s.chunk_sequence || 1) - 1) * 20000;
                 const segMin = Math.floor(segStartMs / 60000);
                 const segSec = Math.floor((segStartMs % 60000) / 1000);
                 const timestamp = `${String(segMin).padStart(2, "0")}:${String(segSec).padStart(2, "0")}`;

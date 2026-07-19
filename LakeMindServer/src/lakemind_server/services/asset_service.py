@@ -52,8 +52,12 @@ class AssetService:
     @staticmethod
     def list_assets(ctx: SecurityContext, asset_type: str | None = None,
                     status: str | None = None, page: int = 1, page_size: int = 50) -> dict:
-        query = "SELECT * FROM assets WHERE tenant_id = %s"
-        params: list = [ctx.tenant_id]
+        if ctx.is_platform_admin:
+            query = "SELECT * FROM assets WHERE 1=1"
+            params: list = []
+        else:
+            query = "SELECT * FROM assets WHERE tenant_id = %s"
+            params = [ctx.tenant_id]
         if asset_type:
             query += " AND asset_type = %s"; params.append(asset_type)
         if status:

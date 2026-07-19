@@ -38,7 +38,7 @@ Agent 运行中产生和消费的语义数据，分为 4 类：
 | 平面 | 职责 | 包 |
 |------|------|-----|
 | **数据平面** | 存储与计算底座 | LakeMindServer + LakeMindModelServing |
-| **运行平面** | MCP 编排 + Agent + 仪表板 | LakeMindMCP + LakeMindSteward + LakeMindMonitor |
+| **运行平面** | MCP 编排 + 管理入口 | LakeMindMCP + LakeMindControlCenter |
 | **开发平面** | 资产设计、调试、脚手架 | LakeMindStudio（待开发） |
 
 ### MCP（Model Context Protocol）
@@ -54,8 +54,8 @@ Agent 与 LakeMind 交互的唯一协议。每个 MCP 服务提供三要素：
 | MCP | 端口 | 面向 | 工具数 |
 |-----|------|------|--------|
 | AssetMCP | 8401 | 业务 Agent | 23 |
-| DataMCP | 8402 | Steward / 高级 Agent | 18 |
-| AdminMCP | 8403 | Steward | 17 |
+| DataMCP | 8402 | Steward / 高级 Agent | 24 |
+| AdminMCP | 8403 | Steward | 21 |
 
 ### 统一存储底座
 
@@ -108,13 +108,15 @@ Ray 2.41 集群（3 节点 12 CPU），Agent 通过 MCP 提交分布式作业：
 - 大规模数据处理
 - Skill 代码包作为 Ray job 运行
 
+### ControlCenter
+
+统一管理入口（前端 nginx :3000 + BFF FastAPI :3001 + Steward LangGraph :3002），10 页面：
+Overview, Assets, Jobs, ModelServing, Services, Configuration, Security, Operations, Audit, Steward。
+Mission Control 页面统一了 v0.1.0 的 Monitor 仪表板。
+
 ### Steward
 
-管理运维 Agent（LangGraph 巡检工作流 + 对话式管理），走 AdminMCP + DataMCP。
-
-### Monitor
-
-人类只读仪表板 + Steward 对话窗（Express，极轻，无自有 DB）。
+管理运维 Agent（LangGraph 巡检工作流 + 对话式管理），走 AdminMCP + DataMCP。v0.2.0 内嵌于 ControlCenter（:3002）。
 
 ---
 
@@ -126,8 +128,8 @@ Ray 2.41 集群（3 节点 12 CPU），Agent 通过 MCP 提交分布式作业：
 | **mem0** | 记忆引擎风格，8 方法（add/search/get/list/update/delete/clear/history） |
 | **MCP** | Model Context Protocol，Agent 与平台交互协议 |
 | **Asset** | 认知资产（知识/记忆/技能/本体） |
-| **Steward** | 管理运维 Agent |
-| **Monitor** | 人类仪表板 |
+| **ControlCenter** | 统一管理入口（前端 + BFF + Steward） |
+| **Steward** | 管理运维 Agent（内嵌于 ControlCenter） |
 | **Tenant** | 租户，数据隔离单元 |
 | **Scope** | Token 权限范围（asset/data/admin） |
 | **engines.yaml** | 引擎配置文件，切换插件不改代码 |

@@ -162,10 +162,52 @@ class ModelManagementService:
         return execute("SELECT * FROM model_definitions ORDER BY created_at")
 
     @staticmethod
+    def update_model(model_id: str, **fields) -> dict:
+        existing = execute_one("SELECT * FROM model_definitions WHERE model_id = %s", (model_id,))
+        if not existing:
+            raise ValueError("MODEL_NOT_FOUND")
+        allowed = {"name", "model_type", "capabilities", "provider_family",
+                    "context_length", "embedding_dim", "modalities", "metadata"}
+        sets = []
+        params = []
+        for k, v in fields.items():
+            if k not in allowed or v is None:
+                continue
+            if k in ("capabilities", "modalities", "metadata"):
+                v = json.dumps(v)
+            sets.append(f"{k} = %s")
+            params.append(v)
+        if not sets:
+            return existing
+        params.append(model_id)
+        execute(f"UPDATE model_definitions SET {', '.join(sets)} WHERE model_id = %s", tuple(params))
+        return execute_one("SELECT * FROM model_definitions WHERE model_id = %s", (model_id,))
+
+    @staticmethod
     def list_deployments(model_id: str | None = None) -> list[dict]:
         if model_id:
             return execute("SELECT * FROM model_deployments WHERE model_id = %s ORDER BY priority", (model_id,))
         return execute("SELECT * FROM model_deployments ORDER BY priority")
+
+    @staticmethod
+    def update_deployment(deployment_id: str, **fields) -> dict:
+        existing = execute_one("SELECT * FROM model_deployments WHERE deployment_id = %s", (deployment_id,))
+        if not existing:
+            raise ValueError("DEPLOYMENT_NOT_FOUND")
+        allowed = {"model_id", "provider", "endpoint", "secret_ref",
+                    "priority", "timeout_ms", "max_concurrency", "status"}
+        sets = []
+        params = []
+        for k, v in fields.items():
+            if k not in allowed or v is None:
+                continue
+            sets.append(f"{k} = %s")
+            params.append(v)
+        if not sets:
+            return existing
+        params.append(deployment_id)
+        execute(f"UPDATE model_deployments SET {', '.join(sets)} WHERE deployment_id = %s", tuple(params))
+        return execute_one("SELECT * FROM model_deployments WHERE deployment_id = %s", (deployment_id,))
 
     @staticmethod
     def list_profiles() -> list[dict]:
@@ -180,7 +222,7 @@ class ModelManagementService:
     @staticmethod
     def enable_deployment(ctx: SecurityContext, deployment_id: str) -> dict:
         execute(
-            "UPDATE model_deployments SET desired_state = 'ACTIVE' WHERE deployment_id = %s",
+            "UPDATE model_deployments SET status = 'enabled', desired_state = 'ACTIVE' WHERE deployment_id = %s",
             (deployment_id,),
         )
         event_id = _ulid("evt")
@@ -202,7 +244,7 @@ class ModelManagementService:
     @staticmethod
     def disable_deployment(ctx: SecurityContext, deployment_id: str) -> dict:
         execute(
-            "UPDATE model_deployments SET desired_state = 'DISABLED' WHERE deployment_id = %s",
+            "UPDATE model_deployments SET status = 'disabled', desired_state = 'DISABLED' WHERE deployment_id = %s",
             (deployment_id,),
         )
         event_id = _ulid("evt")
@@ -220,6 +262,106 @@ class ModelManagementService:
             result="success",
         )
         return execute_one("SELECT * FROM model_deployments WHERE deployment_id = %s", (deployment_id,))
+
+    @staticmethod
+    def test_deployment(deployment_id: str) -> dict:
+        import time
+        import httpx
+
+        dep = execute_one("SELECT * FROM model_deployments WHERE deployment_id = %s", (deployment_id,))
+        if not dep:
+            raise ValueError("DEPLOYMENT_NOT_FOUND")
+        model = execute_one("SELECT * FROM model_definitions WHERE model_id = %s", (dep["model_id"],))
+        if not model:
+            raise ValueError("MODEL_NOT_FOUND")
+
+        endpoint = dep["endpoint"]
+        model_type = model["model_type"]
+        model_name = model["name"]
+
+        api_key = "lakemind-modelserving-key"
+        secret_ref = dep.get("secret_ref", "")
+        if secret_ref.startswith("secret://"):
+            try:
+                api_key = SecretService.resolve(secret_ref, "system")
+            except Exception:
+                pass
+        elif secret_ref and secret_ref != "modelserving-key":
+            api_key = secret_ref
+
+        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        timeout = max(dep.get("timeout_ms", 30000) / 1000, 10)
+
+        result = {
+            "deployment_id": deployment_id,
+            "endpoint": endpoint,
+            "model_type": model_type,
+            "model_name": model_name,
+            "success": False,
+            "latency_ms": None,
+            "status_code": None,
+            "error": None,
+            "response_preview": None,
+        }
+
+        try:
+            t0 = time.time()
+            if model_type == "chat":
+                payload = {"model": model_name, "messages": [{"role": "user", "content": "hi"}], "max_tokens": 1}
+                r = httpx.post(endpoint, json=payload, headers=headers, timeout=timeout)
+            elif model_type == "embedding":
+                payload = {"model": model_name, "input": ["test"]}
+                r = httpx.post(endpoint, json=payload, headers=headers, timeout=timeout)
+            elif model_type == "asr":
+                base_url = endpoint.split("/api/v1/")[0] if "/api/v1/" in endpoint else endpoint.rsplit("/", 3)[0]
+                r = httpx.get(f"{base_url}/health", headers=headers, timeout=timeout)
+            else:
+                r = httpx.get(endpoint, headers=headers, timeout=timeout)
+
+            result["latency_ms"] = int((time.time() - t0) * 1000)
+            result["status_code"] = r.status_code
+            result["success"] = r.status_code < 400
+            result["response_preview"] = r.text[:500]
+            if not result["success"]:
+                result["error"] = f"HTTP {r.status_code}: {r.text[:200]}"
+        except httpx.ConnectError as e:
+            result["error"] = f"Connection failed: {e}"
+        except httpx.TimeoutException:
+            result["error"] = f"Timeout after {timeout}s"
+        except Exception as e:
+            result["error"] = f"{type(e).__name__}: {e}"
+
+        new_status = "healthy" if result["success"] else "unhealthy"
+        execute(
+            "UPDATE model_deployments SET health_status = %s, test_state = %s WHERE deployment_id = %s",
+            (new_status, "PASSED" if result["success"] else "FAILED", deployment_id),
+        )
+        result["health_status"] = new_status
+        return result
+
+    @staticmethod
+    def delete_route(route_id: str) -> dict:
+        existing = execute_one("SELECT * FROM model_routes WHERE route_id = %s", (route_id,))
+        if not existing:
+            raise ValueError("ROUTE_NOT_FOUND")
+        execute("DELETE FROM model_routes WHERE route_id = %s", (route_id,))
+        return existing
+
+    @staticmethod
+    def update_profile(profile_id: str, name: str | None = None, description: str | None = None) -> dict:
+        existing = execute_one("SELECT * FROM model_profiles WHERE profile_id = %s", (profile_id,))
+        if not existing:
+            raise ValueError("PROFILE_NOT_FOUND")
+        sets, params = [], []
+        if name is not None:
+            sets.append("name = %s"); params.append(name)
+        if description is not None:
+            sets.append("description = %s"); params.append(description)
+        if not sets:
+            return existing
+        params.append(profile_id)
+        execute(f"UPDATE model_profiles SET {', '.join(sets)} WHERE profile_id = %s", tuple(params))
+        return execute_one("SELECT * FROM model_profiles WHERE profile_id = %s", (profile_id,))
 
     @staticmethod
     def update_health(deployment_id: str, health_status: str, latency_ms: int | None = None) -> dict:

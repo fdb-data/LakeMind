@@ -125,3 +125,7 @@ app.include_router(search_api.router, prefix="/api/v1/search", tags=["search"])
 @app.get("/api/v1/health", tags=["system"])
 async def health():
     return {"status": "ok", "version": "2.0.0"}
+
+
+from .services.monitoring_service import start_monitoring
+start_monitoring(app)

@@ -166,13 +166,26 @@ class JobService:
         page: int = 1,
         page_size: int = 50,
     ) -> dict:
-        query = "SELECT * FROM job_runs WHERE tenant_id = %s"
-        params: list = [ctx.tenant_id]
+        _status_map = {
+            "completed": "SUCCEEDED", "failed": "FAILED",
+            "running": "RUNNING", "submitted": "QUEUED",
+            "cancelled": "CANCELLED",
+        }
+        _status_rev = {v: k for k, v in _status_map.items()}
+        if ctx.is_platform_admin:
+            query = "SELECT job_id, tenant_id, agent_id AS initiator_id, skill_uri, job_name, task_id, status, created_at FROM ray_jobs WHERE 1=1"
+            params: list = []
+        else:
+            query = "SELECT job_id, tenant_id, agent_id AS initiator_id, skill_uri, job_name, task_id, status, created_at FROM ray_jobs WHERE tenant_id = %s"
+            params = [ctx.tenant_id]
         if status:
+            raw = _status_rev.get(status, status.lower())
             query += " AND status = %s"
-            params.append(status)
+            params.append(raw)
         query += " ORDER BY created_at DESC"
         rows = execute(query, tuple(params))
+        for r in rows:
+            r["status"] = _status_map.get(r.get("status", ""), r.get("status", ""))
         total = len(rows)
         offset = (page - 1) * page_size
         return {"items": rows[offset:offset + page_size], "total": total, "page": page, "page_size": page_size}

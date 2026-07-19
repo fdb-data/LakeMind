@@ -10,7 +10,7 @@ SKILL_REF = os.environ.get("SKILL_REF", "lake://skills/meeting-processing@0.2.0"
 S3_BUCKET = os.environ.get("S3_BUCKET", "lakemind-filesets")
 DB_PATH = os.environ.get("DB_PATH", "/data/meeting-agent.db")
 SECRET_KEY = os.environ.get("SECRET_KEY", "meeting-agent-demo-secret-key")
-CHUNK_DURATION_MS = int(os.environ.get("CHUNK_DURATION_MS", "10000"))
+CHUNK_DURATION_MS = int(os.environ.get("CHUNK_DURATION_MS", "20000"))
 SUMMARIZE_INTERVAL = int(os.environ.get("SUMMARIZE_INTERVAL", "6"))
 
 ASSET_MCP_URL = os.environ.get("ASSET_MCP_URL", "http://lakemind-asset-mcp:8401/mcp")

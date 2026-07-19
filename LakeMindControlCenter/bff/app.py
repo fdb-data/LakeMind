@@ -75,12 +75,15 @@ def _session_touch(sid: str, data: dict) -> None:
 
 async def _cp_request(method: str, path: str, token: str, *,
                       params: dict | None = None, body: dict | None = None,
-                      request_id: str | None = None, correlation_id: str | None = None) -> httpx.Response:
+                      request_id: str | None = None, correlation_id: str | None = None,
+                      tenant_id: str | None = None) -> httpx.Response:
     headers = {"Authorization": f"Bearer {token}"}
     if request_id:
         headers["X-Request-Id"] = request_id
     if correlation_id:
         headers["X-Correlation-Id"] = correlation_id
+    if tenant_id:
+        headers["X-Tenant-Id"] = tenant_id
     async with httpx.AsyncClient() as client:
         return await client.request(
             method,
@@ -119,6 +122,7 @@ def _ctx_from_session(session: dict, request: Request) -> dict:
         "token": session["token"],
         "request_id": request.headers.get("X-Request-Id", secrets.token_hex(16)),
         "correlation_id": session.get("correlation_id"),
+        "tenant_id": session.get("tenant_id", ""),
     }
 
 
@@ -131,7 +135,8 @@ async def _cp_passthrough(request: Request, path: str, *, method: str | None = N
     params = dict(request.query_params)
     clean_path = path.rstrip("/") if path.endswith("/") and len(path) > 1 else path
     resp = await _cp_request(m, clean_path, ctx["token"], params=params or None, body=body,
-                             request_id=ctx["request_id"], correlation_id=ctx["correlation_id"])
+                             request_id=ctx["request_id"], correlation_id=ctx["correlation_id"],
+                             tenant_id=ctx.get("tenant_id"))
     response = JSONResponse(status_code=resp.status_code, content=resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {"raw": resp.text})
     response.headers["X-Request-Id"] = ctx["request_id"]
     if ctx["correlation_id"]:
@@ -224,7 +229,7 @@ async def get_me(request: Request):
     session = _get_session(request)
     ctx = _ctx_from_session(session, request)
     resp = await _cp_request("GET", "/api/v1/security/auth/me", ctx["token"],
-                             request_id=ctx["request_id"], correlation_id=ctx["correlation_id"])
+                             request_id=ctx["request_id"], correlation_id=ctx["correlation_id"], tenant_id=ctx.get("tenant_id"))
     if resp.status_code != 200:
         return JSONResponse(status_code=resp.status_code, content=resp.json())
     data = resp.json()
@@ -238,10 +243,10 @@ async def overview(request: Request):
     ctx = _ctx_from_session(session, request)
     import asyncio
     results = await asyncio.gather(
-        _cp_request("GET", "/api/v1/instances", ctx["token"], request_id=ctx["request_id"], correlation_id=ctx["correlation_id"]),
-        _cp_request("GET", "/api/v1/assets", ctx["token"], params={"page_size": "1"}, request_id=ctx["request_id"], correlation_id=ctx["correlation_id"]),
-        _cp_request("GET", "/api/v1/jobs", ctx["token"], params={"page_size": "1"}, request_id=ctx["request_id"], correlation_id=ctx["correlation_id"]),
-        _cp_request("GET", "/api/v1/audit", ctx["token"], params={"page_size": "5"}, request_id=ctx["request_id"], correlation_id=ctx["correlation_id"]),
+        _cp_request("GET", "/api/v1/instances", ctx["token"], request_id=ctx["request_id"], correlation_id=ctx["correlation_id"], tenant_id=ctx.get("tenant_id")),
+        _cp_request("GET", "/api/v1/assets", ctx["token"], params={"page_size": "1"}, request_id=ctx["request_id"], correlation_id=ctx["correlation_id"], tenant_id=ctx.get("tenant_id")),
+        _cp_request("GET", "/api/v1/jobs", ctx["token"], params={"page_size": "1"}, request_id=ctx["request_id"], correlation_id=ctx["correlation_id"], tenant_id=ctx.get("tenant_id")),
+        _cp_request("GET", "/api/v1/audit", ctx["token"], params={"page_size": "5"}, request_id=ctx["request_id"], correlation_id=ctx["correlation_id"], tenant_id=ctx.get("tenant_id")),
         return_exceptions=True,
     )
     resp = JSONResponse({
@@ -260,7 +265,7 @@ async def switch_tenant(request: Request):
     ctx = _ctx_from_session(session, request)
     body = await request.json()
     resp = await _cp_request("POST", "/api/v1/security/switch-tenant", ctx["token"],
-                             body=body, request_id=ctx["request_id"], correlation_id=ctx["correlation_id"])
+                             body=body, request_id=ctx["request_id"], correlation_id=ctx["correlation_id"], tenant_id=ctx.get("tenant_id"))
     if resp.status_code == 200:
         data = resp.json()
         session["tenant_id"] = data.get("tenant_id", session.get("tenant_id"))
@@ -290,17 +295,17 @@ async def view_mission_control(request: Request):
     cid = ctx["correlation_id"]
 
     results = await asyncio.gather(
-        _cp_request("GET", "/api/v1/operations", token, params={"status": "APPROVAL_REQUIRED", "page_size": "100"}, request_id=rid, correlation_id=cid),
-        _cp_request("GET", "/api/v1/jobs", token, params={"status": "FAILED", "page_size": "100"}, request_id=rid, correlation_id=cid),
-        _cp_request("GET", "/api/v1/assets", token, params={"health": "DEGRADED", "page_size": "100"}, request_id=rid, correlation_id=cid),
-        _cp_request("GET", "/api/v1/models/deployments", token, params={"health": "UNHEALTHY", "page_size": "100"}, request_id=rid, correlation_id=cid),
-        _cp_request("GET", "/api/v1/observability/metrics", token, params={"name": "service.health"}, request_id=rid, correlation_id=cid),
-        _cp_request("GET", "/api/v1/observability/metrics", token, params={"name": "cpu.usage"}, request_id=rid, correlation_id=cid),
-        _cp_request("GET", "/api/v1/observability/metrics", token, params={"name": "memory.usage"}, request_id=rid, correlation_id=cid),
-        _cp_request("GET", "/api/v1/observability/metrics", token, params={"name": "storage.usage"}, request_id=rid, correlation_id=cid),
-        _cp_request("GET", "/api/v1/observability/metrics", token, params={"name": "job.queue_depth"}, request_id=rid, correlation_id=cid),
-        _cp_request("GET", "/api/v1/audit", token, params={"page_size": "5"}, request_id=rid, correlation_id=cid),
-        _cp_request("GET", "/api/v1/system/reconcile/drifts", token, request_id=rid, correlation_id=cid),
+        _cp_request("GET", "/api/v1/operations", token, params={"status": "APPROVAL_REQUIRED", "page_size": "100"}, request_id=rid, correlation_id=cid, tenant_id=ctx.get("tenant_id")),
+        _cp_request("GET", "/api/v1/jobs", token, params={"status": "FAILED", "page_size": "100"}, request_id=rid, correlation_id=cid, tenant_id=ctx.get("tenant_id")),
+        _cp_request("GET", "/api/v1/assets", token, params={"health": "DEGRADED", "page_size": "100"}, request_id=rid, correlation_id=cid, tenant_id=ctx.get("tenant_id")),
+        _cp_request("GET", "/api/v1/models/deployments", token, params={"health": "UNHEALTHY", "page_size": "100"}, request_id=rid, correlation_id=cid, tenant_id=ctx.get("tenant_id")),
+        _cp_request("GET", "/api/v1/observability/metrics", token, params={"name": "service.health"}, request_id=rid, correlation_id=cid, tenant_id=ctx.get("tenant_id")),
+        _cp_request("GET", "/api/v1/observability/metrics", token, params={"name": "cpu.usage"}, request_id=rid, correlation_id=cid, tenant_id=ctx.get("tenant_id")),
+        _cp_request("GET", "/api/v1/observability/metrics", token, params={"name": "memory.usage"}, request_id=rid, correlation_id=cid, tenant_id=ctx.get("tenant_id")),
+        _cp_request("GET", "/api/v1/observability/metrics", token, params={"name": "storage.usage"}, request_id=rid, correlation_id=cid, tenant_id=ctx.get("tenant_id")),
+        _cp_request("GET", "/api/v1/observability/metrics", token, params={"name": "job.queue_depth"}, request_id=rid, correlation_id=cid, tenant_id=ctx.get("tenant_id")),
+        _cp_request("GET", "/api/v1/audit", token, params={"page_size": "5"}, request_id=rid, correlation_id=cid, tenant_id=ctx.get("tenant_id")),
+        _cp_request("GET", "/api/v1/system/reconcile/drifts", token, request_id=rid, correlation_id=cid, tenant_id=ctx.get("tenant_id")),
         return_exceptions=True,
     )
 
@@ -387,9 +392,9 @@ async def view_tenant_detail(tenant_id: str, request: Request):
     cid = ctx["correlation_id"]
     base = f"/api/v1/tenants/{tenant_id}"
     results = await asyncio.gather(
-        _cp_request("GET", base, token, request_id=rid, correlation_id=cid),
-        _cp_request("GET", f"{base}/memberships", token, request_id=rid, correlation_id=cid),
-        _cp_request("GET", "/api/v1/audit", token, params={"tenant_id": tenant_id, "page_size": "20"}, request_id=rid, correlation_id=cid),
+        _cp_request("GET", base, token, request_id=rid, correlation_id=cid, tenant_id=ctx.get("tenant_id")),
+        _cp_request("GET", f"{base}/memberships", token, request_id=rid, correlation_id=cid, tenant_id=ctx.get("tenant_id")),
+        _cp_request("GET", "/api/v1/audit", token, params={"tenant_id": tenant_id, "page_size": "20"}, request_id=rid, correlation_id=cid, tenant_id=ctx.get("tenant_id")),
         return_exceptions=True,
     )
     def _safe(idx):
@@ -420,9 +425,9 @@ async def view_job_detail(job_id: str, request: Request):
     rid = ctx["request_id"]
     cid = ctx["correlation_id"]
     results = await asyncio.gather(
-        _cp_request("GET", f"/api/v1/jobs/{job_id}", token, request_id=rid, correlation_id=cid),
-        _cp_request("GET", f"/api/v1/jobs/{job_id}/attempts", token, request_id=rid, correlation_id=cid),
-        _cp_request("GET", f"/api/v1/jobs/{job_id}/events", token, request_id=rid, correlation_id=cid),
+        _cp_request("GET", f"/api/v1/jobs/{job_id}", token, request_id=rid, correlation_id=cid, tenant_id=ctx.get("tenant_id")),
+        _cp_request("GET", f"/api/v1/jobs/{job_id}/attempts", token, request_id=rid, correlation_id=cid, tenant_id=ctx.get("tenant_id")),
+        _cp_request("GET", f"/api/v1/jobs/{job_id}/events", token, request_id=rid, correlation_id=cid, tenant_id=ctx.get("tenant_id")),
         return_exceptions=True,
     )
     def _safe(idx):
@@ -475,6 +480,8 @@ async def events_stream(request: Request):
         headers["Last-Event-ID"] = last_event_id
     if ctx["correlation_id"]:
         headers["X-Correlation-Id"] = ctx["correlation_id"]
+    if ctx.get("tenant_id"):
+        headers["X-Tenant-Id"] = ctx["tenant_id"]
 
     async def proxy_stream():
         async with httpx.AsyncClient() as client:

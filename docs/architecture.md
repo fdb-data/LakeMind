@@ -10,15 +10,15 @@ LakeMind 采用三平面分层架构：
 │                     LakeMindStudio (Tauri 桌面)  （后续版本实现）          │
 │              资产设计器 · MCP调试台 · 数据任务开发 · CI/CD                 │
 └─────────────────────────────────────────────────────────────────────────┘
-                                      │ MCP Client
-                                      ▼
+                                       │ MCP Client
+                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                          运行平面 · Agent 侧                             │
 │                                                                         │
 │  ┌──────────────┐     ┌──────────────────────────────────────────────┐  │
-│  │  N Agents    │     │            LakeMindSteward                    │  │
-│  │  (业务 Agent) │     │         巡检 + 运维管理 Agent                 │  │
-│  └──────┬───────┘     │     连 3 个 MCP (asset+data+admin)            │  │
+│  │  N Agents    │     │         LakeMindControlCenter                 │  │
+│  │  (业务 Agent) │     │    前端(:3000) + BFF(:3001) + Steward(:3002)  │  │
+│  └──────┬───────┘     │    10 页面 · Mission Control · 模型配置        │  │
 │         │ asset                    │                   │ admin           │
 │         ▼                          ▼                   ▼                 │
 │  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐                  │
@@ -137,10 +137,11 @@ cognitive:
 
 | 工具 | 定位 | 状态 |
 |------|------|------|
-| LakeMindSteward | 管理运维 Agent（LangGraph）：对话式管理 + 自主巡检 | ✅ |
-| LakeMindMonitor | 人类只读仪表板 + Steward 对话窗（Express，极轻） | ✅ |
+| LakeMindControlCenter | 统一管理入口（前端 + BFF + Steward）：10 页面，Mission Control 仪表板，模型配置与路由 | ✅ v0.2.0 |
 | LakeMindModelServing | 统一模型服务（litellm + fastembed + FunASR） | ✅ |
 | LakeMindStudio | 桌面客户端（Tauri）：资产设计器、MCP 调试台 | 🔨 待开发 |
+
+> v0.1.0 的 `LakeMindSteward` + `LakeMindMonitor` 已在 v0.2.0 合并迁入 `LakeMindControlCenter`，不再独立部署。
 
 ## 6. 数据域 → 引擎映射
 
