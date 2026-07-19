@@ -189,7 +189,7 @@ class ServerClient:
         resp = await self.client.post(
             f"{self._ms_url}/v1/embeddings",
             headers={"Authorization": f"Bearer {self._ms_key}"},
-            json={"model": "jina-embeddings-v2-base-zh", "input": texts},
+            json={"model": os.environ.get("EMBEDDING_PROFILE", "meeting-embedding"), "input": texts},
         )
         resp.raise_for_status()
         data = resp.json()

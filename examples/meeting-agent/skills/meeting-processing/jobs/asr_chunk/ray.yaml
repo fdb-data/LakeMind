@@ -1,5 +1,0 @@
-entrypoint: "python jobs/asr_chunk/main.py"
-dependencies:
-  - httpx
-resources:
-  num_cpus: 1

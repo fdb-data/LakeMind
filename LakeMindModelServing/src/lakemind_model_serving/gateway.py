@@ -7,9 +7,9 @@ logger = logging.getLogger(__name__)
 
 
 class ModelGateway:
-    def __init__(self, providers: list, gateway_config: dict):
-        self._providers = providers
-        self._gateway_config = gateway_config
+    def __init__(self, providers: list | None = None, gateway_config: dict | None = None):
+        self._providers = providers or []
+        self._gateway_config = gateway_config or {}
         self._router = None
         self._model_names: dict[str, dict] = {}
         self._init_router()
@@ -142,7 +142,11 @@ class ModelGateway:
             return True
         except Exception as e:
             logger.error("Failed to deregister model %s: %s", model_id, e)
-            return False
+            try:
+                self._model_names.pop(model_id, None)
+                return True
+            except Exception:
+                return False
 
     def _resolve_model(self, model: str, task: str) -> str:
         if model and model != "auto":

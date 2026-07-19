@@ -15,11 +15,13 @@ async def health_live(request: Request):
 @router.get("/health/ready")
 async def health_ready(request: Request):
     gateway = getattr(request.app.state, "gateway", None)
-    embedding_service = getattr(request.app.state, "embedding_service", None)
+    embedding_mgr = getattr(request.app.state, "embedding_mgr", None)
+    registry = getattr(request.app.state, "registry", None)
 
     components = {
         "gateway": gateway.health() if gateway else False,
-        "embedding": embedding_service.health() if embedding_service else False,
+        "embedding": embedding_mgr.health() if embedding_mgr else False,
+        "registry": registry.health() if registry else False,
     }
 
     all_ready = all(components.values())
@@ -31,19 +33,28 @@ async def health_ready(request: Request):
 
 @router.get("/health/components/asr")
 async def health_asr(request: Request):
-    asr_service = getattr(request.app.state, "asr_service", None)
-    if asr_service is None:
+    asr_mgr = getattr(request.app.state, "asr_mgr", None)
+    if asr_mgr is None:
         return {"status": "disabled", "ready": False}
 
-    result = {
-        "status": asr_service.status.value,
-        "ready": asr_service.ready(),
-        "model": asr_service.model_name,
-    }
-    if asr_service.public_error:
-        result["error"] = asr_service.public_error
+    registered = asr_mgr.list_registered()
+    if not registered:
+        return {"status": "disabled", "ready": False, "models": []}
 
-    if asr_service.ready():
-        return result
-    else:
+    models_info = []
+    any_ready = False
+    for mid in registered:
+        status = asr_mgr.get_status(mid)
+        info = {"model": mid, "status": status.value, "ready": status.value == "ready"}
+        if status.value != "ready":
+            err = asr_mgr.get_error(mid)
+            if err:
+                info["error"] = err
+        else:
+            any_ready = True
+        models_info.append(info)
+
+    result = {"ready": any_ready, "models": models_info}
+    if not any_ready:
         return JSONResponse(status_code=503, content=result)
+    return result

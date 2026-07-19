@@ -16,23 +16,30 @@ class EmbeddingRequest(BaseModel):
 @router.post("/v1/embeddings")
 async def create_embeddings(body: EmbeddingRequest, request: Request):
     check_auth(request)
-    embedding_service = request.app.state.embedding_service
+    registry = request.app.state.registry
+    embedding_mgr = getattr(request.app.state, "embedding_mgr", None)
     gateway = request.app.state.gateway
 
-    if body.model == embedding_service.model_name or body.model == "jina-embeddings-v2-base-zh":
+    target_model = body.model
+    resolved = registry.resolve_profile(body.model)
+    if resolved:
+        target_model = resolved["model_name"]
+
+    if embedding_mgr and target_model in embedding_mgr.list_registered():
         try:
-            vectors = embedding_service.embed(body.input)
+            vectors, dim = embedding_mgr.embed(body.input, target_model)
             data = [{"embedding": v, "index": i} for i, v in enumerate(vectors)]
             return {
                 "object": "list",
-                "model": embedding_service.model_name,
+                "model": target_model,
                 "data": data,
-                "usage": {"prompt_tokens": sum(len(t.split()) for t in body.input), "total_tokens": sum(len(t.split()) for t in body.input)},
+                "usage": {"prompt_tokens": sum(len(t.split()) for t in body.input),
+                          "total_tokens": sum(len(t.split()) for t in body.input)},
             }
         except Exception as e:
             raise HTTPException(status_code=502, detail=str(e))
     else:
         try:
-            return gateway.embed(body.input, model=body.model)
+            return gateway.embed(body.input, model=target_model)
         except Exception as e:
             raise HTTPException(status_code=502, detail=str(e))

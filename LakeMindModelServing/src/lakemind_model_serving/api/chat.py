@@ -25,11 +25,18 @@ class ChatCompletionRequest(BaseModel):
 async def chat_completions(body: ChatCompletionRequest, request: Request):
     check_auth(request)
     gateway = request.app.state.gateway
+    registry = request.app.state.registry
     messages = [{"role": m.role, "content": m.content} for m in body.messages]
+
+    target_model = body.model
+    resolved = registry.resolve_profile(body.model)
+    if resolved:
+        target_model = resolved["model_name"]
+
     try:
         result = gateway.chat(
             messages=messages,
-            model=body.model,
+            model=target_model,
             temperature=body.temperature,
             max_tokens=body.max_tokens,
             stream=body.stream,

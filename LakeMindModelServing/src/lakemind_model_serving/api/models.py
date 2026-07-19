@@ -17,7 +17,7 @@ class CreateModelRequest(BaseModel):
     api_key: str = ""
     base_url: str = ""
     model_path: str = ""
-    model_config: dict | None = None
+    config: dict | None = None
     capabilities: list | None = None
     context_length: int | None = None
     embedding_dim: int | None = None
@@ -58,7 +58,10 @@ async def create_model(body: CreateModelRequest, request: Request):
     if existing:
         raise HTTPException(status_code=409, detail=f"Model name '{body.name}' already exists")
     try:
-        return registry.create_model(**body.model_dump())
+        data = body.model_dump()
+        if "config" in data:
+            data["model_config"] = data.pop("config")
+        return registry.create_model(**data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

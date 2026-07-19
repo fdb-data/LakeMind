@@ -19,31 +19,27 @@ _allowed_extensions = {".wav", ".mp3", ".m4a", ".flac", ".ogg", ".webm"}
 async def transcribe(
     request: Request,
     file: UploadFile = File(...),
-    model: str = Form("whisper-small"),
+    model: str = Form("default-asr"),
     language: str = Form("auto"),
 ):
     check_auth(request)
-    asr_service = getattr(request.app.state, "asr_service", None)
-    if asr_service is None:
+    asr_mgr = getattr(request.app.state, "asr_mgr", None)
+    registry = request.app.state.registry
+    if asr_mgr is None:
         raise HTTPException(status_code=503, detail="ASR service not configured")
 
-    if not asr_service.ready():
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "code": "asr_not_ready",
-                "status": asr_service.status.value,
-                "error": asr_service.public_error,
-            },
-        )
+    target_model = model
+    resolved = registry.resolve_profile(model)
+    if resolved:
+        target_model = resolved["model_name"]
 
-    if model not in {asr_service.model_name, "whisper-small"}:
+    if target_model not in asr_mgr.list_registered():
         raise HTTPException(
             status_code=400,
             detail={
                 "code": "unsupported_asr_model",
-                "requested": model,
-                "available": [asr_service.model_name],
+                "requested": target_model,
+                "available": asr_mgr.list_registered(),
             },
         )
 
@@ -52,28 +48,23 @@ async def transcribe(
         raise HTTPException(status_code=400, detail="Empty audio file")
 
     if len(audio_bytes) > _asr_max_upload_mb * 1024 * 1024:
-        raise HTTPException(
-            status_code=413,
-            detail=f"File too large, max {_asr_max_upload_mb}MB",
-        )
+        raise HTTPException(status_code=413, detail=f"File too large, max {_asr_max_upload_mb}MB")
 
     filename = file.filename or "audio.wav"
     ext = os.path.splitext(filename)[1].lower()
     if ext and ext not in _allowed_extensions:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported file extension: {ext}",
-        )
+        raise HTTPException(status_code=400, detail=f"Unsupported file extension: {ext}")
 
     async with _asr_semaphore:
         try:
             text = await asyncio.to_thread(
-                asr_service.transcribe_bytes,
+                asr_mgr.transcribe_bytes,
                 audio_bytes,
+                target_model,
                 filename=filename,
                 language=language,
             )
-            return {"text": text, "model": asr_service.model_name}
+            return {"text": text, "model": target_model}
         except Exception as e:
             logger.error("ASR failed: %s", e)
-            raise HTTPException(status_code=502, detail="ASR transcription failed")
+            raise HTTPException(status_code=502, detail=f"ASR transcription failed: {e}")

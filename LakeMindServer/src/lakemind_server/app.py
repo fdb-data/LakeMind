@@ -16,7 +16,6 @@ from .api import knowledge as knowledge_api
 from .api import skills as skills_api
 from .api import memories as memories_api
 from .api import jobs_v2 as jobs_v2_api
-from .api import models as models_api
 from .api import secrets_v2 as secrets_v2_api
 from .api import tenants as tenants_api
 from .api import steward as steward_api
@@ -107,8 +106,6 @@ app.include_router(skills_api.router, prefix="/api/v1/skills", tags=["skills"])
 app.include_router(memories_api.router, prefix="/api/v1/memories", tags=["memories"])
 
 app.include_router(jobs_v2_api.router, prefix="/api/v1/jobs", tags=["jobs"])
-
-app.include_router(models_api.router, prefix="/api/v1/models", tags=["models"])
 
 app.include_router(secrets_v2_api.router, prefix="/api/v1/secrets", tags=["secrets-v2"])
 

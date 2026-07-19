@@ -5,7 +5,7 @@ import logging
 import os
 import threading
 import time
-import ulid
+import uuid
 import psycopg2
 import httpx
 
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 def _ulid(prefix: str) -> str:
-    return f"{prefix}_{str(ulid.new())}"
+    return f"{prefix}_{uuid.uuid4().hex[:26]}"
 
 
 class ModelRegistry:

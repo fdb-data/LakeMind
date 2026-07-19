@@ -22,6 +22,8 @@ app.add_middleware(
 )
 
 _CONTROL_PLANE = os.environ.get("LAKEMIND_CONTROL_PLANE", "http://lakemind-server:10823")
+_MODEL_SERVING = os.environ.get("MODEL_SERVING_URL", "http://lakemind-model-serving:10824")
+_MODEL_SERVING_KEY = os.environ.get("MODELSERVING_API_KEY", "lakemind-modelserving-key")
 _BFF_TOKEN = os.environ.get("LAKEMIND_BFF_TOKEN", "")
 _VALKEY_HOST = os.environ.get("VALKEY_HOST", "lakemind-valkey")
 _VALKEY_PORT = int(os.environ.get("VALKEY_PORT", "6379"))
@@ -524,10 +526,40 @@ async def jobs_proxy(request: Request, path: str = ""):
     return await _cp_passthrough(request, f"/api/v1/jobs/{path}")
 
 
+async def _ms_passthrough(request: Request, target_path: str):
+    async with httpx.AsyncClient() as client:
+        resp = await client.request(
+            request.method,
+            f"{_MODEL_SERVING}{target_path}",
+            headers={"Authorization": f"Bearer {_MODEL_SERVING_KEY}", "Content-Type": "application/json"},
+            content=await request.body(),
+            params=request.query_params,
+        )
+        try:
+            data = resp.json()
+        except Exception:
+            data = {"detail": resp.text}
+        return JSONResponse(content=data, status_code=resp.status_code)
+
+
 @app.api_route("/models", methods=["GET", "POST"])
+async def models_root(request: Request):
+    return await _ms_passthrough(request, "/v1/models")
+
+
 @app.api_route("/models/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
-async def models_proxy(request: Request, path: str = ""):
-    return await _cp_passthrough(request, f"/api/v1/models/{path}")
+async def models_proxy(request: Request, path: str):
+    return await _ms_passthrough(request, f"/v1/models/{path}")
+
+
+@app.api_route("/profiles", methods=["GET", "POST"])
+async def profiles_root(request: Request):
+    return await _ms_passthrough(request, "/v1/profiles")
+
+
+@app.api_route("/profiles/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
+async def profiles_proxy(request: Request, path: str):
+    return await _ms_passthrough(request, f"/v1/profiles/{path}")
 
 
 @app.api_route("/instances", methods=["GET"])
