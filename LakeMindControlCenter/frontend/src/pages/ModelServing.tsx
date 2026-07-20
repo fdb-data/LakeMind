@@ -37,7 +37,7 @@ export default function ModelServing() {
     setLoading(true);
     Promise.all([
       api.get('/models').then(r => Array.isArray(r.data) ? r.data : r.data?.data || r.data?.items || []),
-      api.get('/profiles').then(r => r.data?.data || r.data?.items || Array.isArray(r.data) ? r.data : []).catch(() => []),
+      api.get('/profiles').then(r => Array.isArray(r.data) ? r.data : r.data?.data || r.data?.items || []).catch(() => []),
     ]).then(([m, p]) => { setModels(m); setProfiles(p); }).finally(() => setLoading(false));
   };
 
