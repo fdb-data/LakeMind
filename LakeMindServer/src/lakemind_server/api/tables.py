@@ -1,4 +1,5 @@
 from __future__ import annotations
+import asyncio
 from fastapi import APIRouter, Request, HTTPException
 from pydantic import BaseModel
 import pyarrow as pa
@@ -36,38 +37,38 @@ class WriteBody(BaseModel):
 async def create_table(body: CreateTableBody, request: Request):
     fields = [pa.field(name, _TYPE_MAP.get(t, pa.string())) for name, t in body.schema.items()]
     schema = pa.schema(fields)
-    loc = _eng(request).create_table(body.namespace, body.table, schema, body.location)
+    loc = await asyncio.to_thread(_eng(request).create_table, body.namespace, body.table, schema, body.location)
     return {"status": "ok", "namespace": body.namespace, "table": body.table, "location": loc}
 
 
 @router.get("/{namespace}")
 async def list_tables(namespace: str, request: Request):
-    tables = _eng(request).list_tables(namespace)
+    tables = await asyncio.to_thread(_eng(request).list_tables, namespace)
     return {"namespace": namespace, "tables": tables}
 
 
 @router.get("/{namespace}/{table}")
 async def describe_table(namespace: str, table: str, request: Request):
-    return _eng(request).describe(namespace, table)
+    return await asyncio.to_thread(_eng(request).describe, namespace, table)
 
 
 @router.delete("/{namespace}/{table}")
 async def drop_table(namespace: str, table: str, request: Request):
-    _eng(request).drop_table(namespace, table)
+    await asyncio.to_thread(_eng(request).drop_table, namespace, table)
     return {"status": "ok"}
 
 
 @router.post("/{namespace}/{table}/append")
 async def append_data(namespace: str, table: str, body: WriteBody, request: Request):
     data = pa.Table.from_pylist(body.rows)
-    n = _eng(request).append(namespace, table, data)
+    n = await asyncio.to_thread(_eng(request).append, namespace, table, data)
     return {"status": "ok", "rows_written": n}
 
 
 @router.post("/{namespace}/{table}/overwrite")
 async def overwrite_data(namespace: str, table: str, body: WriteBody, request: Request):
     data = pa.Table.from_pylist(body.rows)
-    n = _eng(request).overwrite(namespace, table, data)
+    n = await asyncio.to_thread(_eng(request).overwrite, namespace, table, data)
     return {"status": "ok", "rows_written": n}
 
 
@@ -75,5 +76,5 @@ async def overwrite_data(namespace: str, table: str, body: WriteBody, request: R
 async def scan_table(namespace: str, table: str, request: Request,
                      columns: str | None = None, filter: str | None = None, limit: int | None = None):
     cols = columns.split(",") if columns else None
-    result = _eng(request).scan(namespace, table, cols, filter, limit)
+    result = await asyncio.to_thread(_eng(request).scan, namespace, table, cols, filter, limit)
     return {"rows": result.to_pylist(), "count": result.num_rows}

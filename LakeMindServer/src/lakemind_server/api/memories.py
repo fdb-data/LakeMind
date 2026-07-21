@@ -1,4 +1,5 @@
 from __future__ import annotations
+import asyncio
 from fastapi import APIRouter, Request
 from ..security.middleware import get_security_context
 from ..security.actions import Action
@@ -14,27 +15,28 @@ async def add_memory(request: Request):
         from fastapi import HTTPException
         raise HTTPException(status_code=403, detail="PERMISSION_DENIED")
     body = await request.json()
-    return MemoryService.add(ctx, **body)
+    return await asyncio.to_thread(MemoryService.add, ctx, **body)
 
 
 @router.post("/search")
 async def search_memory(request: Request):
     ctx = get_security_context(request)
     body = await request.json()
-    return MemoryService.search(ctx, **body)
+    return await asyncio.to_thread(MemoryService.search, ctx, **body)
 
 
 @router.get("/{memory_id}")
 async def get_memory(memory_id: str, request: Request):
     ctx = get_security_context(request)
-    return MemoryService.get(ctx, memory_id)
+    return await asyncio.to_thread(MemoryService.get, ctx, memory_id)
 
 
 @router.get("")
 async def list_memories(request: Request):
     ctx = get_security_context(request)
     params = request.query_params
-    return MemoryService.list(
+    return await asyncio.to_thread(
+        MemoryService.list,
         ctx,
         page=int(params.get("page", "1")),
         page_size=int(params.get("page_size", "50")),
@@ -45,22 +47,22 @@ async def list_memories(request: Request):
 async def update_memory(memory_id: str, request: Request):
     ctx = get_security_context(request)
     body = await request.json()
-    return MemoryService.update(ctx, memory_id, **body)
+    return await asyncio.to_thread(MemoryService.update, ctx, memory_id, **body)
 
 
 @router.delete("/{memory_id}")
 async def delete_memory(memory_id: str, request: Request):
     ctx = get_security_context(request)
-    return MemoryService.delete(ctx, memory_id)
+    return await asyncio.to_thread(MemoryService.delete, ctx, memory_id)
 
 
 @router.delete("")
 async def clear_memories(request: Request):
     ctx = get_security_context(request)
-    return MemoryService.clear(ctx)
+    return await asyncio.to_thread(MemoryService.clear, ctx)
 
 
 @router.get("/{memory_id}/history")
 async def memory_history(memory_id: str, request: Request):
     ctx = get_security_context(request)
-    return MemoryService.history(ctx, memory_id)
+    return await asyncio.to_thread(MemoryService.history, ctx, memory_id)

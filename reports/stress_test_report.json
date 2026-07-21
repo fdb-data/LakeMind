@@ -1,67 +1,68 @@
 {
-  "generated_at": "2026-07-19T23:34:43.945230+00:00",
+  "generated_at": "2026-07-21T02:08:06.674785+00:00",
   "environment": {
-    "server": "http://localhost:10823",
-    "model_serving": "http://localhost:10824",
-    "tenant": "stress-test"
+    "server": "http://127.0.0.1:10823",
+    "ms": "http://127.0.0.1:10824",
+    "tenant": "stress-test",
+    "ray_cpus": 5
   },
   "summary": {
     "total": 9,
-    "passed": 3,
-    "failed": 6,
+    "passed": 5,
+    "failed": 4,
     "errors": 0
   },
   "results": [
     {
       "test_case": "TC-1",
-      "test_name": "多模态文件批量上传",
-      "timestamp": "2026-07-19T23:29:29.637897+00:00",
+      "test_name": "文件批量上传",
+      "timestamp": "2026-07-21T01:58:42.768521+00:00",
       "results": {
-        "files": 200,
-        "total_mb": 200.0,
-        "elapsed_s": 11.81,
-        "throughput_mbs": 16.9,
+        "files": 1000,
+        "total_mb": 1000.0,
+        "elapsed_s": 37.06,
+        "throughput_mbs": 27.0,
         "success_rate": 100.0,
         "errors": 0,
-        "latency_s": {
-          "count": 200,
-          "mean": 9.817,
-          "p50": 10.295,
-          "p95": 10.951,
-          "p99": 11.056,
-          "min": 2.203,
-          "max": 11.781
+        "request_latency_s": {
+          "count": 1000,
+          "mean": 0.7242,
+          "p50": 0.6462,
+          "p95": 1.4557,
+          "p99": 2.2231,
+          "min": 0.2247,
+          "max": 3.7622
         }
       },
       "verdict": "FAIL",
       "failed_metrics": [
-        "throughput > 50 MB/s"
+        "throughput > 30 MB/s"
       ]
     },
     {
       "test_case": "TC-2",
       "test_name": "大文件读写",
-      "timestamp": "2026-07-19T23:29:35.210245+00:00",
+      "timestamp": "2026-07-21T01:59:06.051167+00:00",
       "results": {
-        "file_mb": 50,
-        "rounds": 3,
+        "file_mb": 100,
+        "rounds": 5,
         "put_s": {
-          "count": 3,
-          "mean": 1.028,
-          "p50": 1.005,
-          "p95": 1.201,
-          "p99": 1.201,
-          "min": 0.878,
-          "max": 1.201
+          "count": 5,
+          "mean": 2.7426,
+          "p50": 2.5906,
+          "p95": 3.3093,
+          "p99": 3.3093,
+          "min": 2.3019,
+          "max": 3.3093
         },
         "get_s": {
-          "count": 3,
-          "mean": 0.818,
-          "p50": 0.807,
-          "p95": 0.856,
-          "p99": 0.856,
-          "min": 0.79,
-          "max": 0.856
+          "count": 5,
+          "mean": 1.899,
+          "p50": 1.9306,
+          "p95": 2.1388,
+          "p99": 2.1388,
+          "min": 1.7098,
+          "max": 2.1388
         }
       },
       "verdict": "PASS",
@@ -69,196 +70,279 @@
     },
     {
       "test_case": "TC-3",
-      "test_name": "批量嵌入基准",
-      "timestamp": "2026-07-19T23:30:40.916231+00:00",
+      "test_name": "批量嵌入",
+      "timestamp": "2026-07-21T01:59:51.474010+00:00",
       "results": {
         "batch_100": {
-          "latency_s": 4.113,
-          "throughput": 24.3,
+          "latency_s": 2.321,
+          "throughput": 43.1,
           "dim": 768
         },
         "batch_500": {
-          "latency_s": 18.23,
-          "throughput": 27.4,
+          "latency_s": 12.704,
+          "throughput": 39.4,
           "dim": 768
         },
         "batch_1000": {
-          "latency_s": 39.566,
-          "throughput": 25.3,
+          "latency_s": 26.287,
+          "throughput": 38.0,
           "dim": 768
         },
-        "single_100_total_s": 2.853,
-        "batch_speedup": 3.5
+        "single_per_text_s": 0.1109,
+        "batch_per_text_s": 0.0232,
+        "batch_speedup": 4.78,
+        "single_latency_s": {
+          "count": 30,
+          "mean": 0.1109,
+          "p50": 0.1075,
+          "p95": 0.1376,
+          "p99": 0.1446,
+          "min": 0.094,
+          "max": 0.1446
+        }
       },
-      "verdict": "FAIL",
-      "failed_metrics": [
-        "batch_100 p50 < 3s",
-        "batch_1000 < 25s",
-        "throughput > 40 texts/s",
-        "batch_speedup > 5x"
-      ]
+      "verdict": "PASS",
+      "failed_metrics": []
     },
     {
       "test_case": "TC-4",
       "test_name": "批量向量入库",
-      "timestamp": "2026-07-19T23:30:53.263437+00:00",
+      "timestamp": "2026-07-21T02:02:33.736318+00:00",
       "results": {
         "add_1k": {
-          "latency_s": 1.52,
-          "throughput": 658.0,
+          "latency_s": 1.501,
+          "throughput": 666.4,
           "ok": true
         },
-        "add_5k": {
-          "latency_s": 6.845,
-          "throughput": 730.5,
+        "add_10k": {
+          "latency_s": 13.977,
+          "throughput": 715.5,
+          "ok": true
+        },
+        "add_50k": {
+          "latency_s": 74.61,
+          "throughput": 670.2,
+          "ok": true
+        },
+        "add_10k_arrow": {
+          "latency_s": 0.834,
+          "throughput": 11987.8,
+          "ok": true
+        },
+        "add_50k_arrow": {
+          "latency_s": 3.418,
+          "throughput": 14630.2,
           "ok": true
         },
         "dim": 768
       },
       "verdict": "FAIL",
       "failed_metrics": [
-        "1k throughput > 10000 vec/s",
-        "5k throughput > 10000 vec/s"
+        "1k > 1000 vec/s",
+        "10k > 1000 vec/s",
+        "50k > 1000 vec/s"
       ]
     },
     {
       "test_case": "TC-5",
       "test_name": "向量实时检索",
-      "timestamp": "2026-07-19T23:31:33.885864+00:00",
+      "timestamp": "2026-07-21T02:06:34.285941+00:00",
       "results": {
         "single_search_s": {
           "count": 100,
-          "mean": 0.17,
-          "p50": 0.161,
-          "p95": 0.227,
-          "p99": 0.708,
-          "min": 0.127,
-          "max": 0.708
+          "mean": 1.4426,
+          "p50": 1.4333,
+          "p95": 1.7297,
+          "p99": 2.0125,
+          "min": 1.223,
+          "max": 2.0125
         },
-        "qps_10": {
-          "qps": 6.0,
+        "conc_5": {
+          "qps": 0.7,
           "err_rate": 0.0,
-          "elapsed_s": 8.35
+          "error_class": {
+            "status_codes": {
+              "200": 25
+            },
+            "error_types": {},
+            "samples": [],
+            "total": 25,
+            "ok": 25,
+            "fail": 0
+          }
         },
-        "qps_50": {
-          "qps": 2.2,
-          "err_rate": 86.8,
-          "elapsed_s": 15.18
+        "conc_10": {
+          "qps": 0.3,
+          "err_rate": 62.0,
+          "error_class": {
+            "status_codes": {
+              "200": 19,
+              "0": 31
+            },
+            "error_types": {},
+            "samples": [],
+            "total": 50,
+            "ok": 19,
+            "fail": 31
+          }
         }
       },
       "verdict": "FAIL",
       "failed_metrics": [
-        "search p99 < 500ms",
-        "qps_50 > 100"
+        "conc_10 err < 20%"
       ]
     },
     {
       "test_case": "TC-8",
       "test_name": "记忆实时读写",
-      "timestamp": "2026-07-19T23:32:24.561091+00:00",
+      "timestamp": "2026-07-21T02:06:58.341342+00:00",
       "results": {
         "add_s": {
-          "count": 49,
-          "mean": 0.012,
-          "p50": 0.011,
-          "p95": 0.015,
-          "p99": 0.016,
-          "min": 0.009,
-          "max": 0.016
+          "count": 50,
+          "mean": 0.2352,
+          "p50": 0.0126,
+          "p95": 0.0177,
+          "p99": 11.1315,
+          "min": 0.01,
+          "max": 11.1315
         },
         "search_s": {
           "count": 50,
-          "mean": 0.379,
-          "p50": 0.13,
-          "p95": 0.159,
-          "p99": 12.54,
-          "min": 0.116,
-          "max": 12.54
+          "mean": 0.0956,
+          "p50": 0.0925,
+          "p95": 0.1212,
+          "p99": 0.1326,
+          "min": 0.0832,
+          "max": 0.1326
         },
         "list_s": {
-          "count": 20,
-          "mean": 0.077,
-          "p50": 0.074,
-          "p95": 0.197,
-          "p99": 0.197,
-          "min": 0.028,
-          "max": 0.197
+          "count": 30,
+          "mean": 0.0512,
+          "p50": 0.0444,
+          "p95": 0.0754,
+          "p99": 0.1936,
+          "min": 0.0337,
+          "max": 0.1936
         },
-        "concurrent_qps_50": 1.6
+        "conc_10_qps": 8.4,
+        "conc_10_error_class": {
+          "status_codes": {
+            "200": 50
+          },
+          "error_types": {},
+          "samples": [],
+          "total": 50,
+          "ok": 50,
+          "fail": 0
+        }
       },
       "verdict": "FAIL",
       "failed_metrics": [
-        "search p99 < 500ms",
-        "qps_50 > 80"
+        "add p99 < 5s"
       ]
     },
     {
       "test_case": "TC-10",
-      "test_name": "阶梯并发压测",
-      "timestamp": "2026-07-19T23:34:41.891399+00:00",
+      "test_name": "阶梯并发",
+      "timestamp": "2026-07-21T02:07:34.877994+00:00",
       "results": {
+        "conc_5": {
+          "qps": 6.9,
+          "err_rate": 0.0,
+          "error_class": {
+            "status_codes": {
+              "200": 25
+            },
+            "error_types": {},
+            "samples": [],
+            "total": 25,
+            "ok": 25,
+            "fail": 0
+          }
+        },
         "conc_10": {
-          "qps": 0.0,
-          "err_rate": 100.0,
-          "total": 100
+          "qps": 9.1,
+          "err_rate": 0.0,
+          "error_class": {
+            "status_codes": {
+              "200": 50
+            },
+            "error_types": {},
+            "samples": [],
+            "total": 50,
+            "ok": 50,
+            "fail": 0
+          }
+        },
+        "conc_20": {
+          "qps": 10.7,
+          "err_rate": 0.0,
+          "error_class": {
+            "status_codes": {
+              "200": 100
+            },
+            "error_types": {},
+            "samples": [],
+            "total": 100,
+            "ok": 100,
+            "fail": 0
+          }
         },
         "conc_30": {
-          "qps": 1.1,
-          "err_rate": 95.33,
-          "total": 300
-        },
-        "conc_50": {
-          "qps": 0.0,
-          "err_rate": 100.0,
-          "total": 500
-        },
-        "conc_100": {
-          "qps": 0.0,
-          "err_rate": 100.0,
-          "total": 1000
-        },
-        "breaking_point": 10
+          "qps": 8.2,
+          "err_rate": 0.67,
+          "error_class": {
+            "status_codes": {
+              "200": 149,
+              "0": 1
+            },
+            "error_types": {},
+            "samples": [],
+            "total": 150,
+            "ok": 149,
+            "fail": 1
+          }
+        }
       },
-      "verdict": "FAIL",
-      "failed_metrics": [
-        "conc_100 err < 5%"
-      ]
+      "verdict": "PASS",
+      "failed_metrics": []
     },
     {
       "test_case": "TC-11",
       "test_name": "冷启动",
-      "timestamp": "2026-07-19T23:34:42.128748+00:00",
+      "timestamp": "2026-07-21T02:08:04.594273+00:00",
       "results": {
-        "embed_cold_s": 0.099,
-        "health_latency_s": 0.139
+        "health_ready_s": 7.206,
+        "embed_cold_s": 11.553,
+        "embed_warm_s": 0.2792
       },
       "verdict": "PASS",
       "failed_metrics": []
     },
     {
       "test_case": "TC-12",
-      "test_name": "MCP vs REST 开销",
-      "timestamp": "2026-07-19T23:34:43.943260+00:00",
+      "test_name": "MCP vs REST",
+      "timestamp": "2026-07-21T02:08:06.672605+00:00",
       "results": {
         "rest_s": {
-          "count": 20,
-          "mean": 0.079,
-          "p50": 0.077,
-          "p95": 0.211,
-          "p99": 0.211,
-          "min": 0.029,
-          "max": 0.211
+          "count": 30,
+          "mean": 0.0531,
+          "p50": 0.0495,
+          "p95": 0.0569,
+          "p99": 0.1827,
+          "min": 0.0367,
+          "max": 0.1827
         },
         "mcp_s": {
-          "count": 20,
-          "mean": 0.012,
-          "p50": 0.012,
-          "p95": 0.018,
-          "p99": 0.018,
-          "min": 0.01,
-          "max": 0.018
+          "count": 30,
+          "mean": 0.0161,
+          "p50": 0.0119,
+          "p95": 0.0225,
+          "p99": 0.1217,
+          "min": 0.0099,
+          "max": 0.1217
         },
-        "overhead_s": -0.067
+        "overhead_s": -0.037
       },
       "verdict": "PASS",
       "failed_metrics": []

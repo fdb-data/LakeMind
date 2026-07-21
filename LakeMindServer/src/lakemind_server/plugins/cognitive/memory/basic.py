@@ -3,6 +3,7 @@ import json
 import time
 import uuid
 import hashlib
+import threading
 import psycopg2
 import pyarrow as pa
 import httpx
@@ -40,6 +41,7 @@ class BasicMemory:
         self._redis = None
         self._llm = None
         self._history_ready = False
+        self._lock = threading.Lock()
 
     def set_llm(self, llm):
         self._llm = llm
@@ -437,3 +439,13 @@ class BasicMemory:
             return True
         except Exception:
             return False
+
+
+for _name in ("add", "search", "get", "list_all", "update", "delete", "clear", "history"):
+    _orig = getattr(BasicMemory, _name)
+
+    def _wrapped(self, *args, __orig=_orig, **kwargs):
+        with self._lock:
+            return __orig(self, *args, **kwargs)
+
+    setattr(BasicMemory, _name, _wrapped)

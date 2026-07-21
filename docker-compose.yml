@@ -111,6 +111,7 @@ services:
       PG_USER: ${PG_USER:-lakemind}
       PG_PASSWORD: ${PG_PASSWORD:-lakemind_pass}
       DATABASE_URL: "postgresql+psycopg2://${PG_USER:-lakemind}:${PG_PASSWORD:-lakemind_pass}@lakemind-postgres:5432/${PG_DB:-lakemind}"
+      UVICORN_WORKERS: "${UVICORN_WORKERS:-2}"
     ports:
       - "10823:10823"
     volumes:

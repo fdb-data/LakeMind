@@ -1,4 +1,5 @@
 from __future__ import annotations
+import asyncio
 from fastapi import APIRouter, Request, HTTPException
 from ..security.middleware import get_security_context
 from ..services.search_service import SearchService
@@ -18,7 +19,8 @@ async def search(request: Request):
     page = int(params.get("page", "1"))
     page_size = int(params.get("page_size", "20"))
     scope_filter = ctx.accessible_scope_filter()
-    return SearchService.search(
+    return await asyncio.to_thread(
+        SearchService.search,
         q=q,
         object_types=object_types,
         scope_type=scope_filter.get("scope_type"),
