@@ -42,6 +42,7 @@ class BasicMemory:
         self._llm = None
         self._history_ready = False
         self._lock = threading.Lock()
+        self._lance_conns: dict = {}
 
     def set_llm(self, llm):
         self._llm = llm
@@ -104,9 +105,10 @@ class BasicMemory:
     def _connect_lance(self, tenant_id: str, agent_id: str):
         import lancedb
         db_name = f"memory_{tenant_id}"
-        conn = lancedb.connect(f"{self._lance_uri}/{db_name}")
+        if db_name not in self._lance_conns:
+            self._lance_conns[db_name] = lancedb.connect(f"{self._lance_uri}/{db_name}")
         tbl_name = f"mem_{agent_id}"
-        return conn, tbl_name
+        return self._lance_conns[db_name], tbl_name
 
     def _extract_facts(self, messages: list[dict]) -> list[str]:
         if not self._llm and not self._model_serving_url:
@@ -165,14 +167,15 @@ class BasicMemory:
         if not facts:
             return {"results": []}
 
-        conn, tbl_name = self._connect_lance(tenant_id, agent_id)
         existing_hashes = set()
-        if tbl_name in conn.table_names():
-            try:
-                existing = conn.open_table(tbl_name).to_arrow().to_pylist()
-                existing_hashes = {r.get("hash") for r in existing if r.get("hash")}
-            except Exception:
-                pass
+        with self._lock:
+            conn, tbl_name = self._connect_lance(tenant_id, agent_id)
+            if tbl_name in conn.table_names():
+                try:
+                    existing = conn.open_table(tbl_name).to_arrow().to_pylist()
+                    existing_hashes = {r.get("hash") for r in existing if r.get("hash")}
+                except Exception:
+                    pass
 
         results = []
         rows = []
@@ -201,10 +204,12 @@ class BasicMemory:
 
         if rows:
             table_data = pa.Table.from_pylist(rows)
-            if tbl_name in conn.table_names():
-                conn.open_table(tbl_name).add(table_data)
-            else:
-                conn.create_table(tbl_name, data=table_data)
+            with self._lock:
+                conn, tbl_name = self._connect_lance(tenant_id, agent_id)
+                if tbl_name in conn.table_names():
+                    conn.open_table(tbl_name).add(table_data)
+                else:
+                    conn.create_table(tbl_name, data=table_data)
 
         return {"results": results}
 
@@ -212,43 +217,45 @@ class BasicMemory:
                filters: dict | None = None, top_k: int = 10,
                threshold: float = 0.1, run_id: str | None = None) -> list[dict]:
         results = []
-        try:
-            qvec = self._embed(query)
-            conn, tbl_name = self._connect_lance(tenant_id, agent_id)
-            if tbl_name not in conn.table_names():
-                return []
-            tbl = conn.open_table(tbl_name)
-            q = tbl.search(qvec).metric("cosine").limit(top_k)
-            raw = q.to_list()
-            for r in raw:
-                dist = r.get("_distance", 1.0)
-                score = max(0.0, 1.0 - dist)
-                if score < threshold:
+        qvec = self._embed(query)
+        with self._lock:
+            try:
+                conn, tbl_name = self._connect_lance(tenant_id, agent_id)
+                if tbl_name not in conn.table_names():
+                    raw = []
+                else:
+                    tbl = conn.open_table(tbl_name)
+                    q = tbl.search(qvec).metric("cosine").limit(top_k)
+                    raw = q.to_list()
+            except Exception:
+                raw = []
+        for r in raw:
+            dist = r.get("_distance", 1.0)
+            score = max(0.0, 1.0 - dist)
+            if score < threshold:
+                continue
+            if run_id and r.get("run_id", "") != run_id:
+                continue
+            if filters:
+                try:
+                    meta = json.loads(r.get("metadata", "{}"))
+                except Exception:
+                    meta = {}
+                skip = False
+                for k, v in filters.items():
+                    if meta.get(k) != v:
+                        skip = True
+                        break
+                if skip:
                     continue
-                if run_id and r.get("run_id", "") != run_id:
-                    continue
-                if filters:
-                    try:
-                        meta = json.loads(r.get("metadata", "{}"))
-                    except Exception:
-                        meta = {}
-                    skip = False
-                    for k, v in filters.items():
-                        if meta.get(k) != v:
-                            skip = True
-                            break
-                    if skip:
-                        continue
-                results.append({
-                    "id": r.get("memory_id"),
-                    "memory": r.get("content"),
-                    "score": score,
-                    "metadata": json.loads(r.get("metadata", "{}")) if r.get("metadata") else {},
-                    "created_at": r.get("created_at"),
-                    "updated_at": r.get("updated_at"),
-                })
-        except Exception:
-            pass
+            results.append({
+                "id": r.get("memory_id"),
+                "memory": r.get("content"),
+                "score": score,
+                "metadata": json.loads(r.get("metadata", "{}")) if r.get("metadata") else {},
+                "created_at": r.get("created_at"),
+                "updated_at": r.get("updated_at"),
+            })
 
         try:
             self._ensure_redis()
@@ -265,138 +272,144 @@ class BasicMemory:
         return results[:top_k]
 
     def get(self, agent_id: str, tenant_id: str, memory_id: str) -> dict | None:
-        try:
-            conn, tbl_name = self._connect_lance(tenant_id, agent_id)
-            if tbl_name not in conn.table_names():
+        with self._lock:
+            try:
+                conn, tbl_name = self._connect_lance(tenant_id, agent_id)
+                if tbl_name not in conn.table_names():
+                    return None
+                tbl = conn.open_table(tbl_name)
+                rows = tbl.search().where(f"memory_id = '{memory_id}'").limit(1).to_list()
+            except Exception:
                 return None
-            tbl = conn.open_table(tbl_name)
-            import lancedb
-            rows = tbl.search().where(f"memory_id = '{memory_id}'").limit(1).to_list()
-            if not rows:
-                return None
-            r = rows[0]
-            return {
-                "id": r.get("memory_id"),
-                "memory": r.get("content"),
-                "hash": r.get("hash"),
-                "metadata": json.loads(r.get("metadata", "{}")) if r.get("metadata") else {},
-                "run_id": r.get("run_id", ""),
-                "expiration_date": r.get("expiration_date", ""),
-                "created_at": r.get("created_at"),
-                "updated_at": r.get("updated_at"),
-            }
-        except Exception:
+        if not rows:
             return None
+        r = rows[0]
+        return {
+            "id": r.get("memory_id"),
+            "memory": r.get("content"),
+            "hash": r.get("hash"),
+            "metadata": json.loads(r.get("metadata", "{}")) if r.get("metadata") else {},
+            "run_id": r.get("run_id", ""),
+            "expiration_date": r.get("expiration_date", ""),
+            "created_at": r.get("created_at"),
+            "updated_at": r.get("updated_at"),
+        }
 
     def list_all(self, agent_id: str, tenant_id: str, filters: dict | None = None,
                  page: int = 1, page_size: int = 50,
                  run_id: str | None = None) -> dict:
-        try:
-            conn, tbl_name = self._connect_lance(tenant_id, agent_id)
-            if tbl_name not in conn.table_names():
+        with self._lock:
+            try:
+                conn, tbl_name = self._connect_lance(tenant_id, agent_id)
+                if tbl_name not in conn.table_names():
+                    return {"count": 0, "results": []}
+                tbl = conn.open_table(tbl_name)
+                all_rows = tbl.to_arrow().to_pylist()
+            except Exception:
                 return {"count": 0, "results": []}
-            tbl = conn.open_table(tbl_name)
-            all_rows = tbl.to_arrow().to_pylist()
-            if run_id:
-                all_rows = [r for r in all_rows if r.get("run_id", "") == run_id]
-            if filters:
-                filtered = []
-                for r in all_rows:
-                    try:
-                        meta = json.loads(r.get("metadata", "{}"))
-                    except Exception:
-                        meta = {}
-                    if all(meta.get(k) == v for k, v in filters.items()):
-                        filtered.append(r)
-                all_rows = filtered
-            all_rows.sort(key=lambda r: r.get("created_at", 0), reverse=True)
-            total = len(all_rows)
-            start = (page - 1) * page_size
-            end = start + page_size
-            page_rows = all_rows[start:end]
-            results = [
-                {
-                    "id": r.get("memory_id"),
-                    "memory": r.get("content"),
-                    "metadata": json.loads(r.get("metadata", "{}")) if r.get("metadata") else {},
-                    "created_at": r.get("created_at"),
-                    "updated_at": r.get("updated_at"),
-                }
-                for r in page_rows
-            ]
-            return {"count": total, "page": page, "page_size": page_size, "results": results}
-        except Exception:
-            return {"count": 0, "results": []}
+        if run_id:
+            all_rows = [r for r in all_rows if r.get("run_id", "") == run_id]
+        if filters:
+            filtered = []
+            for r in all_rows:
+                try:
+                    meta = json.loads(r.get("metadata", "{}"))
+                except Exception:
+                    meta = {}
+                if all(meta.get(k) == v for k, v in filters.items()):
+                    filtered.append(r)
+            all_rows = filtered
+        all_rows.sort(key=lambda r: r.get("created_at", 0), reverse=True)
+        total = len(all_rows)
+        start = (page - 1) * page_size
+        end = start + page_size
+        page_rows = all_rows[start:end]
+        results = [
+            {
+                "id": r.get("memory_id"),
+                "memory": r.get("content"),
+                "metadata": json.loads(r.get("metadata", "{}")) if r.get("metadata") else {},
+                "created_at": r.get("created_at"),
+                "updated_at": r.get("updated_at"),
+            }
+            for r in page_rows
+        ]
+        return {"count": total, "page": page, "page_size": page_size, "results": results}
 
     def update(self, agent_id: str, tenant_id: str, memory_id: str, content: str) -> dict:
-        try:
-            conn, tbl_name = self._connect_lance(tenant_id, agent_id)
-            if tbl_name not in conn.table_names():
-                return {"status": "not_found"}
-            tbl = conn.open_table(tbl_name)
-            rows = tbl.search().where(f"memory_id = '{memory_id}'").limit(1).to_list()
-            if not rows:
-                return {"status": "not_found"}
-            old_content = rows[0].get("content")
-            vec = self._embed(content)
-            now = int(time.time())
-            tbl.delete(f"memory_id = '{memory_id}'")
-            updated_row = pa.Table.from_pylist([{
-                **rows[0],
-                "content": content,
-                "vector": vec,
-                "updated_at": now,
-            }])
-            tbl.add(updated_row)
-            self._record_history(agent_id, tenant_id, memory_id, old_content, content, "UPDATE")
-            return {"status": "ok", "id": memory_id, "memory": content}
-        except Exception as e:
-            return {"status": "error", "detail": str(e)}
+        vec = self._embed(content)
+        now = int(time.time())
+        with self._lock:
+            try:
+                conn, tbl_name = self._connect_lance(tenant_id, agent_id)
+                if tbl_name not in conn.table_names():
+                    return {"status": "not_found"}
+                tbl = conn.open_table(tbl_name)
+                rows = tbl.search().where(f"memory_id = '{memory_id}'").limit(1).to_list()
+                if not rows:
+                    return {"status": "not_found"}
+                old_content = rows[0].get("content")
+                tbl.delete(f"memory_id = '{memory_id}'")
+                updated_row = pa.Table.from_pylist([{
+                    **rows[0],
+                    "content": content,
+                    "vector": vec,
+                    "updated_at": now,
+                }])
+                tbl.add(updated_row)
+            except Exception as e:
+                return {"status": "error", "detail": str(e)}
+        self._record_history(agent_id, tenant_id, memory_id, old_content, content, "UPDATE")
+        return {"status": "ok", "id": memory_id, "memory": content}
 
     def delete(self, agent_id: str, tenant_id: str, memory_id: str) -> dict:
-        try:
-            conn, tbl_name = self._connect_lance(tenant_id, agent_id)
-            if tbl_name not in conn.table_names():
-                return {"status": "not_found"}
-            tbl = conn.open_table(tbl_name)
-            rows = tbl.search().where(f"memory_id = '{memory_id}'").limit(1).to_list()
-            if not rows:
-                return {"status": "not_found"}
-            old_content = rows[0].get("content")
-            tbl.delete(f"memory_id = '{memory_id}'")
-            self._record_history(agent_id, tenant_id, memory_id, old_content, None, "DELETE")
-            return {"status": "ok", "deleted": memory_id}
-        except Exception as e:
-            return {"status": "error", "detail": str(e)}
+        with self._lock:
+            try:
+                conn, tbl_name = self._connect_lance(tenant_id, agent_id)
+                if tbl_name not in conn.table_names():
+                    return {"status": "not_found"}
+                tbl = conn.open_table(tbl_name)
+                rows = tbl.search().where(f"memory_id = '{memory_id}'").limit(1).to_list()
+                if not rows:
+                    return {"status": "not_found"}
+                old_content = rows[0].get("content")
+                tbl.delete(f"memory_id = '{memory_id}'")
+            except Exception as e:
+                return {"status": "error", "detail": str(e)}
+        self._record_history(agent_id, tenant_id, memory_id, old_content, None, "DELETE")
+        return {"status": "ok", "deleted": memory_id}
 
     def clear(self, agent_id: str, tenant_id: str, filters: dict | None = None,
               run_id: str | None = None) -> dict:
         deleted = 0
-        try:
-            conn, tbl_name = self._connect_lance(tenant_id, agent_id)
-            if tbl_name not in conn.table_names():
-                return {"status": "ok", "deleted": 0}
-            tbl = conn.open_table(tbl_name)
-            all_rows = tbl.to_arrow().to_pylist()
-            to_delete = []
-            for r in all_rows:
-                if run_id and r.get("run_id", "") != run_id:
-                    continue
-                if filters:
-                    try:
-                        meta = json.loads(r.get("metadata", "{}"))
-                    except Exception:
-                        meta = {}
-                    if not all(meta.get(k) == v for k, v in filters.items()):
+        to_delete = []
+        with self._lock:
+            try:
+                conn, tbl_name = self._connect_lance(tenant_id, agent_id)
+                if tbl_name not in conn.table_names():
+                    return {"status": "ok", "deleted": 0}
+                tbl = conn.open_table(tbl_name)
+                all_rows = tbl.to_arrow().to_pylist()
+                for r in all_rows:
+                    if run_id and r.get("run_id", "") != run_id:
                         continue
-                to_delete.append(r)
-            for r in to_delete:
-                mid = r.get("memory_id")
-                tbl.delete(f"memory_id = '{mid}'")
-                self._record_history(agent_id, tenant_id, mid, r.get("content"), None, "DELETE")
-                deleted += 1
-        except Exception:
-            pass
+                    if filters:
+                        try:
+                            meta = json.loads(r.get("metadata", "{}"))
+                        except Exception:
+                            meta = {}
+                        if not all(meta.get(k) == v for k, v in filters.items()):
+                            continue
+                    to_delete.append(r)
+                for r in to_delete:
+                    mid = r.get("memory_id")
+                    tbl.delete(f"memory_id = '{mid}'")
+                    deleted += 1
+            except Exception:
+                pass
+
+        for r in to_delete:
+            self._record_history(agent_id, tenant_id, r.get("memory_id"), r.get("content"), None, "DELETE")
 
         try:
             self._ensure_redis()
@@ -439,13 +452,3 @@ class BasicMemory:
             return True
         except Exception:
             return False
-
-
-for _name in ("add", "search", "get", "list_all", "update", "delete", "clear", "history"):
-    _orig = getattr(BasicMemory, _name)
-
-    def _wrapped(self, *args, __orig=_orig, **kwargs):
-        with self._lock:
-            return __orig(self, *args, **kwargs)
-
-    setattr(BasicMemory, _name, _wrapped)

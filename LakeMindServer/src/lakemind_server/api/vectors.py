@@ -66,8 +66,19 @@ async def search_vectors(db: str, name: str, body: SearchBody, request: Request)
 
 @router.post("/{db}/{name}/add_arrow")
 async def add_vectors_arrow(db: str, name: str, request: Request):
+    if request.headers.get("content-type", "").lower() != "application/x-arrow":
+        raise HTTPException(415, "Unsupported media type, expected application/x-arrow")
+    cl = int(request.headers.get("content-length", 0))
+    if cl > 100 * 1024 * 1024:
+        raise HTTPException(413, "Payload too large, split into batches < 100MB")
     body = await request.body()
     reader = pa.ipc.open_stream(body)
     data = reader.read_all()
+    if data.num_rows > 20000:
+        raise HTTPException(400, "Max 20000 vectors per request")
+    vec_field = data.schema.field("vector")
+    if hasattr(vec_field.type, 'list_size') and vec_field.type.list_size > 0:
+        if vec_field.type.list_size != 768:
+            raise HTTPException(400, f"Expected vector dim=768, got {vec_field.type.list_size}")
     n = await asyncio.to_thread(_eng(request).add, db, name, data)
     return {"status": "ok", "rows_added": n}

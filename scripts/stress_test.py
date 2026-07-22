@@ -265,7 +265,20 @@ async def tc4(client):
         return {"latency_s": round(dt, 3), "throughput": round(n / dt, 1), "ok": r.status_code in (200, 201)}
 
     r10k_arrow = await add_batch_arrow(10000)
-    r50k_arrow = await add_batch_arrow(50000)
+    # 50K split into 3 batches (20K limit per request)
+    async def add_batch_arrow_50k():
+        total_n = 50000
+        batch_size = 18000
+        t0 = time.perf_counter()
+        total_ok = True
+        for start in range(0, total_n, batch_size):
+            n = min(batch_size, total_n - start)
+            r = await add_batch_arrow(n)
+            if not r["ok"]:
+                total_ok = False
+        dt = time.perf_counter() - t0
+        return {"latency_s": round(dt, 3), "throughput": round(total_n / dt, 1), "ok": total_ok}
+    r50k_arrow = await add_batch_arrow_50k()
 
     v, failed = check([
         ("1k > 1000 vec/s", r1k["throughput"] > 1000),
@@ -279,6 +292,18 @@ async def tc4(client):
         "add_10k_arrow": r10k_arrow, "add_50k_arrow": r50k_arrow,
         "dim": DIM,
     }, v, failed)
+
+    # Refresh ANN index after adds
+    try:
+        await client.post(f"{SERVER}/api/v1/storage/vectors/{db}/{table}/add", headers=SERVER_HDR,
+                          json={"data": [{"id": "idx_trigger", "vector": [0.0]*DIM, "text": "idx"}]}, timeout=10)
+        import subprocess as _sp
+        _sp.run(["docker", "exec", "lakemind-server-api", "python", "-c",
+                 f"import lancedb; t=lancedb.connect('/data/lance/{db}').open_table('{table}'); t.create_index(num_partitions=128,metric='L2',index_type='IVF_PQ',num_sub_vectors=16,replace=True)"],
+                capture_output=True, timeout=120)
+        print("   index refreshed")
+    except Exception as e:
+        print(f"   index refresh skipped: {e}")
 
 
 # ══════════════════════════════════════════════════════════════
@@ -323,9 +348,10 @@ async def tc5(client):
         print(f"   conc={conc}: qps={qps:.1f} err={ec['fail']}/{ec['total']} codes={ec['status_codes']}")
 
     v, failed = check([
-        ("search p99 < 3s", ss.get("p99", 999) < 3),
-        ("conc_5 err < 10%", conc_results[5]["err_rate"] < 10),
-        ("conc_10 err < 20%", conc_results[10]["err_rate"] < 20),
+        ("search p50 < 150ms", ss.get("p50", 999) < 0.15),
+        ("search p99 < 500ms", ss.get("p99", 999) < 0.5),
+        ("conc_5 err < 1%", conc_results[5]["err_rate"] < 1),
+        ("conc_10 err < 5%", conc_results[10]["err_rate"] < 5),
     ])
     record("TC-5", "向量实时检索", {"single_search_s": ss, "conc_5": conc_results[5], "conc_10": conc_results[10]}, v, failed)
 
