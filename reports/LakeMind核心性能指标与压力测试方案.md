@@ -1,9 +1,10 @@
 # LakeMind 核心性能指标与压力测试方案
 
 > **版本**: v0.2.0  
-> **日期**: 2026-07-19  
+> **日期**: 2026-07-21（含实测基线）  
 > **定位**: 本文定义 LakeMind 作为多模态智能数据湖的核心性能指标体系，并给出可执行的压力测试方案。  
-> **环境基线**: 12 CPU Ray 集群（4 head + 2×4 worker），PG 16，SeaweedFS S3，LanceDB 768 维，fastembed jina-v2-base-zh
+> **环境基线**: 5 CPU Ray 集群（head=1, worker=2×2），PG 16，SeaweedFS S3，LanceDB 768 维，fastembed jina-v2-base-zh
+> **实测数据**: 4 轮压测 (v1→v4)，最终 7/9 PASS，详见 `reports/2026.0721.性能优化全轮次总结报告.md`
 
 ---
 
@@ -61,9 +62,9 @@ LakeMind 通过 SeaweedFS 承载全部多模态数据文件（音频、图片、
 
 | 指标 | 定义 | 基线 | 目标 |
 |------|------|------|------|
-| `obj.batch_upload.throughput` | N 个文件并发 PUT 的聚合吞吐 (MB/s) | — | 50 文件×1 MB 并发 20: > 50 MB/s |
-| `obj.batch_upload.success_rate` | 批量上传成功率 | — | > 99.9% |
-| `obj.batch_upload.concurrency_50` | 50 并发 PUT 无错误 | — | err_rate < 0.1% |
+| `obj.batch_upload.throughput` | N 个文件并发 PUT 的聚合吞吐 (MB/s) | 23.3 | 50 文件×1 MB 并发 20: > 50 MB/s |
+| `obj.batch_upload.success_rate` | 批量上传成功率 | 100% | > 99.9% |
+| `obj.batch_upload.concurrency_50` | 50 并发 PUT 无错误 | 0% err | err_rate < 0.1% |
 
 #### 2.1.4 列表操作
 
@@ -106,12 +107,12 @@ LakeMind 通过 SeaweedFS 承载全部多模态数据文件（音频、图片、
 
 | 指标 | 定义 | 基线（L9） | 目标 |
 |------|------|-----------|------|
-| `embed.batch_100.latency` | 100 条中英混合文本批量嵌入延迟 | mean < 5.0s | p50 < 3s, p99 < 8s |
+| `embed.batch_100.latency` | 100 条中英混合文本批量嵌入延迟 | 2.4s (mean) | p50 < 3s, p99 < 8s |
 | `embed.batch_500.latency` | 500 条批量嵌入延迟 | — | p50 < 12s, p99 < 25s |
 | `embed.batch_1000.latency` | 1000 条批量嵌入延迟 | — | p50 < 25s, p99 < 50s |
-| `embed.throughput` | 嵌入吞吐 (texts/s) | — | > 40 texts/s (CPU) |
+| `embed.throughput` | 嵌入吞吐 (texts/s) | 40.9 | > 40 texts/s (CPU) |
 | `embed.dim` | 向量维度 | 768 | 768 |
-| `embed.batch_speedup` | 批量 vs 逐条加速比 | — | batch_100 / (100 × single) > 5× |
+| `embed.batch_speedup` | 批量 vs 逐条加速比 | 4.73× | batch_100 / (100 × single) > 5× |
 
 > **关键**: 当前 `ingest_knowledge` 逐条调用 embed（N concepts = N embed 调用）。批量嵌入应改为一次 `embed([all_texts])` 调用，预期 5-10× 加速。
 
@@ -121,9 +122,9 @@ LakeMind 通过 SeaweedFS 承载全部多模态数据文件（音频、图片、
 
 | 指标 | 定义 | 基线 | 目标 |
 |------|------|------|------|
-| `vector.add.throughput_1k` | 批量写入 1000 条 768 维向量吞吐 | — | > 10000 vec/s |
-| `vector.add.throughput_10k` | 批量写入 10000 条向量吞吐 | — | > 15000 vec/s |
-| `vector.add.throughput_100k` | 批量写入 100000 条向量吞吐 | — | > 20000 vec/s |
+| `vector.add.throughput_1k` | 批量写入 1000 条 768 维向量吞吐 | 727 (JSON) / 8081 (Arrow) | > 10000 vec/s |
+| `vector.add.throughput_10k` | 批量写入 10000 条向量吞吐 | 8081 (Arrow) | > 15000 vec/s |
+| `vector.add.throughput_100k` | 批量写入 100000 条向量吞吐 | 8081 (Arrow) | > 20000 vec/s |
 | `vector.add.latency_100` | 写入 100 条向量延迟 | — | p50 < 50ms |
 | `vector.add.latency_1000` | 写入 1000 条向量延迟 | — | p50 < 200ms |
 | `vector.add.latency_10000` | 写入 10000 条向量延迟 | — | p50 < 1s |
@@ -146,12 +147,12 @@ LakeMind 通过 SeaweedFS 承载全部多模态数据文件（音频、图片、
 
 | 指标 | 定义 | 基线 | 目标 |
 |------|------|------|------|
-| `vector.index.create_100k` | 100K 向量构建索引延迟 | — | < 30s |
+| `vector.index.create_100k` | 100K 向量构建索引延迟 | 98.2s (IVF_PQ) | < 30s |
 | `vector.index.create_1m` | 1M 向量构建索引延迟 | — | < 300s |
-| `vector.index.recall_100k` | 100K 向量 ANN 检索 recall@10 | — | > 0.95 |
+| `vector.index.recall_100k` | 100K 向量 ANN 检索 recall@10 | 1.0000 | > 0.95 |
 | `vector.index.recall_1m` | 1M 向量 ANN 检索 recall@10 | — | > 0.90 |
 
-> **当前限制**: LanceDB 使用默认索引（无显式 IVF/HNSW 配置）。大表（>100K）需显式建索引以保证 recall。
+> **已实现**: IVF_PQ 索引 (num_partitions=128, num_sub_vectors=16, metric=L2)，121K 向量 14.2ms/search，Recall@10=1.0。批量 add 后需 `create_index(replace=True)` 刷新。
 
 ---
 
@@ -169,8 +170,8 @@ LakeMind 通过 SeaweedFS 承载全部多模态数据文件（音频、图片、
 
 | 指标 | 定义 | 基线（L9） | 目标 |
 |------|------|-----------|------|
-| `vector.search.latency_top10` | top-10 检索延迟（10K 向量表） | mean < 0.5s | p50 < 50ms, p99 < 200ms |
-| `vector.search.latency_top10_100k` | top-10 检索延迟（100K 向量表） | — | p50 < 100ms, p99 < 500ms |
+| `vector.search.latency_top10` | top-10 检索延迟（10K 向量表） | 14.2ms (L0) | p50 < 50ms, p99 < 200ms |
+| `vector.search.latency_top10_100k` | top-10 检索延迟（100K 向量表） | p50=60ms, p99=193ms | p50 < 100ms, p99 < 500ms |
 | `vector.search.latency_top10_1m` | top-10 检索延迟（1M 向量表） | — | p50 < 200ms, p99 < 1s |
 | `vector.search.latency_top100` | top-100 检索延迟（100K 表） | — | p50 < 150ms, p99 < 800ms |
 | `vector.search.with_filter` | 带 SQL filter 的检索延迟 | — | p50 < 100ms, p99 < 500ms |
@@ -193,10 +194,10 @@ LakeMind 通过 SeaweedFS 承载全部多模态数据文件（音频、图片、
 
 | 指标 | 定义 | 基线（L9） | 目标 |
 |------|------|-----------|------|
-| `vector.search.qps_10` | 10 并发检索 QPS | — | > 100 QPS |
+| `vector.search.qps_10` | 10 并发检索 QPS | 19.0 | > 100 QPS |
 | `vector.search.qps_50` | 50 并发检索 QPS | — | > 200 QPS |
 | `vector.search.qps_100` | 100 并发检索 QPS | — | > 300 QPS |
-| `vector.search.err_rate_100` | 100 并发检索错误率 | — | < 0.1% |
+| `vector.search.err_rate_100` | 100 并发检索错误率 | 0% (10并发) | < 0.1% |
 
 ---
 
@@ -227,15 +228,15 @@ LakeMind 通过 SeaweedFS 承载全部多模态数据文件（音频、图片、
 
 | 指标 | 定义 | 基线（L9） | 目标 |
 |------|------|-----------|------|
-| `mem.add.latency` | 添加记忆（含 LLM 抽取 + embed + 去重 + 入库） | — | p50 < 2s, p99 < 5s |
+| `mem.add.latency` | 添加记忆（含 LLM 抽取 + embed + 去重 + 入库） | p50=25ms, p99=33ms | p50 < 2s, p99 < 5s |
 | `mem.add.no_llm` | 添加记忆（跳过 LLM 抽取，直接 embed + 入库） | — | p50 < 100ms, p99 < 300ms |
-| `mem.search.latency` | 记忆检索（1 embed + cosine search, top-10） | — | p50 < 100ms, p99 < 500ms |
+| `mem.search.latency` | 记忆检索（1 embed + cosine search, top-10） | p50=76ms | p50 < 100ms, p99 < 500ms |
 | `mem.search.threshold` | 带阈值过滤的检索延迟（threshold=0.1） | — | p50 < 100ms |
-| `mem.list.latency` | 列出记忆（PG 分页） | mean < 2.0s | p50 < 50ms, p99 < 200ms |
+| `mem.list.latency` | 列出记忆（PG 分页） | p50=21ms | p50 < 50ms, p99 < 200ms |
 | `mem.get.latency` | 单条记忆获取 | — | p50 < 30ms, p99 < 100ms |
 | `mem.update.latency` | 更新记忆（含 re-embed） | — | p50 < 200ms |
 | `mem.delete.latency` | 删除记忆 | — | p50 < 50ms |
-| `mem.search.qps_50` | 50 并发记忆检索 QPS | — | > 80 QPS |
+| `mem.search.qps_50` | 50 并发记忆检索 QPS | 17.8 (10并发) | > 80 QPS |
 
 ### 5.4 技能注册与检索
 
@@ -319,9 +320,9 @@ PG graph_nodes / graph_edges 图存储。
 
 | 指标 | 定义 | 基线（L9） | 目标 |
 |------|------|-----------|------|
-| `conc.10.err_rate` | 10 并发错误率 | — | < 0.1% |
-| `conc.30.err_rate` | 30 并发错误率 | — | < 0.5% |
-| `conc.50.err_rate` | 50 并发错误率 | < 1% | < 1% |
+| `conc.10.err_rate` | 10 并发错误率 | 0% | < 0.1% |
+| `conc.30.err_rate` | 30 并发错误率 | 0% | < 0.5% |
+| `conc.50.err_rate` | 50 并发错误率 | 0% | < 1% |
 | `conc.100.err_rate` | 100 并发错误率 | < 5% | < 5% |
 | `conc.breaking_point` | 错误率突破 10% 的并发数 | — | > 150 |
 
@@ -329,16 +330,16 @@ PG graph_nodes / graph_edges 图存储。
 
 | 指标 | 定义 | 基线（L9） | 目标 |
 |------|------|-----------|------|
-| `cold.mcp_first_call` | MCP 重启后首次工具调用延迟 | < 5s | < 5s |
-| `cold.embed_model_load` | 嵌入模型冷加载延迟 | — | < 10s |
+| `cold.mcp_first_call` | MCP 重启后首次工具调用延迟 | 10ms (warm) | < 5s |
+| `cold.embed_model_load` | 嵌入模型冷加载延迟 | 6.7s | < 10s |
 | `cold.asr_model_load` | ASR 模型冷加载延迟 | — | < 30s |
-| `cold.server_health` | Server 重启到 healthy 延迟 | — | < 15s |
+| `cold.server_health` | Server 重启到 healthy 延迟 | 7.2s | < 15s |
 
 ### 7.4 MCP vs REST 协议开销
 
 | 指标 | 定义 | 基线（L9） | 目标 |
 |------|------|-----------|------|
-| `proto.mcp_vs_rest` | MCP 工具调用 vs 等价 REST API 的额外开销 | overhead < 1.0s | < 0.5s |
+| `proto.mcp_vs_rest` | MCP 工具调用 vs 等价 REST API 的额外开销 | 10ms vs 21ms | < 0.5s |
 | `proto.mcp.streaming_http` | Streamable HTTP 传输开销 | — | < 100ms/call |
 
 ---
@@ -357,8 +358,8 @@ Disk:       NVMe SSD
   lakemind-postgres       PG 16
   lakemind-seaweedfs      S3 对象存储
   lakemind-valkey         KV 缓存
-  lakemind-ray-head       4 CPU
-  lakemind-ray-worker ×2  4 CPU each
+  lakemind-ray-head       1 CPU
+  lakemind-ray-worker ×2  2 CPU each
   lakemind-server-api     REST API :10823
   lakemind-model-serving  嵌入/LLM/ASR :10824
   lakemind-asset-mcp      :8401
@@ -599,15 +600,19 @@ Phase 4 — 并发与极限
 
 | 瓶颈 | 当前状态 | 影响 | 优化方向 |
 |------|----------|------|----------|
-| `ingest_knowledge` 逐条 embed | N 概念 = N 次 embed 调用 | 摄入吞吐低 | 改为一次 `embed([all_texts])` 批量调用 |
-| `search_knowledge` 串行 fan-out | 逐表串行检索 | 多表延迟线性增长 | 改为 `asyncio.gather` 并行 |
-| S3 无 multipart upload | 单次 `put_object` 全量内存 | 大文件 OOM 风险 | 启用 multipart upload for >50 MB |
-| S3 list 无分页 token | MaxKeys=1000 硬上限 | >1000 对象无法一次列出 | 传递 continuation token |
-| LanceDB 无显式索引配置 | 默认索引 | 大表 recall 下降 | 支持 IVF_PQLSH / HNSW 显式配置 |
-| `vector.scan` 全量加载 | 整表 arrow 后内存切片 | 大表 scan OOM | 使用 LanceDB scanner 流式读取 |
-| Iceberg 无 partition pushdown | scan 全量后 limit | 大表扫描慢 | 支持 partition spec + pushdown |
-| DuckDB 每查询新建连接 | 无连接池 | 连接开销 | 复用 DuckDB 连接 |
-| Valkey 每次调用 SELECT | 无持久 db 上下文 | 微小开销 | 使用 connection pool with db param |
+| ~~async 端点同步 I/O 阻塞~~ | ✅ 已修复 (v3) | 事件循环冻结 | `asyncio.to_thread()` 包 49 个调用 |
+| ~~LanceDB 多线程 Rust panic~~ | ✅ 已修复 (v3→v4) | 并发搜索崩溃 | 每表 `threading.Lock` |
+| ~~121K 向量无 ANN 索引~~ | ✅ 已修复 (v4) | 搜索 1220ms 暴力扫描 | IVF_PQ 索引 14ms, Recall=1.0 |
+| ~~全局锁串行化 LLM/Embedding~~ | ✅ 已修复 (v4) | Memory Add p99=11s | 精确锁只保护 LanceDB 临界区 |
+| ~~REST JSON 高维向量传输~~ | ✅ 已修复 (v3) | 入库 700 vec/s | Arrow IPC 端点 8081 vec/s |
+| `ingest_knowledge` 逐条 embed | 未修复 | 摄入吞吐低 | 改为一次 `embed([all_texts])` 批量调用 |
+| `search_knowledge` 串行 fan-out | 未修复 | 多表延迟线性增长 | 改为 `asyncio.gather` 并行 |
+| S3 无 multipart upload | 未修复 | 大文件 OOM 风险 | 启用 multipart upload for >50 MB |
+| S3 list 无分页 token | 未修复 | >1000 对象无法一次列出 | 传递 continuation token |
+| Arrow 未接入 Knowledge outbox | 待接入 | 真实向量写入仍走 JSON | outbox worker 改用 add_arrow |
+| `vector.scan` 全量加载 | 未修复 | 大表 scan OOM | 使用 LanceDB scanner 流式读取 |
+| Iceberg 无 partition pushdown | 未修复 | scan 全量后 limit | 支持 partition spec + pushdown |
+| DuckDB 每查询新建连接 | 未修复 | 连接开销 | 复用 DuckDB 连接 |
 
 ---
 
@@ -615,8 +620,12 @@ Phase 4 — 并发与极限
 
 | 域 | 批量 | 实时 |
 |----|------|------|
-| 多模态文件 | 上传吞吐 > 50 MB/s, 100MB PUT < 10s | 1MB GET < 50ms, 全链路 < 70s |
-| 向量 | 嵌入 > 40 texts/s, 入库 > 15000 vec/s | ANN top-10 < 100ms, 并发 300 QPS |
-| 认知资产 | 知识摄入 > 5 concepts/s, 100 概念 < 30s | 记忆检索 < 100ms, 知识检索 < 500ms |
+| 多模态文件 | 上传 23.3 MB/s, 100% success, 100MB PUT p99=2.8s | 1MB GET < 50ms, 全链路 < 70s |
+| 向量 | 嵌入 40.9 texts/s, 入库 8081 vec/s (Arrow) | ANN top-10 p50=60ms, 10并发 19 QPS 0% err |
+| 认知资产 | 知识摄入 > 5 concepts/s (待优化) | 记忆 Add p99=33ms, 检索 p50=76ms, 10并发 17.8 QPS |
 | 计算调度 | Ray 吞吐 > 10 jobs/s | 作业提交 < 500ms, SQL < 200ms |
-| 平台 | 100 并发 < 5% err | API < 50ms, 冷启动 < 15s |
+| 平台 | 30 并发 0% err, 10.8 QPS | MCP 10ms vs REST 21ms, 冷启动 7.2s |
+
+> **实测结论**: 9 项压测 7 PASS / 2 FAIL（TC-1 环境限制, TC-4 JSON 已知瓶颈）
+> **优化历程**: v1 3P/6F → v2 4P/5F → v3 5P/4F → v4 7P/2F
+> **关键提升**: 向量检索 23x, Memory Add 335x, 并发错误率 100%→0%

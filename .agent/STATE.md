@@ -1,6 +1,6 @@
 # STATE.md — LakeMind 项目开发进展状态
 
-> 最后更新：2026-07-19
+> 最后更新：2026-07-21
 > 总文件：`AGENTS.md`，设计规范：`.agent/DESIGN.md`，开发规范：`.agent/SPEC.md`
 
 ---
@@ -13,7 +13,7 @@
 运行平面  ████████████████████  100%  (3 MCP + ControlCenter 全完成)
 开发平面  ░░░░░░░░░░░░░░░░░░░░    0%  (Studio 未开始)
 示例      ████████████████████  100%  (meeting-agent v0.2.0 全链路 + lakemind-connector)
-验证      ████████████████████  100%  (L0-L8 286/286 PASS)
+验证      ████████████████████  100%  (L0-L8 286/286 PASS + 压测 7/9 PASS)
 文档      ████████████████████  100%  (AGENTS + .agent/ + docs/ + README + CHANGELOG)
 
 总体      ████████████████████  ~99%
@@ -37,6 +37,7 @@
 | **v0.2.0 模型管理** | Definition + Deployment 两层，Profile 路由，部署检测 | ✅ 完成 |
 | **v0.2.0 Meeting Agent** | 浏览器录音→ASR→转写→纪要→知识全链路 | ✅ 完成 |
 | **Steward+Monitor 迁移** | 合并迁入 ControlCenter，删除独立目录 | ✅ 完成 |
+| **v0.2.0 性能优化** | 4 轮压测 3→7 PASS，事件循环修复+IVF索引+锁细化+Arrow IPC | ✅ 完成 |
 | LakeMindStudio | Tauri 桌面客户端 | ❌ 未开始 |
 
 ---
@@ -119,6 +120,44 @@ memory:          True
 | **全面测试 L0-L8** | `scripts/verify_full.py` | **286/286 PASS** | 全分层验证（L9 性能压测跳过） |
 | Meeting Agent E2E | `examples/meeting-agent/` | ✅ PASS | 133 chunks → 31 ASR → 30 转写 → 6 版纪要 → 7 条知识 |
 | ControlCenter | `docs/control-center.md` | ✅ PASS | Jobs 5853 条, Models 5 def+8 dep+5 profile, Instances 8 个全 healthy |
+| **性能压测 v4** | `scripts/stress_test.py` | **7/9 PASS** | 向量检索 23x, Memory Add 335x, 并发 0% error |
+
+---
+
+## 4.1 性能优化结果（v0.2.0）
+
+> 4 轮压测：v1 3P/6F → v2 4P/5F → v3 5P/4F → v4 7P/2F
+> 详见 `reports/2026.0721.性能优化全轮次总结报告.md`
+
+### 关键指标提升
+
+| 指标 | v1 | v4 | 提升 |
+|------|-----|-----|------|
+| 向量搜索 p50 | ~1400ms | 60ms | **23x** |
+| 向量搜索 10 并发错误率 | 86.8% | 0% | **根治** |
+| Memory Add p99 | 11s | 33ms | **335x** |
+| Memory 10 并发 QPS | 1.6 | 17.8 | **11x** |
+| 文件上传成功率 | 0% | 100% | **根治** |
+| 向量入库 (Arrow IPC) | N/A | 8081 vec/s | **新能力** |
+
+### 优化措施
+
+| 轮次 | 措施 | 效果 |
+|------|------|------|
+| v3 P0 | `asyncio.to_thread()` 包 49 个同步 I/O 调用 (9 API 文件) | 事件循环解冻，并发 0% error |
+| v3 P2 | Arrow IPC 二进制向量入库端点 | 向量入库 JSON 700→Arrow 8000 vec/s (20x) |
+| v3 | LanceDB 全局 `threading.Lock` | 消除 Rust panic |
+| v4 S2 | IVF_PQ 索引 (128 partitions, 16 sub-vectors) | L0 搜索 1220→14ms (86x), Recall=1.0 |
+| v4 S2 | Table Handle 缓存 + 每表独立锁 | 不同表并行，同表串行 |
+| v4 S3 | Memory 精确锁（只锁 LanceDB 临界区） | Add p99 11s→33ms，LLM/Embedding 不再被锁 |
+| v4 S4 | Arrow 端点安全加固 (Content-Type/维度/行数校验) | 生产可用 |
+
+### 剩余 2 FAIL（已知限制，非 bug）
+
+| TC | 原因 | 性质 |
+|----|------|------|
+| TC-1 | 23.3 MB/s vs 30 阈值 | Docker Desktop 环境限制，100% 成功 |
+| TC-4 | JSON 727 vec/s vs 1000 阈值 | 已知 JSON 瓶颈，Arrow 8081 vec/s 可用 |
 
 ---
 
@@ -186,6 +225,9 @@ memory:          True
 | 2 | 动态 Token 不跨 MCP 共享 | 静态 config.yaml Token，MVP 限制 | P2 | 已知限制 |
 | 3 | publish_skill.py 在容器内缺 yaml 包 | 容器内发布 skill 失败 | P3 | 不阻塞，从主机发布 |
 | 4 | Server skill register/publish API 无 PUT | 无法通过 API 更新 skill | P3 | 不阻塞 |
+| 5 | Arrow 端点未接入 Knowledge outbox worker | 真实向量写入仍走 JSON | P1 | 待接入 |
+| 6 | v4 改动通过 docker cp 部署，未进正式镜像 | 需 DNS 恢复后重建 | P1 | 待重建 |
+| 7 | uvicorn workers>1 在 Docker Desktop 下异常 | IPv6 端口转发问题 | P3 | workers=1 可用 |
 
 ---
 
@@ -244,7 +286,7 @@ timeout: 120s, num_retries: 3
 ```
 head: lakemind-ray-head:8265
 workers: lakemind-ray-worker-1, lakemind-ray-worker-2
-CPU: 12 (4 per node)
+CPU: 5 (head=1, worker=2×2)
 ```
 
 ### 7.8 ControlCenter
@@ -261,8 +303,12 @@ user: admin / tenant: ten_default / role: platform_admin
 
 | 优先级 | 任务 | 预估工作量 |
 |--------|------|-----------|
+| P1 | DNS 恢复后重建正式镜像（含 v4 全部改动） | 1h |
+| P1 | Arrow 接入 Knowledge outbox worker 真实向量写入链路 | 4h |
+| P2 | TC-1 阈值调整 + TC-4 拆分 JSON/Arrow | 2h |
 | P2 | 提取共享 LakeMindMCPShared 包 | 2h |
 | P2 | LakeMindStudio（Tauri 桌面客户端） | 2-3d |
+| P2 | 线程池治理：按资源独立 Executor + Semaphore | 4h |
 | P3 | 动态 Token 跨 MCP 共享 | 1d |
 
 ---
@@ -293,9 +339,13 @@ user: admin / tenant: ten_default / role: platform_admin
 | `LakeMindControlCenter/bff/app.py` | BFF（FastAPI） |
 | `LakeMindControlCenter/steward/` | Steward（LangGraph，内嵌） |
 | `LakeMindModelServing/src/lakemind_model_serving/gateway.py` | litellm Router 网关 |
+| `LakeMindServer/src/lakemind_server/plugins/storage/vector/lancedb.py` | LanceDB 引擎（每表锁 + Table 缓存） |
+| `LakeMindServer/src/lakemind_server/plugins/cognitive/memory/basic.py` | Memory 引擎（精确锁 LanceDB 临界区） |
+| `LakeMindServer/src/lakemind_server/api/vectors.py` | 向量 API（to_thread + add_arrow 端点） |
 
 ### 验证脚本
 
 | 脚本 | 结果 |
 |------|------|
 | `scripts/verify_full.py` | **286/286 PASS**（L0-L8 全分层） |
+| `scripts/stress_test.py` | **7/9 PASS**（性能压测 v4） |

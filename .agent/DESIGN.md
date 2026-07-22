@@ -314,20 +314,52 @@ Studio (Tauri 2.0)
 
 ### 6.1 200 Agent 场景
 
-| 瓶颈 | 解决方案 |
-|------|---------|
-| Iceberg 元数据并发写 | PostgreSQL（已实现） |
-| Embedding CPU 密集 | Ray actor 批处理（已实现） |
-| 大向量检索 | Ray 分布式查询（已实现） |
-| MCP 单进程 | 每类 MCP 多副本 + 负载均衡（生产阶段） |
-| Lance 并发写 | 写操作走 Ray actor 串行化 |
+| 瓶颈 | 解决方案 | 状态 |
+|------|---------|------|
+| Iceberg 元数据并发写 | PostgreSQL（已实现） | ✅ |
+| Embedding CPU 密集 | Ray actor 批处理（已实现） | ✅ |
+| 大向量检索 | IVF_PQ 索引 + Ray 分布式查询 | ✅ |
+| MCP 单进程 | 每类 MCP 多副本 + 负载均衡（生产阶段） | P2 |
+| Lance 并发写 | 每表 `threading.Lock` 串行化同表操作 | ✅ |
+| async 端点同步 I/O 阻塞 | `asyncio.to_thread()` 包全部同步引擎调用 | ✅ |
+| REST JSON 高维向量传输 | Arrow IPC 二进制端点 (`add_arrow`) | ✅ |
+| 全局锁串行化 LLM/Embedding | 精确锁只保护 LanceDB 临界区 | ✅ |
 
 ### 6.2 当前策略
 
 - 嵌入式引擎在 Server 进程内运行，MCP 通过 REST API 调用。
-- Ray 3 节点 12 CPU 已实现，重计算提交 Ray。
+- Ray 3 节点 5 CPU（head=1, worker=2×2），重计算提交 Ray。
 - fastembed ONNX CPU ~2ms/text。
 - PostgreSQL 连接池。
+- uvicorn workers=1（Docker Desktop IPv6 限制，P0 to_thread 已解并发）。
+
+### 6.3 性能优化实测结果（v0.2.0, 2026-07-21）
+
+> 4 轮压测：v1 3P/6F → v2 4P/5F → v3 5P/4F → **v4 7P/2F**
+> 详见 `reports/2026.0721.性能优化全轮次总结报告.md`
+
+| 指标 | 优化前 | 优化后 | 提升 |
+|------|--------|--------|------|
+| 向量搜索 p50 | ~1400ms | 60ms | **23x** |
+| 向量搜索 L0 (引擎层) | 1220ms | 14.2ms | **86x** (IVF_PQ) |
+| 向量搜索 10 并发错误率 | 86.8% | 0% | **根治** |
+| Memory Add p99 | 11s | 33ms | **335x** |
+| Memory 10 并发 QPS | 1.6 | 17.8 | **11x** |
+| 文件上传成功率 | 0% | 100% | **根治** |
+| 向量入库 (Arrow IPC) | 700 vec/s (JSON) | 8081 vec/s | **12x** |
+| 混合 30 并发错误率 | 100% | 0% | **根治** |
+
+### 6.4 关键技术决策
+
+| 决策 | 理由 |
+|------|------|
+| `asyncio.to_thread` 包同步 I/O | boto3/LanceDB/Valkey 均同步库，直接调阻塞事件循环 |
+| Arrow IPC 替代 JSON 传向量 | 768 维浮点 JSON 编解码占主要耗时，Arrow 零拷贝 20x |
+| IVF_PQ 索引 (128 partitions) | 121K 向量暴力扫描 1220ms→14ms，Recall@10=1.0 |
+| 每表锁替代全局锁 | 不同表可并行，同表串行防 Rust panic |
+| 精确锁替代方法锁 | 只锁 LanceDB 临界区，LLM/Embedding/PG 并发执行 |
+| Table Handle 缓存 | 避免重复 `open_table()` 开销 |
+| Ray CPU 12→5 | 过度声明挤占 ModelServing，5 CPU 足够 |
 
 ---
 
